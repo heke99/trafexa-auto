@@ -4,7 +4,7 @@
 
 ## Hur status ska läsas
 
-Bygggrunden är återhämtad från originalarbetet och fortsättningen har lagt till finansåtkomst, företagskontext, reservationsutgång, import, kostnader, CRM, offertversion/PDF och ett avstängt signeringsbibliotek. Senaste typkontroll, 107/107 Node-beteenden, 11/11 `npm test`-filsviter, 7/7 SQL-regressioner med rollback och produktionsbygge inklusive PDF-fonttrace har passerat. Alla åtta migrationer har verifierats genom live-readback och databastyper har regenererats efter CRM. Tidigare lokal produktionsbrowser passerade 31/31 och samlad utvecklings-/mock-/produktions-QA 182/182; dessa är historiska resultat och har inte räknats om efter slutfixarna. Draft-PR #4 har historiskt verifierade `READY`-checkpoints `cf953d4`, `69ed849` och `aed26df`; senare kodpushar följs genom PR/Vercelstatus. Autentiserad CRUD genom produktionsgränssnittet är ännu inte verifierad; `main` och produktion har inte ersatts.
+Bygggrunden är återhämtad från originalarbetet och fortsättningen har lagt till finansåtkomst, företagskontext, reservationsutgång, import, kostnader, CRM, offertversion/PDF och ett avstängt signeringsbibliotek. PR #4:s 107/107 beteenden, 11/11 filsviter, 7/7 live-SQL-regressioner och PDF-fonttrace behålls som historisk verifiering. Efterföljande PR #5/main `7fc833f` har färsk rootkörning PASS 137/137 och bygge inklusive TypeScript, 14 sidor, ny dokument-PDF-route och fonttrace. Alla åtta migrationer har verifierats genom live-readback och databastyper har regenererats efter CRM. Tidigare lokal produktionsbrowser passerade 31/31 och samlad utvecklings-/mock-/produktions-QA 182/182; dessa är historiska resultat och har inte räknats om efter slutfixarna. PR #4 är faktiskt mergad till `main` med verifierad checkpoint `db7143` och identiskt tree med den testade implementationen. Historiska previewbevis bevaras. Historisk PR #4-produktion är verifierad `READY` och aktuell PR #5-produktion anges separat nedan; full auth och autentiserad CRUD genom produktionsgränssnittet är ännu inte verifierad.
 
 Den tidigare statiska Trafexa-sajtens formulärkontroller hör till en annan kodbas och är inte verifiering av denna Next.js-/Supabase-app.
 
@@ -19,11 +19,34 @@ Den tidigare statiska Trafexa-sajtens formulärkontroller hör till en annan kod
 | Domäner | Readback bekräftar `trafexa.com`, `www.trafexa.com` och `app.trafexa.com` som verifierade i Vercel. Ingen DNSmutation; appens faktiska HTTP-/authflöde kontrolleras vid publicering. |
 | Uppdrag | Originalchatten `01a13504-1d80-7611-92e8-9076ccf7605d`, användarturn `01a13554-497f-7729-abd7-e91341e8105c`, godkänner ersättningen av gamla sajten och byggandet i befintliga Trafexa Auto-resurser. |
 
+## Historiskt verifierad main-merge: PR #4
+
+| Referens | Faktisk status |
+|---|---|
+| Godkännande | Användaren instruerade ”fortsätt då och lägg in det på main”. |
+| Pull request | [PR #4](https://github.com/heke99/trafexa-auto/pull/4), mergad till `main`. |
+| Main-commit | `db7143cd633a2cee07457295fac8a75132e7352d` |
+| Tree | `c12c75a8ce303aa7c26428334ad40dc7f00fe3b1`, identisk med testad implementation `403776131d3680e6f42aee566627fc2f9ab7f976`. |
+| Lokal avstämning | Historisk PR #4-checkpoint; arbetskopian står därefter på aktuell main `7fc833f`. |
+| Produktion | `dpl_8Z69TvzBVQVeVeKDwrUfAYjJUzWY`, `READY`, target `production`, rätt projekt och `arn1`, för ovanstående commit/tree. |
+| Deployment-URL | [trafexa-auto-6uva9o390-div3rsa.vercel.app](https://trafexa-auto-6uva9o390-div3rsa.vercel.app) |
+| Produktionsalias | `app.trafexa.com`, `www.trafexa.com` och `trafexa.com`. |
+| Verifierad webb | Native fetch av [www.trafexa.com](https://www.trafexa.com/) gav 200, ”Mer bilaffär. Mindre administration.” och exakt deployment-ID. |
+| Verifierad login | Native fetch av [app.trafexa.com/login](https://app.trafexa.com/login) gav 200, ”Välkommen tillbaka.” och exakt deployment-ID. |
+| Canonical redirect | `trafexa.com/` gav 308 till `https://www.trafexa.com/`; beviset innehåller ingen shareparameter. |
+| Täckningsgräns | Full auth/remote CRUD är inte verifierad och inga verkliga authmejl skickades. |
+
+## Aktuell main/produktion efter PR #5
+
+Aktuell main efter [PR #5](https://github.com/heke99/trafexa-auto/pull/5) är `7fc833f643a488b8af34bb950df22769e99be32b`, tree `89d9774a25c13f3197c5b9d09668baa05dbbe50f`. Produktion `dpl_6vcexX8f1Jw5mWPyYLzpFSd6g1sS` är `READY`, target `production`, rätt projekt/`arn1` och alias app/www/apex: [deployment](https://trafexa-auto-h8cvlrqe0-div3rsa.vercel.app). Native lagerdemo gav 200, ”Fordonslager” och exakt detta deployment-ID. Extern browseranslutning blockerades med CONNECT 403 före appkontroller: noll genomförda checks. Färsk rootkörning av denna main passerar 137/137 beteenden och produktionsbygge inklusive TypeScript, 14 sidor och ny dokument-PDF-route. Fonttrace PASS omfattar offert-PDF, demo- och dealer-page samt nya archive-actionens användning. Sex lokala Chromium-harnessfall ingår i totalsviten och är inte extern produktionsbrowser.
+
+Livekontroll bekräftar fortsatt åtta applicerade migrationer. PR #5:s två nya lokala migrationer är inte hosted-applicerade och servicekey för ny arkivregistrering saknas. Signeringsprovider och workerdispatch förblir tvingat `enabled:false`; hosted arkivering/signering är inte aktiverad. PR #5:s egna integrationsunderlag och verifieringar bevaras separat och testsummorna adderas inte som unika fall.
+
 ## Verifierade preview-checkpoints
 
 | Artefakt | Bekräftad referens/status |
 |---|---|
-| Pull request | [Draft-PR #4](https://github.com/heke99/trafexa-auto/pull/4), attached till uppdraget. |
+| Pull request | [PR #4](https://github.com/heke99/trafexa-auto/pull/4), då draft och attached till uppdraget; nu mergad enligt ovan. |
 | Branch | `codex/trafexa-dealer-continuation-20261013` |
 | Commit | `cf953d4078c047efefe3da1674a989ad571eea52` |
 | Tree | `a204d647a4d81fa5d6f26f67c57165afa3ac1d0c`; avstämd mot den publicerade checkpointen `cf953d4`. |
@@ -57,7 +80,7 @@ Den tredje historiskt verifierade checkpointen är:
 | Avstämning | Native readback matchar rätt projekt, commit och `arn1`; lager- och kunddemo gav 200 med deployment-ID. |
 | Täckningsgräns | Den nya återställningsfixen tillkom senare och ingår inte i denna checkpoints verifierade resultat. |
 
-Dessa är historiskt verifierade checkpoints. Efterföljande kodpushar följs i [PR #4](https://github.com/heke99/trafexa-auto/pull/4) och Vercels deploymentstatus med respektive commit. Checkpointresultat överförs inte till senare kodversioner.
+Dessa är historiskt verifierade checkpoints. PR #4 är nu mergad; efterföljande main-pushar följs i Vercels deploymentstatus med respektive commit. Checkpointresultat överförs inte till senare kodversioner.
 
 Efter Node-checkpointen tillkom två lokalt verifierade korrigeringar: beloppsvisningen i lager/affärer bevarar ören i stället för att avrunda till hela kronor, och pilot-API:t accepterar den specifika `VERCEL_BRANCH_URL`-originen. Andra Vercelhosts nekas fortfarande med 403. Två SSR-beloppsregressioner och en produktions-originregression ingår i de senaste 107 beteendetesterna. Därefter härdades återställningsförfrågan med fem regressioner för bekräftat svar och säkra SDK-/klient-/nätverksfel, utan verkliga authmejl.
 
@@ -65,8 +88,8 @@ Efter Node-checkpointen tillkom två lokalt verifierade korrigeringar: beloppsvi
 
 | Område | Vad som finns i kod/schema | Kvarstående omverifiering eller funktion |
 |---|---|---|
-| Webbgrund | Next.js App Router, React, TypeScript, Supabase SSR, Node `24.x`, låsta beroenden och Vercelkonfiguration. Databastyper regenererade; lokala kontroller PASS. Tre verifierade preview-checkpoints `READY`. | Fortsatt PR-granskning, autentiserad remote-CRUD och produktionsrelease återstår. |
-| Publik sida | Ny svensk Trafexa-hemsida, demo, integritet/villkor och mobilmeny. Lokal produktionsbrowser PASS. | Faktiskt remote domänflöde och efterkontroll vid release. |
+| Webbgrund | Next.js App Router, React, TypeScript, Supabase SSR, Node `24.x`, låsta beroenden och Vercelkonfiguration. Databastyper regenererade; lokala kontroller PASS. Tre verifierade preview-checkpoints `READY`. | PR #4/main och produktion är verifierade; full auth och autentiserad remote-CRUD återstår. |
+| Publik sida | Ny svensk Trafexa-hemsida, demo, integritet/villkor och mobilmeny. Lokal produktionsbrowser PASS. | Produktionssidan gav 200 och apex gav verifierad 308 till www; övriga produktgränser kvarstår. |
 | Konto | Registrering, bekräftelsecallback, inloggning/utloggning och återställning. Återställning visar villkorlig framgång endast efter SDK-svar utan fel; SDK-/klient-/nätverksfel ger generiskt fel. Fem authregressioner PASS isolerat och i fullsviten, utan verkliga authmejl. | Komplett authflöde/redirects/cookies i avsedd miljö återstår. |
 | Företag | Företagsskapande, företagsväxling och fem roller. Gemensam kontext verifierar användare, aktuellt medlemskap och aktivt företag; stale/ogiltigt val väljer inget annat företag automatiskt. SQL-isolering och tolv permanenta kontexttester PASS. | Autentiserat browserflöde mot produktionsgränssnitt, inbjudningar och filialer återstår. |
 | Lager | Manuell registrering, sök/filter/sortering, pris/kostnader och CSV-import. Beloppsvisning bevarar ören; SSR-, server-/SQL- och mockade UI-regressioner PASS. | Autentiserad produktions-CRUD och samtidighet; bilder, inköpsunderlag och full kostnadsspårning återstår. |
@@ -103,7 +126,7 @@ Livekörningen av offerttestet utelämnade det simulerade legacyfallet med ogilt
 
 Ingen scheduler är aktiv. Reservationsutgång sker i den applicerade RPC-kedjan när ny affär skapas eller bil reserveras. Det bevarar gamla reservationsposter och frigör affär/lager atomiskt. En utgången post kan ligga kvar med reserverad liststatus tills nästa sådan operation.
 
-Automatisk godkännandegranskning avvisade `20261013153335_reservation_expiry_schedule`: åtgärden skulle installera permanent `pg_cron` och utföra minutvisa mutationer i produktionsdatabasen. Förslaget är flyttat till [proposals/reservation_expiry_schedule.sql](proposals/reservation_expiry_schedule.sql), utanför `supabase/migrations/`. Separat godkännandefråga är fortfarande obesvarad. Förslaget är inte applicerat och ingår inte som automatisk migration i release.
+Automatisk godkännandegranskning avvisade `20261013153335_reservation_expiry_schedule`: åtgärden skulle installera permanent `pg_cron` och utföra minutvisa mutationer i produktionsdatabasen. Förslaget är flyttat till [proposals/reservation_expiry_schedule.sql](proposals/reservation_expiry_schedule.sql), utanför `supabase/migrations/`. Ett andra aktiveringsförsök avvisades eftersom main-instruktionen inte tydligt godkände detta separata permanenta minutjobb. Ingen förändring applicerades. En ny explicit godkännandefråga är obesvarad; main-mergen genomförs utan scheduler. Livekontroll efter avslag bekräftar `pg_cron_exists = false`.
 
 Koordinerande agents senaste security-advisor-kontroll rapporterar endast att skydd mot läckta lösenord är avstängt. Den inställningen är inte ändrad av dokumentationsarbetet; den kvarstår som en uttrycklig driftåtgärd. Detta advisoryresultat ersätter inte egna åtkomst- och browserregressioner.
 
@@ -118,11 +141,11 @@ Originalplanens innehållsförteckning 1–22 och fulla fas 0–10 återhämtade
 | Node.js | Lokal verifieringsmaskin `24.19.0`; manifest/lockfil låser `24.x` i verifierad `READY`-checkpoint `69ed849`. |
 | Remote `npm ci` och bygge | PASS i första checkpointen `dpl_GveGscnZV3szkXC3xwgYKJNbtkst` / `cf953d4078c047efefe3da1674a989ad571eea52`: 73 paket på sex sekunder, följt av `npm run build` och `READY`. |
 | `npm run typecheck` | PASS efter CRM-typregenerering samt belopps-/originfixar; senaste byggning inklusive TypeScript PASS efter authfix, bekräftat av koordinerande agent 13 oktober 2026. |
-| `node --test --test-isolation=none tests/*.test.mjs` | Senaste PASS 107/107: 44 routing-/validerings-/demo-/import-/PDF-fall, 32 DocuSeal-fall, 12 företagskontextfall, 12 CRM-actionfall, två SSR-beloppsfall och fem authåterställningsfall. Provider-/authtransport och serverberoenden mockas där respektive svit kräver det. |
-| `npm test` | Senaste PASS 11/11 filsviter efter authfix, via exakt package-script. Nodedefault rapporterar filsviter; de enskilda beteendena är 107 enligt kommandot ovan. |
+| PR #4: `node --test --test-isolation=none tests/*.test.mjs` | Historiskt PASS 107/107: 44 routing-/validerings-/demo-/import-/PDF-fall, 32 DocuSeal-fall, 12 företagskontextfall, 12 CRM-actionfall, två SSR-beloppsfall och fem authåterställningsfall. Provider-/authtransport och serverberoenden mockas där respektive svit kräver det. |
+| PR #4: `npm test` | Historiskt PASS 11/11 filsviter efter authfix, via exakt package-script. Nodedefault rapporterar filsviter; de enskilda beteendena är 107 enligt kommandot ovan. |
 | Företagskontext | Tolv permanenta regressioner i `tests/company-context.test.mjs` PASS efter gemensam verifierad session och hantering av stale cookie. |
 | Lösenordsåterställning | PASS 5/5 i `tests/auth-recovery.test.mjs`, isolerat och i fullsviten: bekräftat villkorligt svar, SDK-fel, nätverksfel, klientinitialiseringsfel och ogiltig e-post. Auth-SDK är mockat; inga verkliga authmejl skickade. |
-| `npm run build` | Senaste PASS efter authfix, inklusive TypeScript och 14 sidor/API/SSR/proxy med Next.js 16.4/Turbopack. Senaste `route.js.nft.json` innehåller `DejaVuSans.ttf`; fonttrace PASS. |
+| PR #4: `npm run build` | Historiskt PASS efter authfix, inklusive TypeScript och 14 sidor/API/SSR/proxy med Next.js 16.4/Turbopack. Senaste `route.js.nft.json` innehåller `DejaVuSans.ttf`; fonttrace PASS. |
 | SQL-regressioner | PASS 7/7 mot `buqdtssxrotkzndublrt` med rollback, inklusive CRM. Offertens simulerade legacyfall utelämnat live; hela offertsviten inklusive tolv källdatagränser PASS i isolerad PGlite. |
 | Reservationskonkurrens/utgång | Lazy expiry applicerad; schema/testunderlag finns. Separata samtidiga anslutningar och bakgrundsscheduler är olika kontroller. |
 | Lokal produktionsbrowser | Historiskt PASS 31/31 mot port 3010, noll POST-anrop och noll JavaScriptfel. Detta är lokal produktionskontroll, inte autentiserad produktions-CRUD. De senare belopps-/originfixarna har separata regressioner ovan. |
@@ -130,17 +153,17 @@ Originalplanens innehållsförteckning 1–22 och fulla fas 0–10 återhämtade
 | Riktad browserkontroll efter slutfixar | PASS 9/9 för berörda lager-/affärsvyer, kostnadsdialog och behovsladdad CRM vid 320/1280 px mot produktionsbygget på port 3011. Noll POST-anrop och JavaScriptfel. Historiska 182/182 räknas inte om som ny full körning. |
 | Mobil och tillgänglighet | Lokala QA-kontroller av förbättrade mobilmenyer/åtkomst passerade; remote efterkontroll återstår. |
 | Remote preview | `READY`-checkpoints `cf953d4`, `69ed849` och `aed26df`, rätt projekt/team och `arn1`. Skyddad fetch verifierar respektive demo/loginyta; ingen autentiserad remote CRUD eller PDF-CRUD verifierad. Senare pushar följs via PR/Vercelstatus. |
-| Produktionsrelease/domäner | Alla tre domäner verifierade via readback. Draft-PR #4/preview innebär ingen ersättning av `main` eller produktion. |
+| Produktionsrelease/domäner | Historisk PR #4/main `db7143` och aktuell PR #5/main `7fc833f` har verifierade produktionsdeployments. Äldre www/login/apexbevis tillhör `dpl_8Z69...`; aktuell lagerdemo matchar exakt `dpl_6vce...`. |
 
 Uppdatera detta protokoll med faktiskt kommando, miljö, resultat och begränsning. Räkna inte partnerfunktioner som verifierade genom mockade beslut eller genom att en intern intresseanmälan går att spara.
 
 ## Prioriterad fortsättning
 
-1. Följ efterföljande kodpushar via draft-PR #4 och Vercelstatus, med de verifierade checkpoints som konkreta referenser.
+1. Bevara historisk main-/produktionscheckpoint `db7143` och aktuell `7fc833f`; efterföljande main-pushar följs i Vercelstatus med respektive commit.
 2. Komplettera remote font-/domän-/auth-/PDF-kontroller; de åtta migrationerna är redan applicerade och cronförslaget förblir separat med obesvarad godkännandefråga.
 3. Komplettera ännu ej verifierad autentiserad browser-CRUD för två syntetiska företag och separata samtidiga reservationsanslutningar.
 4. Följ upp advisory om läckta lösenord samt faktisk driftåtkomst för publikt intag och dokument.
-5. Publicera i avsett projekt efter releasekontroller och dokumentera enbart bekräftade artefakter/driftresultat.
+5. Följ upp verifierad produktion i avsett projekt och dokumentera enbart bekräftade efterföljande artefakter/driftresultat.
 6. Fortsätt fas 1–3:s återstående personal-/filial-, inköps-/bild-, CRM-/kundaccept- och inbytesarbete, därefter dokumentfasen och de partnerberoende faserna.
 
 Ingen finanspartner, signeringstjänst, BankID-underskrift, bokföringsadapter eller fordonsdataadapter är aktiverad av dokumentationen eller den återhämtade bygggrunden.
