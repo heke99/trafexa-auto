@@ -1,0 +1,14 @@
+{
+  "name": "trafexa-document-signing-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node docuseal.test.mjs && node signing-state.test.mjs",
+    "typecheck": "tsc --project tsconfig.json",
+    "test:all": "node verify-all.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "typescript": "7.0.2"
+  }
+}
