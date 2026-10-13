@@ -74,7 +74,7 @@ Efter Node-checkpointen tillkom två lokalt verifierade korrigeringar: beloppsvi
 | Affärer | Affärsutkast, reservation/frigivning/utgång och offertversionering med prisbekräftelse/återförsöksskydd. SQL samt lokala/mockade kontroller passerade. | Autentiserad produktions-CRUD, två samtidiga anslutningar, kundaccept, inbyte och leverans återstår. Ingen scheduler aktiv. |
 | Finansiering | Internt `intake` med skärpt RLS: ägare/admin/finans ser företagets intag; säljare ser sitt eget. SQL för läs-/skrivgräns passerade. | Ingen bankadapter, kreditbedömning, utbetalning eller lagerkredit är aktiv. |
 | Dokument/offert-PDF | Företagsanknutna metadata/privat bucket, oföränderligt offertsnapshot och sessions-/företagskontrollerad PDF-route. PDF-tester, fonttrace och lokala/mockade kontroller passerade. | Autentiserad PDF-hämtning genom produktionsflödet, mallbyggare, kundaccept, signering, evidens och hämtning av arkiverade dokument återstår. |
-| Signeringsbibliotek | `docuseal.ts` och `signing-state.ts` från PR #3, commit `23f474b856d55eef19b6922597fe0602859d4173`. Lokal server-only-wrapper tvingar `enabled: false`. 32 mockade beteendetester PASS; full typkontroll PASS. | Ingen providercredential, route, webhookmottagare, datastore, extern avisering eller faktisk signering är kopplad. Se [integrationsguiden](DOCUSEAL_INTEGRATION.md). |
+| Signeringsbibliotek | Slutlig adapter, domänmodell, ledger/store/user/worker/inbox/storage från PR #3, commit `86bbce9`, finns nu i appen. Server-wrapper tvingar provider och dispatch till avstängt läge. 106 lokala signeringsfall passerar. | Additiv migration, verkligt godkänt avtalsrenderunderlag, providermall/credentials, signeringsroutes, webhookdrift och hosted flöde behöver fortfarande aktiveras och verifieras. Se [integrationsguiden](DOCUSEAL_INTEGRATION.md). |
 | Nätverk | Informationsvy inför kontrollerad pilot. | Publicering, inköpsönskemål, matchning, bud och B2B-affär återstår. |
 | Ekonomi | Inköps-/försäljningsbelopp, registrerade fordonskostnader och momsmodell. Offert för standardmoms använder bekräftat totalpris; VMB presenteras separat. | Ingen full ekonomimodul, VMB-beräkning, faktura, betalningsavstämning eller export. |
 | Demo-/pilotförfrågan | `POST /api/demo-requests`, ursprungskontroll inklusive specifik `VERCEL_BRANCH_URL`, JSON/storleksgräns, honeypot och privat intag. Produktionsregression tillåter avsedd branchorigin och nekar andra Vercelhosts med 403. | Komplett browser/API/databasflöde; förfrågningar sparas, automatiska aviseringar ingår inte. |
@@ -146,3 +146,22 @@ Uppdatera detta protokoll med faktiskt kommando, miljö, resultat och begränsni
 Ingen finanspartner, signeringstjänst, BankID-underskrift, bokföringsadapter eller fordonsdataadapter är aktiverad av dokumentationen eller den återhämtade bygggrunden.
 
 Arbetsytans grundsnapshot begränsar lager, kunder och affärer till de 500 senaste posterna per företag. Importens dubblettkontroll använder hela företagets lager, men full sidindelning, sökning och dashboardtotaler för större register återstår före bredare produktionsbruk.
+
+## Tillägg: privat offertarkiv och beständig signeringsgrund
+
+Integrationsgrenen `feat/offer-signing-integration-20261013` utgår från PR #4, commit `4037761`. Den inför PR #3:s slutliga signeringsmoduler, commit `86bbce9`, i huvudappens `src/lib/signing/`, plus privat offertarkivering och autentiserad hämtning. Providerklient och workerdispatch förblir tvingat avstängda via applikationens server-wrapper.
+
+Arkivering gäller befintliga oföränderliga offertversioner, `kind=other`, för owner/admin/finance. Servergenererade PDF-bytes återläses och hashkontrolleras före service-only registrering. Direkta användaranrop kan inte förfalska arkivregistreringen. En ny offert registreras högst en gång; historiska kvitton behåller första dokument, fil, aktör och begäransreferens. UI ignorerar sena svar efter företagsbyte och bevarar referensen vid retry. Downloadroute `/api/documents/[documentId]/pdf` verifierar faktisk filhash och privat bucket före och efter fil-I/O.
+
+| Kontroll i denna integrationsgren | Resultat och gräns |
+| --- | --- |
+| `npm run typecheck` | PASS efter appintegrationen |
+| `node --test --test-isolation=none tests/*.test.mjs` | PASS 137/137 beteenden, inklusive 15 arkiv-/server-action-/servicefall, 8 downloadfall och 6 browserfall. Provider och SDK-gränser är kontrollerade fixtures |
+| `npm run test:signing` | PASS 106 fall i adapter/domän/store/worker/user/storage samt 8 flödesfall mot lokal PostgreSQL/PGlite. Delvis överlapp med huvudappens tester; summorna ska inte adderas som unika fall |
+| `npm test --prefix tests/offer-archive-db` | PASS: hela huvudappens migrationsordning körs lokalt före arkivets SQL-rollbackassertioner med faktiska roller, RLS, grants, privata Storage-kataloger, oföränderlighet och service-only registrering |
+| Chromium-komponentflöde | PASS 6/6 med verkliga DealOffers/DealerWorkspace, mockade serveråtgärder och blockerad HTTP. Next HTTP/RSC-transport och hosted CRUD ingår inte |
+| `npm run build` | PASS för Next 16.4/Turbopack och Node 24, inklusive den nya dynamiska dokument-PDF-routen |
+
+Nya migrationer är `20261013165650_signing_ledger.sql` och `20261013165726_offer_document_archive.sql`. De är lokala, CLI-namngivna additiva migrationer efter de åtta redan applicerade migrationerna. Hosted applicering har inte gjorts. Den äldre signing-ledgerfilen från PR #3 ska inte appliceras dessutom. Databastyperna från liveprojektet bevaras; ett lokalt RPC-overlay beskriver arkivmigrationen.
+
+`SUPABASE_SECRET_KEY` eller äldre `SUPABASE_SERVICE_ROLE_KEY` behöver konfigureras enbart på servern för ny arkivregistrering. Saknad konfiguration stoppar före render/upload. Verklig lagrings-CRUD, godkänt köpeavtalsunderlag, faktiska providermallar, signeringsroutes/webhookdrift och användarens produktionsflöde återstår. Detta tillägg är kod och lokala verifieringar; det ersätter inte PR #4:s tidigare preview eller någon produktionsdeployment. [OFFER_DOCUMENT_ARCHIVE](OFFER_DOCUMENT_ARCHIVE.md) anger RPC- och driftkontraktet.

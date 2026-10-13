@@ -228,8 +228,8 @@ test('the application server wrapper stays disabled even when an untyped caller 
       return nextResolve(specifier, context);
     }
   });
-  let createTrafexaDocuSealClient;
-  try { ({ createTrafexaDocuSealClient } = await import('../src/lib/signing/server.ts')); }
+  let createTrafexaDocuSealClient, createTrafexaSigningWorker;
+  try { ({ createTrafexaDocuSealClient, createTrafexaSigningWorker } = await import('../src/lib/signing/server.ts')); }
   finally { hook.deregister(); }
   let calls = 0;
   const adapter = createTrafexaDocuSealClient({
@@ -237,5 +237,10 @@ test('the application server wrapper stays disabled even when an untyped caller 
     fetchImpl: async () => { calls++; throw new Error('Application wrapper must not dispatch'); }
   });
   await assert.rejects(adapter.createSubmission(input()), isError('disabled'));
+  const worker = createTrafexaSigningWorker({ enabled: true,
+    store: { async getJob() { calls++; throw new Error('Disabled worker must not read'); } },
+    provider: adapter,
+  });
+  await assert.rejects(worker.dispatch('00000000-0000-4000-8000-000000000001', 1), error => error.code === 'disabled');
   assert.equal(calls, 0);
 });

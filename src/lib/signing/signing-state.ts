@@ -6,7 +6,7 @@
  */
 import type { DocuSealWebhookEvent } from './docuseal.ts';
 
-export type SigningState = 'prepared' | 'dispatching' | 'outcome_unknown' | 'awaiting_signatures' | 'awaiting_archive' | 'completed' | 'expired' | 'declined';
+export type SigningState = 'prepared' | 'dispatching' | 'outcome_unknown' | 'dispatch_failed' | 'awaiting_signatures' | 'awaiting_archive' | 'completed' | 'expired' | 'declined';
 export type SigningContext = {
   id: string;
   companyId: string;
@@ -15,6 +15,8 @@ export type SigningContext = {
   documentVersion: number;
   sourceSha256: string;
   templateId: number;
+  templateVersion: number;
+  templateSha256: string;
 };
 export type SubmitterBinding = { id: number; externalId: string };
 export type ArchiveEvidence = {
@@ -50,8 +52,8 @@ export class SigningStateError extends Error {
   }
 }
 
-const CONTEXT_KEYS = ['id', 'companyId', 'documentId', 'dealId', 'documentVersion', 'sourceSha256', 'templateId'];
-const STATES = ['prepared', 'dispatching', 'outcome_unknown', 'awaiting_signatures', 'awaiting_archive', 'completed', 'expired', 'declined'];
+const CONTEXT_KEYS = ['id', 'companyId', 'documentId', 'dealId', 'documentVersion', 'sourceSha256', 'templateId', 'templateVersion', 'templateSha256'];
+const STATES = ['prepared', 'dispatching', 'outcome_unknown', 'dispatch_failed', 'awaiting_signatures', 'awaiting_archive', 'completed', 'expired', 'declined'];
 const EVENTS = ['form.viewed', 'form.started', 'form.completed', 'form.declined', 'submission.created', 'submission.completed', 'submission.expired', 'submission.archived'];
 function fail(code: SigningStateError['code'] = 'invalid_input'): never { throw new SigningStateError(code); }
 function record(value: unknown): asserts value is Record<string, unknown> {
@@ -78,7 +80,9 @@ function context(value: unknown): void {
   if (value.dealId !== null) uuid(value.dealId);
   positive(value.documentVersion);
   positive(value.templateId);
+  positive(value.templateVersion);
   checksum(value.sourceSha256);
+  checksum(value.templateSha256);
 }
 function matchContext(job: SigningContext, value: unknown): asserts value is SigningContext {
   record(value);
@@ -120,7 +124,7 @@ export function validateSigningJob(value: unknown): asserts value is SigningJob 
   positive(value.version);
   if (!STATES.includes(value.state as string)) fail();
   if (!Array.isArray(value.submitters) || !Array.isArray(value.completedSubmitterIds)) fail();
-  const unbound = ['prepared', 'dispatching', 'outcome_unknown'].includes(value.state as string);
+  const unbound = ['prepared', 'dispatching', 'outcome_unknown', 'dispatch_failed'].includes(value.state as string);
   if (unbound) {
     if (value.submissionId !== null || value.submitters.length || value.completedSubmitterIds.length || value.archive !== null) fail();
   } else {
@@ -170,6 +174,12 @@ export function dispatchUnknown(job: SigningJob): SigningJob {
   validateSigningJob(job);
   if (job.state !== 'dispatching') fail('invalid_transition');
   return next(job, {state: 'outcome_unknown'});
+}
+/** Only use for a known pre-dispatch failure or a definitive provider rejection. */
+export function dispatchRejected(job: SigningJob): SigningJob {
+  validateSigningJob(job);
+  if (job.state !== 'dispatching') fail('invalid_transition');
+  return next(job, {state: 'dispatch_failed'});
 }
 /** Only pass a verified provider return plus the trusted immutable dispatch context. */
 export function bindSubmission(job: SigningJob, confirmation: ProviderConfirmation): SigningJob {
