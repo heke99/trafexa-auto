@@ -37,17 +37,17 @@ export function PilotForm() {
       inFlight.current = false;
     }
   }
-  if (status === 'success') return <div className="pilot-success" role="status"><span className="success-symbol"><Check size={28}/></span><h3>Tack. Vi hörs snart.</h3><p>Din förfrågan har sparats. Vi kontaktar dig för att prata om din verksamhet och nästa steg.</p><button className="text-link" onClick={() => setStatus('idle')}>Skicka en till förfrågan <ArrowUpRight size={16}/></button></div>;
+  if (status === 'success') return <div className="pilot-success" role="status"><span className="success-symbol"><Check size={28}/></span><h3>Tack. Vi hörs snart.</h3><p>Din förfrågan har sparats. Vi kontaktar dig för en genomgång av Trafexa och upplägget för din verksamhet.</p><button className="text-link" onClick={() => setStatus('idle')}>Skicka en till förfrågan <ArrowUpRight size={16}/></button></div>;
   return <form className="pilot-form" action="/api/demo-requests" method="post" onSubmit={submit} aria-busy={status === 'sending'}>
     <div className="field-pair"><label>Företag<input name="company" autoComplete="organization" placeholder="Din bilfirma" required maxLength={160}/></label><label>Ditt namn<input name="name" autoComplete="name" placeholder="För- och efternamn" required maxLength={160}/></label></div>
     <div className="field-pair"><label>Mejladress<input name="email" autoComplete="email" type="email" placeholder="namn@bilfirma.se" required maxLength={254}/></label><label><span>Telefon <span className="optional">valfritt</span></span><input name="phone" autoComplete="tel" type="tel" placeholder="070 000 00 00" maxLength={40}/></label></div>
-    <label>Vad vill du förenkla?<textarea name="message" rows={3} placeholder="Berätta kort om din verksamhet, ditt lager och vad du behöver hjälp med." maxLength={2000}/></label>
+    <label>Vad vill du gå igenom?<textarea name="message" rows={3} placeholder="Berätta om ditt fordonslager, ditt team och vilka funktioner du vill se." maxLength={2000}/></label>
     <div className="honeypot" aria-hidden="true"><label>Webbplats<input name="website" tabIndex={-1} autoComplete="off"/></label></div>
     <p className="form-privacy">Vi använder uppgifterna för att besvara din förfrågan. Läs vår <a href="/privacy">integritetspolicy</a>.</p>
-    <noscript><p className="form-privacy">Mejla din förfrågan till <a href="mailto:hekmat.h@div3rsa.com">hekmat.h@div3rsa.com</a>.</p></noscript>
-    {status === 'error' ? <p className="form-error" role="alert">{message} <a href="mailto:hekmat.h@div3rsa.com">hekmat.h@div3rsa.com</a></p> : null}
+    <noscript><p className="form-privacy">Mejla din förfrågan till <a href="mailto:info@trafexa.com">info@trafexa.com</a>.</p></noscript>
+    {status === 'error' ? <p className="form-error" role="alert">{message} <a href="mailto:info@trafexa.com">info@trafexa.com</a></p> : null}
     {status === 'success-with-changes' ? <p className="form-privacy" role="status">{message}</p> : null}
     {status === 'sending' ? <p className="form-privacy" role="status">Skickar din förfrågan…</p> : null}
-    <button className="button button-green" type="submit" disabled={!ready || status === 'sending'}>{status === 'sending' ? 'Skickar…' : 'Prata med oss'}<ArrowUpRight size={18}/></button>
+    <button className="button button-green" type="submit" disabled={!ready || status === 'sending'}>{status === 'sending' ? 'Skickar…' : 'Boka en genomgång'}<ArrowUpRight size={18}/></button>
   </form>;
 }

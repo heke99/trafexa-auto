@@ -2,6 +2,18 @@
 
 13 oktober 2026 • fortsättning på `codex/trafexa-dealer-continuation-20261013`
 
+## Produktpresentation och plattformsadministration, 13 oktober
+
+Publika texter och handlararbetsytans synliga pilotmarkeringar är ersatta med Trafexa Dealer och tydliga beskrivningar av lager, CSV-import, kalkyl, CRM, offerter, reservationer och privata dokument. Företagets kontaktadress är `info@trafexa.com`. Fiktiva exempel och verkliga krav på externa anslutningar är fortsatt tydliga. Produktgodkännanden visas som sådana, utan att påstå att en finanskanal är aktiv.
+
+`/admin` är en separat plattformsportal med företagsöversikt, inkomna kontakter och granskade, motiverade statusändringar. Den kräver verifierad Supabase Auth och en privat UUID-lista; företagsägare har ingen automatisk global åtkomst. Registrering, inloggning och bekräftelselänk behåller den säkra lokala returvägen till admin. Sidvisning aktiverar aldrig behörighet.
+
+Hosted Supabase har nio applicerade migrationer, inklusive `20261013184149_platform_admin`. Live katalogkontroll bekräftar invoker-wrapper, privata definerfunktioner med låst sökväg och inga execute-grants till anon/service_role. Nekad åtkomst har kontrollerats med rollback. Den användargodkända adressen `hekmat.h@trafexa.com` har en aktiv, oanvänd privat reservation. Kontot finns ännu inte i Auth och ingen UUID-superadmin har därför skapats. Kontoägaren registrerar sig, verifierar adressen och aktiverar den förgodkända åtkomsten själv.
+
+Färsk lokal verifiering: 169 appbeteenden passerar, inklusive tre Chromiumkontroller av verklig admin-UI och åtta tester av authnavigation. Fyra PostgreSQL/PGlite-tester verifierar den faktiska migrationskedjan och admin även utan de två ännu pending signerings-/arkivmigrationerna. Bygge och TypeScript passerar. PGlite serialiserar anslutningar; verklig samtidig lockväntan över flera databasanslutningar och inloggad produktions-CRUD är inte verifierade. Se [adminflöde och drift](PLATFORM_ADMIN.md).
+
+Advisors efter DDL: privata adminregister och revisionslistor har avsiktligt RLS utan användarpolicyer, med all direkt klientåtkomst indragen. [RLS-lintens beskrivning](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy). Auths befintliga [läckta-lösenordskydd](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) är avstängt; detta är inte ändrat i denna leverans. Oanvända index är informationsnotiser vid denna nya databas och tas inte bort utan faktisk lastmätning.
+
 ## Hur status ska läsas
 
 Bygggrunden är återhämtad från originalarbetet och fortsättningen har lagt till finansåtkomst, företagskontext, reservationsutgång, import, kostnader, CRM, offertversion/PDF och ett avstängt signeringsbibliotek. PR #4:s 107/107 beteenden, 11/11 filsviter, 7/7 live-SQL-regressioner och PDF-fonttrace behålls som historisk verifiering. Efterföljande PR #5/main `7fc833f` har färsk rootkörning PASS 137/137 och bygge inklusive TypeScript, 14 sidor, ny dokument-PDF-route och fonttrace. Alla åtta migrationer har verifierats genom live-readback och databastyper har regenererats efter CRM. Tidigare lokal produktionsbrowser passerade 31/31 och samlad utvecklings-/mock-/produktions-QA 182/182; dessa är historiska resultat och har inte räknats om efter slutfixarna. PR #4 är faktiskt mergad till `main` med verifierad checkpoint `db7143` och identiskt tree med den testade implementationen. Historiska previewbevis bevaras. Historisk PR #4-produktion är verifierad `READY` och aktuell PR #5-produktion anges separat nedan; full auth och autentiserad CRUD genom produktionsgränssnittet är ännu inte verifierad.

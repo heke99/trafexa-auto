@@ -5,8 +5,9 @@ import { revalidatePath } from 'next/cache';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getCompanySession } from './company-context';
 import { enumField,integerField,moneyField,requiredField,textField,uuidField } from './validation';
+import { safeNextPath } from '@/lib/routing.mjs';
 
-function outcome(path:string,type:'error'|'success',message:string):never {redirect(`${path}?${type}=${encodeURIComponent(message)}`);}
+function outcome(path:string,type:'error'|'success',message:string):never {redirect(`${path}${path.includes('?')?'&':'?'}${type}=${encodeURIComponent(message)}`);}
 function friendlyError(error:unknown) {
  const e=error as {code?:string;message?:string};
  if(e.code==='23505') return 'Posten finns redan eller bilen är redan reserverad.';
@@ -30,19 +31,33 @@ function authPassword(form:FormData,path:string,min:number) {
  return password;
 }
 export async function loginAction(form:FormData) {
- const email=authEmail(form,'/login'),password=authPassword(form,'/login',1);
- const db=await createServerSupabaseClient();
- const {error}=await db.auth.signInWithPassword({email,password});
- if(error)outcome('/login','error','Inloggningen misslyckades. Kontrollera e-post och lösenord.');
- redirect('/dashboard');
+ const nextPath=safeNextPath(form.get('next'));
+ const errorPath=`/login?${new URLSearchParams({next:nextPath})}`;
+ const email=authEmail(form,errorPath),password=authPassword(form,errorPath,1);
+ let failed=false;
+ try {
+  const db=await createServerSupabaseClient();
+  const {error}=await db.auth.signInWithPassword({email,password});
+  failed=Boolean(error);
+ } catch {failed=true;}
+ if(failed)redirect(`/login?${new URLSearchParams({next:nextPath,error:'Inloggningen misslyckades. Kontrollera e-post och lösenord.'})}`);
+ redirect(nextPath);
 }
 export async function signupAction(form:FormData) {
- const email=authEmail(form,'/register'),password=authPassword(form,'/register',12);
- if(form.get('acknowledgement')!=='yes')outcome('/register','error','Godkänn villkoren och bekräfta att du har läst integritetsinformationen.');
- const db=await createServerSupabaseClient();
- const {error}=await db.auth.signUp({email,password,options:{emailRedirectTo:`${process.env.NEXT_PUBLIC_APP_URL??'https://app.trafexa.com'}/auth/callback`}});
- if(error)outcome('/register','error','Kontot kunde inte skapas. Försök igen senare.');
- outcome('/login','success','Kontrollera din e-post och bekräfta kontot innan du loggar in.');
+ const nextPath=safeNextPath(form.get('next'));
+ const errorPath=`/register?${new URLSearchParams({next:nextPath})}`;
+ const email=authEmail(form,errorPath),password=authPassword(form,errorPath,12);
+ if(form.get('acknowledgement')!=='yes')outcome(errorPath,'error','Godkänn villkoren och bekräfta att du har läst integritetsinformationen.');
+ const callback=new URL('/auth/callback',process.env.NEXT_PUBLIC_APP_URL??'https://app.trafexa.com');
+ if(nextPath!=='/dashboard')callback.searchParams.set('next',nextPath);
+ let failed=false;
+ try {
+  const db=await createServerSupabaseClient();
+  const {error}=await db.auth.signUp({email,password,options:{emailRedirectTo:callback.toString()}});
+  failed=Boolean(error);
+ } catch {failed=true;}
+ if(failed)redirect(`/register?${new URLSearchParams({next:nextPath,error:'Kontot kunde inte skapas. Försök igen senare.'})}`);
+ redirect(`/login?${new URLSearchParams({next:nextPath,success:'Kontrollera din e-post och bekräfta kontot innan du loggar in.'})}`);
 }
 export async function signOutAction() {const db=await createServerSupabaseClient();await db.auth.signOut();(await cookies()).delete('trafexa-company');redirect('/login');}
 async function context() {
