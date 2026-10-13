@@ -1,6 +1,8 @@
 # Sparade Trafexa förfrågningar
 
-Backenddelen ger inloggade företagsanvändare ett sparat ärende med ID, versionskontroll och statushistorik. Den är ett första byggsteg i genomförandeplanens föreslagna ärendeflöde. Befintliga `/api/inquiry` och webbplatsformuläret fungerar separat tills frontendspåret kopplar in det nya flödet.
+Backenddelen ger inloggade företagsanvändare ett sparat ärende med ID, versionskontroll och statushistorik. Den byggdes som ett avgränsat förslag innan den ursprungliga handlarplanen blev åtkomlig och bevaras som integrationsunderlag i utkast-PR #2.
+
+Den återhämtade handlarplattformen använder redan `companies`, `memberships` och rollerna `owner`, `admin`, `sales`, `finance`, `viewer` i Supabase-projektet **Trafexa dealer**. Applicera inte detta underlags parallella företags- och medlemskapstabeller där. Om sourcing ska ingå behöver funktionen anpassas till den gemensamma modellen och Next.js-appens befintliga autentisering först.
 
 ## Användare och företagsåtkomst
 
@@ -81,7 +83,7 @@ Listning för ett företag som användaren inte tillhör returnerar en tom lista
 Servern använder `SUPABASE_URL` och `SUPABASE_PUBLISHABLE_KEY`, med befintliga `NEXT_PUBLIC_SUPABASE_URL` och `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` som alternativ. Endast publishable key accepteras. Vanliga användaranrop behöver ingen service-role-nyckel.
 
 1. Integrera kodgrenen i den valda appstrukturen. De två filerna i `api/` är Vercel Node-handlers; kärnlogiken i `lib/dealer/handlers.mjs` är avgränsad för återanvändning. Om appspåret väljer Next.js App Router behövs dess route-adapter innan dessa endpoints räknas som integrerade.
-2. Kontrollera rätt Supabase-projekt och applicera den granskade migrationen från `supabase/migrations/`. Läs [databasunderlaget](../supabase/README.md) för roller och provisionering. Migrationen har endast körts lokalt under testerna.
+2. Anpassa först företags- och rollkontraktet till handlarplattformens befintliga schema. Migrationen i detta underlag är en lokalt testad referens, inte en migrationsinstruktion för **Trafexa dealer**. Läs [databasunderlaget](../supabase/README.md) för referensmodellens roller och provisionering.
 3. Provisionera autentiserade testanvändare, två testföretag och deras medlemskap med en betrodd administratör.
 4. Verifiera en körbar preview med riktig Auth och Data API innan frontendflödet kopplas in eller koden lanseras.
 
