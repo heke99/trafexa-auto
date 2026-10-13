@@ -1,113 +1,116 @@
-# Trafexa Auto genomförandeplan utkast
+# Trafexa Dealer genomförandeplan
 
-Planen samordnar fortsatt arbete i `heke99/trafexa-auto` och stöder byggagenten i chatten **Fortsätt Trafexa Auto-planen**. Den anger arbetsägare, beroenden och kriterier för färdigställande. Den fullständiga tidigare produktplanen för ett nytt bilhandlarsystem måste först återhämtas innan dess funktioner kan räknas som beslutade.
+Trafexa Dealer byggs som en gemensam plattform för svenska bilhandlare i GitHub- och Vercelprojektet **trafexa-auto**, med Supabaseprojektet **Trafexa dealer**. Den publika webbplatsen ligger på `trafexa.com` och handlarappen på `app.trafexa.com`. Varje företag har privata uppgifter; användare med medlemskap i flera företag kan växla arbetsyta.
 
-Datum: 13 oktober 2026. Teknisk utgångspunkt: commit `e37c57c18f0848368bc184e89aab0e587083df6a`.
+Planen följer de återhämtade originaluppdragen och den tidigare fullständiga byggplanens elva faser. Arbetet fortsätter från den befintliga Next.js-appen. Den tidigare statiska sourcing-webbplatsen är arkiverad i `archive/website-before-dealer-20261013`.
 
-## Bekräftat nuläge
+Datum: 13 oktober 2026.
 
-| Del | Nuläge | Källa |
+## Fastställd riktning och aktuella källor
+
+- Användaren har angett Supabaseprojekt **trafexa dealer**, GitHub/Vercel **trafexa auto**, `app.trafexa.com` hos Strato och att den äldre webbplatsens kod får ersättas.
+- Tekniken är Next.js/TypeScript och Supabase/Postgres med tydliga moduler. Gränssnittet ska vara ett genomarbetat arbetsverktyg för bilhandlare.
+- De återhämtade uppdragen beskriver lager, kunder, affärer, avtal, köpfinansiering, lagerfinansiering, ekonomi och handlarnätverk.
+- Grundsystemet byggs medan finanspartneravtal förbereds. Partnerprodukter aktiveras när verklig handlaranslutning, produktbehörighet och teknisk kanal är bekräftade.
+- Ursprungligt planunderlag: byggchatten med ID `01a13504-1d80-7611-92e8-9076ccf7605d`, inklusive **Bilhandlarsystem_fullstandig_byggplan.docx** och användarens fortsättningsinstruktioner. Originaltexten har nu lästs direkt i denna chat.
+- Pågående huvudbygge: **Fortsätt Trafexa Auto-planen**, arbetsgren `codex/trafexa-dealer-continuation-20261013`.
+
+## Befintlig databas och gemensamma kontrakt
+
+Verifierad katalogmetadata: Supabaseprojekt `buqdtssxrotkzndublrt`, **Trafexa dealer**, region `eu-north-1`. Kontolänken heter `kundexa`; projektets namn och ID avgör målprojektet.
+
+| Del | Befintligt kontrakt | Konsekvens för fortsatt arbete |
 | --- | --- | --- |
-| Produkt | Offentlig B2B-webbplats för fordonsanskaffning, driven av Diversa Nordic AB | [README](../README.md), [webbplats](../index.html) |
-| Implementering | Statisk HTML, CSS och JavaScript samt Vercelfunktionen `/api/inquiry` | [klient](../script.js), [API](../api/inquiry.js), [Vercelkonfiguration](../vercel.json) |
-| Förfrågan | Företag, kontaktuppgifter, fordonskrav, antal, destination och samtycke | [formulär](../index.html), [API](../api/inquiry.js) |
-| Avisering | API skickar förfrågan via Resend; webbplatsen visar alternativ kontaktväg vid fel | [API](../api/inquiry.js), [README](../README.md) |
-| Affärsflöde | Förfrågan, sourcing, erbjudande samt bekräftelse och leveranskoordination beskrivs på webbplatsen | [processbeskrivning](../index.html) |
-| Appfunktioner | Den kontrollerade utgångspunkten saknar databas, inloggning och digital ärendehantering | Filinventering av angiven commit |
-| Arkiv | GitHub har grenen `archive/website-before-dealer-20261013` | [arkivgren](https://github.com/heke99/trafexa-auto/tree/archive/website-before-dealer-20261013) |
+| Företag | `companies`, status `active/suspended` | Återanvänd samma företag i alla moduler |
+| Medlemskap | `memberships`, roller `owner/admin/sales/finance/viewer`, status `active/suspended` | Aktivt företag och aktivt medlemskap krävs för åtkomst |
+| Lager och kunder | `vehicles`, `stock_items`, `vehicle_costs`, `customers` | Företagsbundna resurser kopplas till affärer |
+| Affärer | `deals`, status `draft/reserved/cancelled` | Nya steg som avtal och leverans kräver uttryckliga schemaändringar |
+| Offerter | `offers`, positiv version och `snapshot` | Bevara versionsbundet affärsunderlag |
+| Dokument | `documents`: företag, eventuell affär, namn, objektväg och kind `purchase/contract/finance/other` | Ingen befintlig status, dokumentversion, checksumma eller signaturbindning |
+| Finanspartner | `finance_partners`, status `unavailable/onboarding/active` | Visa verklig anslutningsstatus |
+| Handlargodkännande | `dealer_approvals`, produkt `purchase/stock`, status `pending/approved/rejected/suspended` | Separat godkännande per handlare, partner och produkt |
+| Finansärende | `finance_applications`, status `intake/awaiting_partner/submitted/withdrawn` | Sparad förfrågan är inte ett kreditbeslut |
 
-Arkivgrenens namn etablerar inte vilka funktioner den nya appen ska ha. Vercelinställningar eller nya miljövariabelnamn bevisar inte heller att en fungerande app är byggd.
+Alla verifierade public-tabeller har RLS. `private.has_company_role` kontrollerar användare, aktivt medlemskap och aktivt företag. Dokumentinsert kräver `owner/admin/sales`; dokumentets objektväg börjar med företagets UUID och affärsreferensen är företagsbunden.
 
-## Arbetsdelning
+Dessa uppgifter kommer från läsning av schema- och policykataloger, inte affärsrader. App- och databasändringar ska alltid följa samma verifierade kontrakt.
 
-| Arbetsägare | Leverans | Filansvar eller gräns | Status |
-| --- | --- | --- | --- |
-| Befintlig byggagent i **Fortsätt Trafexa Auto-planen** | Webbplats, robust formulär och API samt tillhörande tester | `index.html`, `script.js`, `styles.css`, `api/inquiry.js` och egna tester | Lokala fixar rapporterade klara; inget publicerat |
-| Kravagent i denna chat | Återhämtade användarbeslut från tidigare Trafexa-chattar med källor | Läser historik; ändrar ingen kod | Undersökning klar; tidigare produktkrav kunde inte hämtas |
-| Kartläggningsagent i denna chat | Teknisk inventering, luckor och acceptanskriterier | Läser projektet; ändrar ingen kod | Inventering klar |
-| Samordnare i denna chat | Denna plan, prioritering och underlag för överlämning | `docs/IMPLEMENTATION_PLAN.md` | Planutkast |
-| Framtida plattformsagent | Appgrund, konton och datalagring om produktplanen kräver detta | Separat gren; filansvar fastställs efter vald arkitektur | Väntar på produktkrav |
-| Framtida verifieringsagent | Oberoende verifiering av den sammansatta leveransen | Tester och dokumenterade resultat | Startar när en körbar version finns |
+## Arbetsägare och parallella spår
 
-De framtida rollerna är föreslagen arbetsdelning, inte startade agenter. Krav- och kartläggningsagenterna har arbetat parallellt med byggagentens befintliga arbete.
-
-## Ordning och beroenden
-
-1. Återhämta produktplanen och bevara byggagentens färdiga lokala formulärfixar som en separat leverans.
-2. Lägg varje återhämtat krav i kravlistan nedan. Ange användarkälla, ansvarig och ett verifierbart resultat.
-3. Välj appstruktur utifrån de beslutade kraven. Dela sedan upp plattform, användarflöden och integrationer i separata grenar med tydligt filansvar.
-4. Integrera ett komplett första användarflöde och verifiera det från webbläsare till server och eventuell datalagring.
-5. Bygg resterande beslutade flöden mot samma kontrakt och kontrollera dem i preview.
-6. Slutför driftkontroller, produktionskonfiguration och leveransredovisning före lansering.
-
-Samordnaren äger integrationsordningen. Två agenter ska inte ändra samma fil samtidigt. Ett ändrat API- eller datakontrakt ska föras in i planen och meddelas berörda byggagenter innan deras beroende kod ändras.
-
-## Prioriterad kravlista
-
-| ID | Krav eller beslutspunkt | Ansvar | Beroende | Kriterium för färdigställande |
-| --- | --- | --- | --- | --- |
-| P0 | Återhämta den fullständiga tidigare produktplanen | Kravagent och samordnare | Åtkomlig historik eller planen från användaren | Varje beslutat flöde, användarroll och integration har en angiven källa; osäkra funktioner är avskilda som förslag |
-| P1 | Slutför pågående klientfixar | Befintlig byggagent | Nuvarande webbplats | Uppgifter behålls vid fel; lyckat svar kräver API-bekräftelse; sändning kan inte fastna utan återhämtning; mobil och tangentbord fungerar |
-| P2 | Slutför pågående API-fixar | Befintlig byggagent | Nuvarande API | Felaktig JSON och ogiltiga fält ger kontrollerade svar; samtycke valideras; leverantörsfel och timeout hanteras; testsvar innehåller inga hemligheter |
-| P3 | Fastställ appstruktur och datakontrakt | Samordnare och framtida plattformsagent | P0 | Beslutade roller, resursägarskap, endpoints, lagring, migrationer och miljöer är dokumenterade; varje byggspår har separat filansvar |
-| P4 | Bygg första kompletta beslutade användarflödet | Framtida byggagenter | P3 | En verklig användare kan utföra flödet; data och felhantering verifieras; behörighet kontrolleras på servern där det behövs |
-| P5 | Bygg övriga beslutade flöden | Framtida byggagenter | P0, P3, fungerande P4 | Varje återhämtat krav har implementering, test eller dokumenterad manuell kontroll; inga krav markeras klara enbart genom mockade vyer |
-| P6 | Verifiera sammansatt preview | Framtida verifieringsagent | Integrerade P1–P5 enligt vald produktscope | Resultat knyts till samma commit och preview; relevanta felvägar, länkar, mobilvyer och behörighetsgränser fungerar |
-| P7 | Slutför drift och lanseringsunderlag | Samordnare och framtida plattformsagent | P6 | Konfiguration är kontrollerad för rätt projekt och miljö; domän och avsändare är verifierade om de används; återställningsväg och kvarstående hinder är dokumenterade |
-
-P1 och P2 gäller den befintliga webbplatsen. De ersätter inte genomförandet av en ny produktplan. Om P0 visar att den gamla webbplatsen ska ersättas helt ska dessa fixar hållas avgränsade och prioriteten för fortsatt arbete följa den återhämtade planen.
-
-## Beslut som behöver finnas i produktplanen
-
-Samla svar från tidigare beslut innan nya antaganden görs:
-
-- Vem använder systemet: intern personal, en egen bilhandel eller flera oberoende företag?
-- Vilket är huvudflödet: sourcing, lager och försäljning, finansiering eller en annan beslutad process?
-- Vilka roller får skapa, läsa, ändra och godkänna varje typ av ärende?
-- Vilka uppgifter och dokument ska sparas och vem äger dem?
-- Vilka externa system ingår i första leveransen?
-- Vilka befintliga delar ska behållas, ersättas eller migreras?
-
-## Förslag om ärendehantering ingår
-
-Detta är ett möjligt första flöde, inte ett återhämtat produktkrav:
-
-1. Förfrågan sparas med unikt ID och tidsstämpel.
-2. Avisering skickas för den sparade förfrågan; ett aviseringsfel får inte radera ärendet.
-3. Handläggare kan tilldela ansvarig och ändra status.
-4. En extern kund kan följa egna ärenden och erbjudanden om kundinloggning ingår.
-5. Statushistorik och behörighetsgränser kontrolleras.
-
-Om flera företag delar systemet ska två testföretag inte kunna läsa eller ändra varandras data, även vid direkta API-anrop. Leverantörsportal, fordonslager, finansiering, betalningar, dokumentuppladdning och chatt ska prioriteras enligt den verkliga produktplanen; de är inte bekräftade krav i den nuvarande koden.
-
-## Verifiering och leveransbevis
-
-| Kontroll | Vad resultatet visar | Vad som behövs |
+| Spår | Ägare och leverans | Filgräns |
 | --- | --- | --- |
-| Statisk lokal visning | Layout, navigation och klientbeteende | Lokalt webbserverkommando i README |
-| API-test med kontrollerad leverantörsmock | Validering, statuskoder, timeout och felvägar | Körbar Vercelfunktion eller motsvarande testharness |
-| Körbar preview med API | Hela förfrågningsflödet från klient till backend | Rätt commit och miljökonfiguration |
-| Leveranstest av e-post | Faktisk mottagning av en förfrågan | Verifierad avsändare, mottagare och en uttrycklig instruktion att skicka testmeddelandet |
-| Behörighets- och datatest om appen kräver detta | Sparad data, rätt åtkomst och isolering | Beslutade roller, testdata och körbar app |
+| Huvudapp | Huvudagenten i **Fortsätt Trafexa Auto-planen** samordnar Next.js-app, UI, lagerimport och integration | Huvudappens arbetsgren |
+| Behörigheter | Huvudagentens säkerhetsagent granskar och rättar plattformens RLS/roller | Befintligt handlar-schema och åtkomstkod |
+| Affär och reservation | Huvudagentens affärsagent bygger säkra reservationer och affärsflöde | Affärsmodul och dess migrationer |
+| Fordonskostnader | Huvudagentens kostnadsagent bygger registrering och summering per bil | Kostnadsmodul och tillhörande vyer |
+| Granskning och dokumentation | Huvudagentens granskningsagent verifierar sammansatt app | Huvudappens tester och leveransunderlag |
+| Avtalsadapter | Denna chats API-agent bygger DocuSeal-providerbibliotek och webhookverifiering | `src/lib/documents/docuseal.ts`, `tests/docuseal/` |
+| Avtalsgranskning | Denna chats oberoende granskare kontrollerar adapter, okända utfall och händelsegränser | Läsning och testresultat |
+| Samordning och driftunderlag | Denna chats huvudagent och driftagent håller plan, providerkontrakt och katalogmetadata aktuella | Plan-PR och integrationsdokumentation |
 
-`python3 -m http.server` kör inte `/api/inquiry`. En snygg lokal formulärvy bevisar därför inte att förfrågningar skickas. Mockad e-post bevisar inte faktisk leverans. Konfigurerade variabelnamn bevisar inte att deras värden och behörigheter fungerar.
+Varje spår arbetar i en isolerad gren. En integrationsändring i schema, API eller statusmodell delas i det gemensamma GitHub-underlaget innan beroende kod ändras. Huvudagenten äger sammansättningen av den verkliga handlarappen.
 
-Varje leveransrapport ska ange commit eller PR, testmiljö, utförda kontroller och konkreta kvarstående hinder. Den andra agentens rapporterade tester ska hållas skilda från kontroller som verifierats oberoende i denna chat.
+## Byggordning och färdigkriterier
 
-## Underlag för den andra byggagenten
+| Fas | Leverans | Kriterium för färdigställande |
+| --- | --- | --- |
+| 0 Produkt och partnerupplägg | Pilothandlare, arbetsflöden, importbehov och partneransvar | Målgrupp, första flöde och pilotomfattning är fastställda; partnerprodukter och kanaler har verkligt underlag |
+| 1 Företag och åtkomst | Registrering, inloggning, onboarding, personal, roller och företagsväxling | Två företag kan inte läsa eller ändra varandras privata data, även via direkta API-anrop; spärrade medlemskap och företag nekas |
+| 2 Lager och inköp | Fordon, registreringsnummer/VIN, inköpsunderlag, bilder, skick, kostnader, priser, lagerdagar och import | Import kan granskas före sparande; ogiltiga rader och dubbletter hanteras; belopp och momsmodell bevaras |
+| 3 Kunder och affärer | Kundkort, leads, offert, inbyte, reservation och uppföljning | Kund och bil tillhör rätt företag; samma bil kan inte dubbelreserveras; reservation kan förlängas, löpa ut och frigöras enligt beslutat kontrakt |
+| 4 Avtal och signering | PDF-mallar, fältmappning, dokumentversion, signeringsuppdrag, påminnelser och arkiv | Ett låst underlag kopplas till rätt affär och parter; verifierade händelser och signerad PDF/revisionsbevis sparas; signeringsutfall visas korrekt |
+| 5 Köpfinansiering | Första partnern, handlaranslutning, ansökan, komplettering, beslut och utbetalningsstatus | Handlare och produkt är godkända; verklig partnerkanal fungerar; dubbla partnerhändelser skapar inga dubbla ansökningar eller fel status |
+| 6 Ekonomi och leverans | Fakturaunderlag, betalningsläge, bokföringsexport, resultat per bil och avslut | Bilaffären kan följas från underlag till leverans; kostnader och dokument går att spåra; belopp och status har verifierad källa |
+| 7 Lagerfinansiering | Kreditlimit, finansierade lagerbilar, kostnader och lösen | Partnerbeslut och finansierade bilar stämmer; en såld bil kan hanteras för lösen utan dubbletter |
+| 8 Handlarnätverk | Utvalda publicerade bilar, inköpsönskemål, matchning, bud och B2B-reservation | Endast valda uppgifter delas; kunddata, inköpspriser och finansdokument förblir privata; företag kan inte reservera samma bil samtidigt |
+| 9 Pilot och lansering | Pilotdrift, support, övervakning, säkerhetskontroll och återställning | Ett komplett bilaffärsflöde och partnerflöde är verifierat med pilotdata; incident- och återställningsväg fungerar |
+| 10 Vidare integrationer | Fler finanspartners, annonser, fordonsdata, bokföring och dokumenttolkning | Varje integration har eget dokumenterat kontrakt, behörighet, felhantering och verifierat resultat |
 
-1. Läs denna plan som samordningsunderlag och bevara de rapporterade lokala webbplats- och API-fixarna som en separat leverans.
-2. För in den verkliga produktplanen under P0 och ersätt förslagen med dess beslutade flöden.
-3. Dela därefter ut P3–P5 mellan byggagenter med separata grenar och ett gemensamt kontrakt.
-4. Använd P6–P7 som färdigkriterier och redovisa vad som faktiskt är verifierat.
+Den första kompletta affären ska följa importerad bil → kund och offert → avtal och signering → leverans. Finansiering kopplas in när första partnerns avtalade flöde finns. Faser kan utvecklas parallellt men får inte markeras färdiga genom mockade vyer eller enbart sparade intresseförfrågningar.
 
-Denna plans existens betyder inte att den andra agenten har tagit emot den. Ingen direkt meddelandefunktion till den andra chatten är tillgänglig i denna session; det gemensamma GitHub-underlaget är överlämningsvägen.
+## Avtalsdelen som byggs nu
 
-## Källor och återstående avgränsning
+DocuSeal-adaptern är ett serverbibliotek för att skapa ett uppdrag från en befintlig mall, läsa leverantörsstatus och verifiera webhookens HMAC över exakt rå requestbody. Den gör inga egna schemaändringar och använder inte sourcing-modulens företagstabeller.
 
-- Repo: [heke99/trafexa-auto](https://github.com/heke99/trafexa-auto).
-- Teknisk utgångspunkt: [commit e37c57c](https://github.com/heke99/trafexa-auto/tree/e37c57c18f0848368bc184e89aab0e587083df6a).
-- Byggarbete: chatten **Fortsätt Trafexa Auto-planen**. Slutrapporten anger lokala formulär- och API-fixar samt 16 godkända API-tester och 19 godkända webbläsarkontroller. Inget är publicerat. Dessa testresultat är rapporterade av den andra agenten, inte omkörda i denna chat.
-- Tidigare källor: **Edit trafexa-auto** och **Set up trafexa-auto** identifierades, men deras innehåll kunde inte hämtas under denna session. Läsning av tidigare ChatGPT-chattar svarade ”Too many requests”. Den fullständiga produktplanen är ännu inte återhämtad.
+- Företag, affär, dokument, mallversion och förväntade parter ska bindas av huvudappens verifierade serverkontext.
+- Bilköpeavtal och finanspartnerns kreditavtal hålls isär. Adaptern fattar inga kreditbeslut.
+- En undertecknares `form.completed` är inte hela uppdragets `submission.completed`.
+- Om ett POST-anrop kan ha nått leverantören men svaret försvinner måste utfallet hanteras som okänt. Inget automatiskt nytt signeringsuppdrag skickas.
+- Beständig dispatchledger, webhook-inbox, dokumentversion/checksumma och provider-ID-bindning behövs innan appen kan registrera signeringsstatus.
+- Nuvarande `documents` saknar signeringsstatus. Adaptern får därför inte skriva `signed` till dokument eller affär.
+- BankID, PDF-editor och provideraktivering följer sina separata integrations- och licenskontrakt.
 
-Planen är ett genomförandeunderlag med en blockerad produktavgränsning. Hela bilhandlarappen kan inte räknas som specificerad eller byggd förrän P0 och de relevanta leveranserna ovan är klara.
+DocuSeal, pdfme och pdf-lib kommer från originalplanens avtalsförslag. Exakt utgåva och driftmodell ska kontrolleras före aktivering; basic selfhost API och moln-/Pro-funktioner har olika villkor.
+
+## Finansieringsgränser
+
+Köpfinansiering av slutkundens bil och lagerfinansiering av handlarens fordon är två separata processer. Varje handlare behöver partnerns godkännande för den produkt som ska användas.
+
+Plattformen förbereder och hanterar ärenden enligt avtal. Finanspartnern är källa för kreditprövning, kreditbeslut, finansieringsvillkor och finansavtal. Gränssnittet ska skilja sparad förfrågan, väntan på partner och faktiskt partnerbeslut.
+
+Partneravtal ska precisera anslutning, ansvar, informationshantering, kanal, ersättning, återkrav och eventuellt garantiansvar. Kontakter och föreslagna samarbeten är inte aktiva integrationer. Regler, moms/VMB och avtalsvillkor ska baseras på aktuell dokumentation och verkligt upplägg.
+
+## Verifiering och drift
+
+Varje leverans knyts till commit, rätt testmiljö och konkret användarflöde. Tester för företagsisolering, roller, reservationer, pengar, dokumentbindning och dubbla integrationsevent prioriteras.
+
+| Kontroll | Bevis |
+| --- | --- |
+| Typkontroll och bygg | Den valda Next.js-appen och dess lockfil bygger reproducerbart |
+| Databastest | Verkliga queries verifierar RLS, grants, constraints och transaktioner |
+| Webbläsartest | En användare genomför flödet; felvägar och återhämtning fungerar |
+| Partner-/provideradapter | Kontrakt, autenticitet, dubbletter och okända utfall verifieras utan påhittade beslut |
+| Körbar preview | Samma commit testas med rätt projekt, miljövariabler och skydd |
+| Pilot | Riktig behörighet, verkliga partnerkanaler och återställning är kontrollerade |
+
+Driftinventeringen tidigare den 13 oktober visade att Vercel är inställt på Next.js men dåvarande huvudgren saknade paket/lockfil; preview misslyckades med `missing_lock_file`. Huvudappens Next.js-kod och matchande lockfil är därför del av den nödvändiga leveransen. Produktionssidan var fortfarande den äldre statiska webbplatsen vid kontrollen.
+
+Supabase, DocuSeal och andra providerhemligheter hålls på servern. SSO-/deploymentskydd bevaras. DNS för `app.trafexa.com` hanteras när en verifierad appdeployment finns.
+
+## Tidigare referensarbete och överlämning
+
+[Utkast-PR 2](https://github.com/heke99/trafexa-auto/pull/2) bevarar en isolerad sourcing-backend med 19 API-tester, 12 PostgreSQL-tester och 8 HTTP/databastester. Den byggdes innan originalplanen var åtkomlig och är referensarbete, inte den återhämtade handlarplattformens schema. Dess parallella företagstabeller ska inte migreras till **Trafexa dealer**.
+
+Denna chats aktuella kodspår för avtal ligger i `feat/docuseal-adapter-20261013`. Huvudagenten integrerar användbara moduler i sin befintliga app och verifierar dem mot samma företag, roller och affärsflöde.
+
+Kommunikation mellan chattarna sker här genom verifierade statusavläsningar och det gemensamma GitHub-underlaget. Ett publicerat underlag betyder inte automatiskt att den andra agenten har läst eller integrerat koden.
