@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node docuseal.test.mjs && node signing-state.test.mjs",
-    "typecheck": "tsc --project tsconfig.json"
+    "typecheck": "tsc --project tsconfig.json",
+    "test:all": "node verify-all.mjs"
   },
   "devDependencies": {
     "@types/node": "26.6.5",

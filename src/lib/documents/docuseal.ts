@@ -141,6 +141,11 @@ function createBody(input: DocuSealCreateInput): string {
   return body;
 }
 
+/** Validate a prepared provider payload without creating a client or doing I/O. */
+export function validateDocuSealCreateInput(input: DocuSealCreateInput): void {
+  createBody(input);
+}
+
 function submitter(value: unknown): DocuSealSubmitter {
   if (!object(value) || !SIGNER_STATUSES.includes(value.status as DocuSealSubmitter['status'])) return fail('invalid_response');
   return {

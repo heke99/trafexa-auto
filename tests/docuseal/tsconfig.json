@@ -6,8 +6,9 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["../../src/lib/documents/docuseal.ts", "../../src/lib/documents/signing-state.ts"]
+  "include": ["../../src/lib/documents/*.ts"]
 }

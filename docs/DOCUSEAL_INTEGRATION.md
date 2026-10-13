@@ -1,14 +1,14 @@
 # Trafexa Dealer avtalsintegration
 
-Denna leverans förbereder byggplanens fas 4 med ett serverbibliotek för DocuSeal och en ren domänmodell för signeringsuppdrag. Koden kan föras in i den befintliga Next.js-appen utan sourcing-tabellerna i PR #2. Den skickar inga verkliga uppdrag under testerna och ändrar ingen live databas.
+Denna leverans bygger serverdelen för byggplanens fas 4: autentiserad förberedelse, beständig signeringsledger, DocuSeal-worker, verifierade webhookar och privat arkivering. Koden kan föras in i den befintliga Next.js-appen utan sourcing-tabellerna i PR #2. Inga verkliga signeringsuppdrag eller live databasändringar ingår i denna leverans.
 
 ## Befintlig plattform som integrationen ska använda
 
 Supabase **Trafexa dealer**, projekt `buqdtssxrotkzndublrt`, har redan `companies`, `memberships`, `deals` och `documents`. Aktiva företag och medlemskap skyddas med RLS. Rollerna är `owner`, `admin`, `sales`, `finance`, `viewer`.
 
-`documents` innehåller ID, företag, eventuell affär, namn, objektväg, dokumenttyp och tidsstämpel. Objektvägen börjar med företagets UUID. Dokumentinsert kräver `owner/admin/sales`. Tabellen saknar signeringsstatus, mallversion, checksumma och providerbindning. `deals.status` tillåter endast `draft/reserved/cancelled` i den verifierade grunden.
+`documents` innehåller ID, företag, eventuell affär, namn, objektväg, dokumenttyp och tidsstämpel. Objektvägen börjar med företagets UUID. Dokumentåtkomst kräver nu `owner/admin/finance` enligt de verifierade policyerna. Tabellen saknar signeringsstatus, mallversion, checksumma och providerbindning. `deals.status` tillåter endast `draft/reserved/cancelled` i den verifierade grunden.
 
-Använd dessa befintliga företag och behörigheter. Skriv inte `signed` till befintliga dokument eller affärer. Beständig signeringsdata behöver ett separat, granskat migrationskontrakt innan funktionen aktiveras i appen.
+Använd dessa befintliga företag och behörigheter. Skriv inte `signed` till befintliga dokument eller affärer. Den additiva migrationen `supabase/migrations/20261013153150_signing_ledger.sql` tillför egna signerings-, dokumentversions-, mall- och inboxtabeller. [Databaskontraktet](../supabase/README_SIGNING.md) beskriver exakta RPC-argument, grants, RLS och övergångar. Migrationen ska ingå i huvudappens migrationsflöde innan funktionen aktiveras.
 
 ## Kodens ansvar
 
@@ -16,9 +16,13 @@ Använd dessa befintliga företag och behörigheter. Skriv inte `signed` till be
 | --- | --- |
 | `src/lib/documents/docuseal.ts` | Skapa submission från en befintlig mall, läsa providerstatus och verifiera/parsa signerade webhookar |
 | `src/lib/documents/signing-state.ts` | Validera låst jobbsnapshot, dispatchutfall, providerbindningar och tillåtna domänövergångar |
-| Main-appens kommande integration | Autentisering, RLS, persistent ledger/inbox, transaktioner, privata filer, HTTP-routes, UI och aktivering |
+| `src/lib/documents/signing-user.ts` | Verifiera Supabase-användare, läsa behörig företagskontext och förbereda jobb från servergodkänt renderunderlag |
+| `src/lib/documents/signing-store.ts` | Servertransport till ledger/RPC, strikt svarskontroll och stöd för moderna secret-nycklar |
+| `src/lib/documents/signing-worker.ts` | Verifiera faktiska käll- och mallbytes, atomär dispatch, beständig webhookhantering och arkivkontroll |
+| `src/lib/documents/signing-storage.ts` | Privat Supabase-lagring, tillåtna providerdownloads och verifierad återläsning av signerad PDF/revisionsbevis |
+| Main-appens integration | Godkänt offertrenderunderlag, faktisk providermalläsare, serverwrappers/routes, workerdrift, UI och aktivering |
 
-Modulerna skriver ingen databas eller appstatus. Importera dem bara från serverroutes eller workers. En Next.js-wrapper ska också använda `import 'server-only'` för att skydda gränsen vid bundling. Providerhemligheter får inte använda `NEXT_PUBLIC_`.
+Transporten och worker skriver till signeringsledgern; de ändrar inga dokument-, affärs- eller kreditstatusar. Importera modulerna bara från serverroutes eller workers. En Next.js-wrapper ska också använda `import 'server-only'` för att skydda gränsen vid bundling. Providerhemligheter och Supabase service/secret-nycklar får inte använda `NEXT_PUBLIC_`. Moderna `sb_secret_`-nycklar skickas som `apikey`, inte som JWT i Authorization; en verifierad användares access-token används vid förberedelse.
 
 ## Providertransport
 
@@ -55,30 +59,29 @@ En route läser råbody före JSON-tolkning. Om den först parsar och sedan seri
 
 ## Låst domänmodell
 
-Ett signeringsjobb håller en serverkontrollerad snapshot: lokalt jobbs-ID, företag, dokument, eventuell affär, dokumentversion, källfilens SHA-256, mall-ID och förväntade signer-ID:n.
+Ett signeringsjobb håller en serverkontrollerad snapshot: lokalt jobbs-ID, företag, dokument, eventuell affär, dokumentversion, källfilens SHA-256, mall-ID/version/hash och förväntade signer-ID:n. Det fullständiga signer-/fältpayloadet fryses separat mot den servergodkända dokumentversionen. En klient får inte ändra pris, parter eller andra renderfält efter godkännandet.
 
 Grundkedjan är:
 
 `prepared` → `dispatching` → `awaiting_signatures` → `awaiting_archive` → `completed`.
 
-Ett oklart utskick går till `outcome_unknown`. Det får bindas till ett avstämt provideruppdrag, men får inte startas om som en ny dispatch utan ett separat, beslutat återhämtningsflöde. Avböjda eller utgångna uppdrag följer sina egna terminala tillstånd.
+Ett oklart utskick går till `outcome_unknown`. Det får bindas till ett avstämt provideruppdrag, men får inte startas om som en ny dispatch utan ett separat, beslutat återhämtningsflöde. En säker provideravvisning blir terminal `dispatch_failed`. Avböjda eller utgångna uppdrag följer sina egna terminala tillstånd. Även en utgången dispatchlease spärrar omsändning. Unik dokumentversion hindrar dubbla uppdrag även om klienten genererar en ny idempotensnyckel.
 
 Providerbindningen kontrollerar den låsta kontexten och alla förväntade signer-ID:n. En delunderskrift registrerar högst den partens completion. Hela uppdragets completion väntar på arkivering; det färdigställs först när provider-ID, dokumentversion och källhash matchar och privat signerad PDF samt revisionsbevis har lagringsväg och checksumma.
 
 Domänmodellen validerar struktur och bindningar. Den kan inte bevisa att en fil faktiskt ligger i en privat bucket eller att data har sparats. Dessa bevis ska komma från worker och lagringsintegration. Sena eller dubbla händelser ska inte backa ett färdigt jobb eller öka dess version utan en verklig ändring.
 
-## Beständig integration som återstår i huvudappen
+## Koppling som återstår i huvudappen
 
-1. Kontrollera session, aktivt företag och dokumentroll med huvudappens befintliga serverkontext och RLS. Dokument och affär ska höra till samma företag, och dokumentradens `deal_id` ska matcha jobbets `dealId` exakt. Null-kopplingar kräver en beslutad dokumenttyp-/mallregel; bind inte dokumentet till en annan affär bara för att företaget matchar.
-2. Frys dokumentversion, källfil och mallkontrakt. Skapa en företagsbunden dispatchledger och förväntade signerbindningar i databasen.
-3. Ta uppdraget för dispatch med en atomär versionskontroll. Bara en worker får skicka det förberedda uppdraget.
-4. Spara verifierat provider-ID och partbindningar; hantera okänt utfall genom avstämning, inte blind retry.
-5. Verifiera webhooken, skriv till en beständig inbox och slå upp företaget via den lokala providerbindningen. Hantera okända submission-ID:n separat.
-6. Spara domänövergången med compare-and-set på jobbets version. Bokför dubbla events utan dubbla effekter.
-7. Hämta aktuell providerstatus och signerad PDF/revisionsbevis via betrodda provider-ID:n. Arkivera i privat företagslagring, verifiera sparandet och färdigställ därefter jobbet.
-8. Koppla en rättvisande UI till sparade tillstånd och verifiera hela flödet i preview.
+1. Applicera den granskade migrationen mot befintlig Dealer-grund, och behåll `owner/admin/finance` för dokumentåtkomst. Integrera inte PR #2:s separata företagsmodell.
+2. Koppla `TrustedApprovedRenderReader` till den befintliga offertens godkända, oföränderliga renderunderlag. PDF, parter och DocuSeal-fält ska produceras från samma snapshot. Reader måste kontrollera faktiska privata bytes och underlagets SHA-256. Kopiera aldrig requestfält till servergodkännandet. `purchase` får sakna affär; `contract` kräver exakt dokumentkopplad affär.
+3. Registrera företagets godkända provider-mall och dess version/hash genom service-RPC efter kontroll av owner/admin. Koppla workerns `TrustedTemplateSource` till faktiska, betrodda provider-mallbytes och fältschema. `hashSigningTemplate` binder kanoniskt fältschema och längdmarkerade PDF-bundlebytes; använd samma metod i registrering och läsning. SQL kan inte bevisa att en provider renderar semantiskt identiskt med offertunderlaget.
+4. Anropa användargränsen med verifierbar bearer-token och endast företag, dokument, dokumentversion, mall-ID och idempotensnyckel. Service-nyckeln får inte användas för att ersätta användarens RLS-kontroll. Återförberedelse av ett historiskt jobb ska bevara dess ursprungliga mallbindning.
+5. Koppla workerdrift och webhookroute: läs råbytes och `X-Docuseal-Signature`; ta emot till beständig inbox innan bearbetning. Lägg ett explicit avstämningsflöde runt `outcome_unknown` och quarantined events. Skapa aldrig nya uppdrag som automatisk återhämtning.
+6. Injicera serverns Supabase Storage-client i `createPrivateSigningStorage`. Bucket ska vara `dealer-documents` och privat. Konfigurera exakta godkända HTTPS-origins för providerfiler; standardvärdet tillåter inga downloads. Signed URLs får inte skickas till loggar eller obehöriga. Redirects blockeras och arkivobjekt skrivs med `upsert:false`; återförsök kräver exakt återlästa bytes.
+7. Koppla UI till sparade tillstånd och verifiera riktiga användarsessioner, privat lagringsåtkomst och providerflöde i preview före aktivering. Biblioteket och worker behöver uttryckligt `enabled:true`; låt integrationen vara avstängd tills dessa kopplingar finns.
 
-Returnerade signing-/download-URL:er kan bära åtkomsttoken och får inte loggas eller spridas till obehöriga. Download-URL:er kan vara kortlivade. Adaptern hämtar inte godtyckliga URL:er ur webhookpayload; en senare arkiveringsworker behöver egen betrodd downloadpolicy.
+Returnerade signing-/download-URL:er kan bära åtkomsttoken och får inte loggas eller spridas till obehöriga. Download-URL:er kan vara kortlivade. Arkivering hämtar endast filer från aktuell kontrollerad providerstatus; webhookmetadata styr aldrig downloads.
 
 Bilköpeavtal och finanspartnerns kreditavtal hålls åtskilda. DocuSeal-signering bevisar inte BankID-identifikation och ger inget kreditbeslut.
 
@@ -86,13 +89,14 @@ Bilköpeavtal och finanspartnerns kreditavtal hålls åtskilda. DocuSeal-signeri
 
 ```sh
 npm ci --prefix tests/docuseal
+npm ci --prefix tests/signing-ledger
 npm run typecheck --prefix tests/docuseal
-npm test --prefix tests/docuseal
+npm run test:all --prefix tests/docuseal
 ```
 
-Providertransporten testas med kontrollerad fetch och riktiga kryptoberäkningar. Domänmodellen testas med giltiga och manipulerade bindningar, okända utskick, delunderskrifter, dubbla callbacks och arkiveringsbevis. Inga verkliga provideruppdrag, signermejl, live webhookar eller databasändringar ingår i testerna.
+Providertransporten testas med kontrollerad fetch och riktiga kryptoberäkningar. Ledgern körs i lokal PGlite med riktiga PostgreSQL-roller, RLS, grants, triggers, transaktioner och RPC. Flödestester kopplar den faktiska service-transporten och worker till dessa SQL-funktioner genom en testadapter; provider och Storage SDK är kontrollerade fixtures. Inga verkliga provideruppdrag, signermejl, live webhookar eller hosted databasändringar ingår i testerna.
 
-Den framtida huvudappsintegrationen ska dessutom testas med två företag och två affärer inom samma företag: fel dokument-/affärskoppling, även inom rätt företag, ska stoppas före provideranrop. Databas-/lagringstester ska bevisa privat arkivåtkomst och atomär CAS/inboxhantering.
+Tester omfattar företagsisolering, dokument-/affärskoppling, signer-/prisförfalskning, mallbyte, deduplicering, konkurrerande workers, okänt utskick, delunderskrift, beständig inbox/CAS och privata filer med faktisk hashkontroll. Hosted Storage RLS och användarflödet i huvudappens webbläsare ska fortfarande verifieras vid integrationen.
 
 ## Officiella kontraktskällor
 
