@@ -2,6 +2,16 @@
 
 13 oktober 2026 • fortsättning på `codex/trafexa-dealer-continuation-20261013`
 
+## Personal och inbjudningar, 13 oktober
+
+Personalpanelen har företagsbunden teamlista, roll-/statusadministration, privata e-postbundna inbjudningar och återkallelse. Mottagarsidan `/invitations` fungerar utan befintligt företagsmedlemskap. Inbjudningar gäller sju dagar och accepteras uttryckligen efter verifierad Auth. Ingen ägarroll eller superadminroll kan delas ut; avstängda medlemskap reaktiveras inte genom inbjudan. Inga utgående inbjudningsmejl eller hemliga delningslänkar används. [COMPANY_TEAM](COMPANY_TEAM.md) beskriver användarflödet och kontrakten.
+
+Färsk verifiering: 210 appbeteenden passerar, inklusive 20 servergränstester, 13 navigationstester och åtta riktiga Chromiumfall för team/mottagare, mobilvy och Strict Mode. 13 PostgreSQL/PGlite-grupper kontrollerar faktisk migrationskedja, behörigheter, utgång, återförsök och fristående hosted-grund utan pending signering/arkiv. Bygge och TypeScript passerar. Shared Auth-radlås och slutlig väggklockekontroll skyddar acceptans; verklig multi-connection-låsväntan är fortsatt inte bevisad av PGlite.
+
+Hosted `20261013192237_company_team` är applicerad efter verifierad migrationshash `11e5b2c9b051f2c3f136edf75ce0bb16eaf4ffd697348aa24585076e3a49cddf`. Hosted rollbacktest verifierar RPC-/tabellgränser, normaliserad inbjudan, identiskt återförsök och ägarskydd. Efterkontrollen visar noll testkonton/företag och noll kvarvarande testinbjudningar eller auditposter. Advisors visar avsiktliga privata RLS-listor utan direkt användarpolicy; inga nya säkerhetsvarningar. Det tidigare avstängda [läckta-lösenordskyddet](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) och informationsnotiserna om nya oanvända index kvarstår.
+
+Verifierad föregående main/produktion efter [PR #6](https://github.com/heke99/trafexa-auto/pull/6): `4711726afe1591e50a1e0b9551be0c55eb25db5c`, deployment `dpl_8dZBvac1KYRqhpZGAadyr2cnfNzG`, `READY`, target production, `arn1`, app/www/apex-alias. Native fetch av publik webb gav 200 med rätt kontaktadress utan synlig pilottext; `/admin` gick till login med `next=/admin` och registrering bevarade samma returväg. Den nya personalleveransens release verifieras separat i PR/deployment. Full autentiserad produktions-CRUD är fortfarande inte verifierad.
+
 ## Produktpresentation och plattformsadministration, 13 oktober
 
 Publika texter och handlararbetsytans synliga pilotmarkeringar är ersatta med Trafexa Dealer och tydliga beskrivningar av lager, CSV-import, kalkyl, CRM, offerter, reservationer och privata dokument. Företagets kontaktadress är `info@trafexa.com`. Fiktiva exempel och verkliga krav på externa anslutningar är fortsatt tydliga. Produktgodkännanden visas som sådana, utan att påstå att en finanskanal är aktiv.
@@ -14,7 +24,7 @@ Färsk lokal verifiering: 169 appbeteenden passerar, inklusive tre Chromiumkontr
 
 Advisors efter DDL: privata adminregister och revisionslistor har avsiktligt RLS utan användarpolicyer, med all direkt klientåtkomst indragen. [RLS-lintens beskrivning](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy). Auths befintliga [läckta-lösenordskydd](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) är avstängt; detta är inte ändrat i denna leverans. Oanvända index är informationsnotiser vid denna nya databas och tas inte bort utan faktisk lastmätning.
 
-## Hur status ska läsas
+## Hur historisk status ska läsas
 
 Bygggrunden är återhämtad från originalarbetet och fortsättningen har lagt till finansåtkomst, företagskontext, reservationsutgång, import, kostnader, CRM, offertversion/PDF och ett avstängt signeringsbibliotek. PR #4:s 107/107 beteenden, 11/11 filsviter, 7/7 live-SQL-regressioner och PDF-fonttrace behålls som historisk verifiering. Efterföljande PR #5/main `7fc833f` har färsk rootkörning PASS 137/137 och bygge inklusive TypeScript, 14 sidor, ny dokument-PDF-route och fonttrace. Alla åtta migrationer har verifierats genom live-readback och databastyper har regenererats efter CRM. Tidigare lokal produktionsbrowser passerade 31/31 och samlad utvecklings-/mock-/produktions-QA 182/182; dessa är historiska resultat och har inte räknats om efter slutfixarna. PR #4 är faktiskt mergad till `main` med verifierad checkpoint `db7143` och identiskt tree med den testade implementationen. Historiska previewbevis bevaras. Historisk PR #4-produktion är verifierad `READY` och aktuell PR #5-produktion anges separat nedan; full auth och autentiserad CRUD genom produktionsgränssnittet är ännu inte verifierad.
 
@@ -27,7 +37,7 @@ Den tidigare statiska Trafexa-sajtens formulärkontroller hör till en annan kod
 | Repository | `heke99/trafexa-auto`; denna branch fortsätter dealerappen som ersätter gamla sajten. |
 | Vercel | Projekt `prj_zWks8Qd6m9ijWdu3tzid9RJlGgGE`, team `team_e3htkJPyBNSw3Ix1KQLlf180`; källkonfiguration Next.js och `arn1`. |
 | Supabase | Trafexa Dealer, `buqdtssxrotkzndublrt`, Stockholm / `eu-north-1`; livekontroll bekräftar `ACTIVE_HEALTHY`. |
-| Migrationer | Åtta applied-versioner bekräftade: tre grundmigrationer samt finansåtkomst `20261013151347`, reservationsutgång `20261013151355`, lagerimport `20261013152832`, offertversioner `20261013154317` och CRM `20261013160452`. |
+| Migrationer | Tio applied-versioner bekräftade: team `20261013192237`, plattformsadmin `20261013184149`, tre grundmigrationer samt finansåtkomst `20261013151347`, reservationsutgång `20261013151355`, lagerimport `20261013152832`, offertversioner `20261013154317` och CRM `20261013160452`. |
 | Domäner | Readback bekräftar `trafexa.com`, `www.trafexa.com` och `app.trafexa.com` som verifierade i Vercel. Ingen DNSmutation; appens faktiska HTTP-/authflöde kontrolleras vid publicering. |
 | Uppdrag | Originalchatten `01a13504-1d80-7611-92e8-9076ccf7605d`, användarturn `01a13554-497f-7729-abd7-e91341e8105c`, godkänner ersättningen av gamla sajten och byggandet i befintliga Trafexa Auto-resurser. |
 
@@ -39,7 +49,7 @@ Den tidigare statiska Trafexa-sajtens formulärkontroller hör till en annan kod
 | Pull request | [PR #4](https://github.com/heke99/trafexa-auto/pull/4), mergad till `main`. |
 | Main-commit | `db7143cd633a2cee07457295fac8a75132e7352d` |
 | Tree | `c12c75a8ce303aa7c26428334ad40dc7f00fe3b1`, identisk med testad implementation `403776131d3680e6f42aee566627fc2f9ab7f976`. |
-| Lokal avstämning | Historisk PR #4-checkpoint; arbetskopian står därefter på aktuell main `7fc833f`. |
+| Lokal avstämning | Historisk PR #4-checkpoint; arbetskopian står därefter på den historiska main-checkpointen `7fc833f`. |
 | Produktion | `dpl_8Z69TvzBVQVeVeKDwrUfAYjJUzWY`, `READY`, target `production`, rätt projekt och `arn1`, för ovanstående commit/tree. |
 | Deployment-URL | [trafexa-auto-6uva9o390-div3rsa.vercel.app](https://trafexa-auto-6uva9o390-div3rsa.vercel.app) |
 | Produktionsalias | `app.trafexa.com`, `www.trafexa.com` och `trafexa.com`. |
@@ -48,11 +58,11 @@ Den tidigare statiska Trafexa-sajtens formulärkontroller hör till en annan kod
 | Canonical redirect | `trafexa.com/` gav 308 till `https://www.trafexa.com/`; beviset innehåller ingen shareparameter. |
 | Täckningsgräns | Full auth/remote CRUD är inte verifierad och inga verkliga authmejl skickades. |
 
-## Aktuell main/produktion efter PR #5
+## Historisk main/produktion efter PR #5
 
-Aktuell main efter [PR #5](https://github.com/heke99/trafexa-auto/pull/5) är `7fc833f643a488b8af34bb950df22769e99be32b`, tree `89d9774a25c13f3197c5b9d09668baa05dbbe50f`. Produktion `dpl_6vcexX8f1Jw5mWPyYLzpFSd6g1sS` är `READY`, target `production`, rätt projekt/`arn1` och alias app/www/apex: [deployment](https://trafexa-auto-h8cvlrqe0-div3rsa.vercel.app). Native lagerdemo gav 200, ”Fordonslager” och exakt detta deployment-ID. Extern browseranslutning blockerades med CONNECT 403 före appkontroller: noll genomförda checks. Färsk rootkörning av denna main passerar 137/137 beteenden och produktionsbygge inklusive TypeScript, 14 sidor och ny dokument-PDF-route. Fonttrace PASS omfattar offert-PDF, demo- och dealer-page samt nya archive-actionens användning. Sex lokala Chromium-harnessfall ingår i totalsviten och är inte extern produktionsbrowser.
+Historisk main-checkpoint efter [PR #5](https://github.com/heke99/trafexa-auto/pull/5) är `7fc833f643a488b8af34bb950df22769e99be32b`, tree `89d9774a25c13f3197c5b9d09668baa05dbbe50f`. Produktion `dpl_6vcexX8f1Jw5mWPyYLzpFSd6g1sS` är `READY`, target `production`, rätt projekt/`arn1` och alias app/www/apex: [deployment](https://trafexa-auto-h8cvlrqe0-div3rsa.vercel.app). Native lagerdemo gav 200, ”Fordonslager” och exakt detta deployment-ID. Extern browseranslutning blockerades med CONNECT 403 före appkontroller: noll genomförda checks. Färsk rootkörning av denna main passerar 137/137 beteenden och produktionsbygge inklusive TypeScript, 14 sidor och ny dokument-PDF-route. Fonttrace PASS omfattar offert-PDF, demo- och dealer-page samt nya archive-actionens användning. Sex lokala Chromium-harnessfall ingår i totalsviten och är inte extern produktionsbrowser.
 
-Livekontroll bekräftar fortsatt åtta applicerade migrationer. PR #5:s två nya lokala migrationer är inte hosted-applicerade och servicekey för ny arkivregistrering saknas. Signeringsprovider och workerdispatch förblir tvingat `enabled:false`; hosted arkivering/signering är inte aktiverad. PR #5:s egna integrationsunderlag och verifieringar bevaras separat och testsummorna adderas inte som unika fall.
+Vid PR #5 bekräftade livekontrollen åtta applicerade migrationer. PR #5:s två nya lokala migrationer är inte hosted-applicerade och servicekey för ny arkivregistrering saknas. Signeringsprovider och workerdispatch förblir tvingat `enabled:false`; hosted arkivering/signering är inte aktiverad. PR #5:s egna integrationsunderlag och verifieringar bevaras separat och testsummorna adderas inte som unika fall.
 
 ## Verifierade preview-checkpoints
 

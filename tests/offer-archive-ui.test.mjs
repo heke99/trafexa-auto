@@ -35,6 +35,7 @@ before(async () => {
       'next/link': unrelated,
       [resolve(repo, 'src/components/stock-import')]: unrelated,
       [resolve(repo, 'src/components/customer-leads')]: unrelated,
+      [resolve(repo, 'src/components/company-team')]: unrelated,
     } },
     module: { rules: [{ test: /\.tsx?$/, use: resolve(helpers, 'swc-loader.cjs') }] },
   };
