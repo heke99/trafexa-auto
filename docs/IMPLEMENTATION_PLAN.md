@@ -23,7 +23,7 @@ Arkivgrenens namn etablerar inte vilka funktioner den nya appen ska ha. Vercelin
 | Arbetsägare | Leverans | Filansvar eller gräns | Status |
 | --- | --- | --- | --- |
 | Befintlig byggagent i **Fortsätt Trafexa Auto-planen** | Webbplats, robust formulär och API samt tillhörande tester | `index.html`, `script.js`, `styles.css`, `api/inquiry.js` och egna tester | Lokala fixar rapporterade klara; inget publicerat |
-| Kravagent i denna chat | Återhämtade användarbeslut från tidigare Trafexa-chattar med källor | Läser historik; ändrar ingen kod | Historikläsning pågår |
+| Kravagent i denna chat | Återhämtade användarbeslut från tidigare Trafexa-chattar med källor | Läser historik; ändrar ingen kod | Undersökning klar; tidigare produktkrav kunde inte hämtas |
 | Kartläggningsagent i denna chat | Teknisk inventering, luckor och acceptanskriterier | Läser projektet; ändrar ingen kod | Inventering klar |
 | Samordnare i denna chat | Denna plan, prioritering och underlag för överlämning | `docs/IMPLEMENTATION_PLAN.md` | Planutkast |
 | Framtida plattformsagent | Appgrund, konton och datalagring om produktplanen kräver detta | Separat gren; filansvar fastställs efter vald arkitektur | Väntar på produktkrav |
@@ -108,6 +108,6 @@ Denna plans existens betyder inte att den andra agenten har tagit emot den. Inge
 - Repo: [heke99/trafexa-auto](https://github.com/heke99/trafexa-auto).
 - Teknisk utgångspunkt: [commit e37c57c](https://github.com/heke99/trafexa-auto/tree/e37c57c18f0848368bc184e89aab0e587083df6a).
 - Byggarbete: chatten **Fortsätt Trafexa Auto-planen**. Slutrapporten anger lokala formulär- och API-fixar samt 16 godkända API-tester och 19 godkända webbläsarkontroller. Inget är publicerat. Dessa testresultat är rapporterade av den andra agenten, inte omkörda i denna chat.
-- Historik som undersöks: **Edit trafexa-auto**, **Set up trafexa-auto** samt tidigare Trafexa-chattar. Den fullständiga produktplanen är ännu inte återhämtad.
+- Tidigare källor: **Edit trafexa-auto** och **Set up trafexa-auto** identifierades, men deras innehåll kunde inte hämtas under denna session. Läsning av tidigare ChatGPT-chattar svarade ”Too many requests”. Den fullständiga produktplanen är ännu inte återhämtad.
 
 Planen är ett genomförandeunderlag med en blockerad produktavgränsning. Hela bilhandlarappen kan inte räknas som specificerad eller byggd förrän P0 och de relevanta leveranserna ovan är klara.
