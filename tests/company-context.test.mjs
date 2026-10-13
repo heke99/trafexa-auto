@@ -266,7 +266,7 @@ test('dealer route renders the stale-company chooser and redirects other, no-act
     await assert.rejects(render('not-a-section'), /NOT_FOUND/);
   });
   await h.request(fixture({ memberships: [] }), async () => assert.equal(await redirected(() => render('settings')), '/onboarding'));
-  await h.request(fixture({ user: null }), async () => assert.equal(await redirected(() => render('inventory')), '/login'));
+  await h.request(fixture({ user: null }), async () => assert.equal(await redirected(() => render('inventory')), '/login?next=/inventory'));
 });
 
 test('actual settings markup with null membership offers every active company for explicit selection and no active/edit badge', async () => {

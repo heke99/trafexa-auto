@@ -4,3 +4,6 @@ export function StockImport() { return null; }
 export function CustomerLeads() { return null; }
 
 export function CompanyTeam() { return null; }
+export function VehicleCalculation() { return null; }
+export function VehiclePhotoGallery() { return null; }
+export function AdvertisingWorkspace() { return null; }

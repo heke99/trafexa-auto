@@ -1,6 +1,18 @@
 # Trafexa Dealer
 
-Trafexa är ett arbetsverktyg för bilhandlare med fordonslager, kunder, affärer och dokument. Den publika webbplatsen finns på `www.trafexa.com`, med omdirigering från `trafexa.com`; handlarappen finns på `app.trafexa.com`. Projektet använder Next.js App Router, React, TypeScript och Supabase för autentisering, Postgres och privata dokument.
+Trafexa är ett arbetsverktyg för bilhandlare med fordonslager, fordonskalkyler, kunder, affärer, dokument och annonsutkast. Den publika webbplatsen finns på `www.trafexa.com`, med omdirigering från `trafexa.com`; handlarappen finns på `app.trafexa.com`. Projektet använder Next.js App Router, React, TypeScript och Supabase för autentisering, Postgres och privata dokument.
+
+## Annonskonto, fordonsbilder och kalkyl
+
+Den aktuella leveransen från main `0604605` implementerar interna annonsutkast, privata fordonsbilder och exakt fordonskalkyl. Annonskonto hämtar pris och fordonsuppgifter från lagret, sparar versionsbundna underlag och kräver granskning före ett möjligt kanalutskick. Registreringsnummer delas endast efter uttryckligt val; VIN och företagets interna inköps-/kunduppgifter ingår aldrig. Sparat, köat, inskickat och publicerat är olika tillstånd.
+
+JPEG/PNG/WebP avkodas och återkodas med `sharp` i samma format utan bildmetadata. Gränserna är 10 MiB och 20 bilder per bil. Original lagras i privat `ads-vehicle-photos`; läsning går genom autentiserade företagskontrollerade routes. Om uppladdning lyckas men registrering misslyckas behålls det privata objektet för avstämning/identiskt återförsök. Ingen användar-DELETE eller automatisk orphan-städning är aktiverad. Arkivering bevarar äldre annonsversioners underlag; retention kräver separat driftbeslut. Exportobjekt behålls också privat utan automatisk städning; en åtkomstlänks utgång raderar inte själva filen.
+
+Fordonskalkylen läser serverns exakta belopp som heltalsören och skiljer bekräftat nollavdrag från saknat underlag. Vanlig moms och individuell VMB använder explicita avdrags-/tillämpningsunderlag; VMB räknas på positiv försäljning-minus-fordonsinköp, utan att reparationskostnader minskar VMB-marginalen. Resultat efter moms visas först när underlaget är komplett. Detta är en fordonskalkyl, inte bokföring eller momsdeklaration.
+
+**Blocket och Wayke är förberedda och inaktiva.** Partneråtkomst saknas och inga externa annonser, workers eller heartbeat-jobb aktiveras. Anslutningsformuläret tar bara icke-hemlig kontoreferens och registrerar en förfrågan. Blocketprototypen behöver beständig extern leveransrevision, CREATE/UPDATE-kontrakt och korrelerat publiceringsbevis; Waykes skrivkontrakt återstår. Den implementerade, avstängda [exportbridgen](src/lib/vehicle-photos/export-media.ts) hämtar faktiska privata bytes, normaliserar dem och återläser den separata privata bucketen `ads-export-media` med SHA-256-kontroll innan en partnerlänk får skapas. Originalbucketens objekt blir aldrig externa medielänkar. Bridgen kräver uttrycklig aktivering och en injicerad betrodd serverklient; inga credentials läses in av den. WebP konverteras inte till JPEG. Se [providerkontraktet](docs/ADVERTISING_INTEGRATIONS.md) och [aktuella bevis](docs/IMPLEMENTATION_STATUS.md).
+
+Hosted-migrationerna `20261013212215_vehicle_calculations` och `20261013212229_advertising` är nu applicerade enligt samordnarens verifierade readback. Katalogkontrollen bekräftar privata bild-/exportbucketar, noll verifierade kanalanslutningar och noll registrerade dispatchers. Appdeployment och autentiserat användarflöde verifieras separat; databasmigrationerna aktiverar inga externa kanaler.
 
 ## Personal och plattformsadministration
 
@@ -8,7 +20,7 @@ Företagets ägare och administratörer hanterar personal, adressbundna inbjudni
 
 Trafexas separata plattformsadministration finns på `/admin`. Kontaktadressen är `info@trafexa.com`; den användargodkända superadminadressen är `hekmat.h@trafexa.com`. Företagsroller ger ingen plattformsåtkomst. [Adminflödet](docs/PLATFORM_ADMIN.md) beskriver verifierad aktivering och privat UUID-lista.
 
-PR #6 är verifierad på main `4711726afe1591e50a1e0b9551be0c55eb25db5c` och produktion `dpl_8dZBvac1KYRqhpZGAadyr2cnfNzG` (`READY`, `arn1`, rätt app/www/apex-alias). Den aktuella personalleveransens lokala 210 apptester, 13 databastestgrupper och produktionsbygge passerar. Hosted Supabase har tio migrationer inklusive `20261013184149_platform_admin` och `20261013192237_company_team`; live rollbacktest för teamets behörigheter och återförsök passerar utan kvarvarande testdata. De äldre signerings-/arkivmigrationerna är fortsatt pending. Ny publicering får ett separat verifierat PR-/deploymentbevis.
+PR #6 är verifierad på main `4711726afe1591e50a1e0b9551be0c55eb25db5c` och produktion `dpl_8dZBvac1KYRqhpZGAadyr2cnfNzG` (`READY`, `arn1`, rätt app/www/apex-alias). Den aktuella personalleveransens lokala 210 apptester, 13 databastestgrupper och produktionsbygge passerar. Vid personalcheckpointen hade hosted Supabase tio migrationer inklusive `20261013184149_platform_admin` och `20261013192237_company_team`; live rollbacktest för teamets behörigheter och återförsök passerar utan kvarvarande testdata. De äldre signerings-/arkivmigrationerna är fortsatt pending. Ny publicering får ett separat verifierat PR-/deploymentbevis.
 
 ## Återhämtning och uppdrag
 
@@ -80,6 +92,9 @@ SQL-regressionerna i `supabase/tests/` täcker företagsisolering, privat lagrin
 | Handlargränssnitt | `src/components/dealer-workspace.tsx`, `src/app/(dealer)/[section]/page.tsx` |
 | Företagskontext, data och serveråtgärder | `src/lib/data/` |
 | CSV-import och förhandsgranskning | `src/components/stock-import.tsx`, `src/lib/data/import-actions.ts`, `src/lib/data/stock-import.mjs` |
+| Annonskonto och kanalanslutningar | `src/components/advertising-workspace.tsx`, `src/components/channel-connections.tsx`, `src/lib/advertising/` |
+| Privata fordonsbilder | `src/components/vehicle-photo-gallery.tsx`, `src/lib/vehicle-photos/`, `src/app/api/vehicle-photos/` |
+| Exakt fordonskalkyl | `src/components/vehicle-calculation.tsx`, `src/lib/calculations/`, `src/lib/data/calculation-actions.ts` |
 | Kundförfrågningar/CRM | `src/components/customer-leads.tsx`, `src/lib/data/lead-actions.ts` |
 | Offertversioner och PDF | `src/components/deal-offers.tsx`, `src/lib/data/offer-actions.ts`, `src/lib/documents/offer-pdf.ts`, `src/app/api/offers/[offerId]/pdf/route.ts` |
 | Avstängt signeringsbibliotek | `src/lib/signing/`; appimport via `src/lib/signing/server.ts` |
@@ -96,7 +111,7 @@ Företagskontexten hämtar verifierad användare och aktuella aktiva medlemskap 
 
 Kundsektionens förfrågningar laddas först när panelen öppnas, med 50 poster per sida och företagskontrollerad sidmarkör. Kontakt och lead skapas tillsammans; e-post eller telefon krävs. Ägare, administratör och säljare kan skapa och ändra status; finans- och läsroller har läsåtkomst inom företaget. Status sparas endast om tidigare status fortfarande matchar. Oförändrat underlag och samma UUID kan återförsökas inom sju dagar, med högst 1000 intagskvitton per företag. Fält och begäransreferens behålls vid fel; inga externa meddelanden skickas av CRM-intaget.
 
-CSV-import har kolumnmappning, radfel, serverkontrollerade dubbletter och transaktionell import med stabil begäransreferens. Gränserna är 1 MiB och 500 fordon per fil. Fordonskostnader kan registreras och visas tillsammans med lagerposten. Momsmodell och kostnadssammanställning utgör inte fullständig bokföring eller VMB-beräkning.
+CSV-import har kolumnmappning, radfel, serverkontrollerade dubbletter och transaktionell import med stabil begäransreferens. Gränserna är 1 MiB och 500 fordon per fil. Fordonskostnader kan registreras och visas tillsammans med lagerposten. Den nya fordonskalkylen beräknar vanlig moms och individuell VMB från explicit bekräftat underlag. Kostnadssammanställning och kalkyl utgör inte fullständig bokföring eller momsredovisning.
 
 Offertflödet sparar oföränderliga versioner av företag, kund, bil, pris, villkor och giltighet. Säljaren måste uttryckligen bekräfta prisgrund som totalpris inklusive eventuell moms. Samma begäransreferens och underlag kan återförsökas utan ny version. Historiken hämtas vid behov med sidindelning; en autentiserad användare i rätt företag kan hämta en PDF från det sparade underlaget. Offertversionen skickas inte automatiskt till kund eller partner och är inget signerat köpeavtal. Mallbyggare, kundaccept, signering och bevisarkiv återstår. Handlarnätverket är ännu inte öppet för publicering. Bokföring, leverans, kreditlimit och lagerlösen är kommande faser.
 

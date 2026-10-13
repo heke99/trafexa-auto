@@ -1,4 +1,4 @@
-export const WORKSPACE_SECTIONS = ['dashboard', 'inventory', 'customers', 'deals', 'finance', 'network', 'documents', 'settings'];
+export const WORKSPACE_SECTIONS = ['dashboard', 'inventory', 'customers', 'deals', 'finance', 'network', 'documents', 'settings', 'advertising'];
 export function isWorkspacePath(path) {
   return WORKSPACE_SECTIONS.some(section => path === `/${section}` || path.startsWith(`/${section}/`));
 }

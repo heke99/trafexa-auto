@@ -32,10 +32,14 @@ before(async () => {
     entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js' },
     resolve: { extensions: ['.tsx', '.ts', '.js'], alias: {
       '@/lib/data/offer-actions': actions, '@/lib/data/offer-archive-actions': actions, '@/lib/data/actions': actions,
+      '@/lib/calculations/vehicle-calculation': resolve(repo, 'src/lib/calculations/vehicle-calculation.ts'),
       'next/link': unrelated,
       [resolve(repo, 'src/components/stock-import')]: unrelated,
       [resolve(repo, 'src/components/customer-leads')]: unrelated,
       [resolve(repo, 'src/components/company-team')]: unrelated,
+      [resolve(repo, 'src/components/vehicle-calculation')]: unrelated,
+      [resolve(repo, 'src/components/vehicle-photo-gallery')]: unrelated,
+      [resolve(repo, 'src/components/advertising-workspace')]: unrelated,
     } },
     module: { rules: [{ test: /\.tsx?$/, use: resolve(helpers, 'swc-loader.cjs') }] },
   };
