@@ -4,7 +4,11 @@ Trafexa är ett arbetsverktyg för bilhandlare med fordonslager, kunder, affäre
 
 ## Återhämtning och uppdrag
 
-Denna bygggrund har återhämtats från det tidigare arbetet och fortsätter på `codex/trafexa-dealer-continuation-20261013`. Fortsättningen har lagt till finansåtkomst, företagskontext, reservationsutgång, CSV-import, fordonskostnader, CRM-intag, offertversion/PDF och ett avstängt signeringsbibliotek. Typkontroll, 99 Node-beteendetester, nio filsviter via `npm test`, sju SQL-regressioner och produktionsbygge har passerat. Lokal produktion passerar 31 browserkontroller; samlad utvecklings-/mock-/produktions-QA är 182/182. UI-harness använder mockade serveråtgärder, och autentiserad CRUD genom produktionsgränssnittet är ännu inte verifierad. GitHubgranskning och Vercelpreview förbereds; ingen ny deployment eller publicerad URL är bekräftad. Exakta kommandon, resultat och begränsningar finns i [IMPLEMENTATION_STATUS](docs/IMPLEMENTATION_STATUS.md).
+Denna bygggrund har återhämtats från det tidigare arbetet och fortsätter på `codex/trafexa-dealer-continuation-20261013`. Fortsättningen har lagt till finansåtkomst, företagskontext, reservationsutgång, CSV-import, fordonskostnader, CRM-intag, offertversion/PDF och ett avstängt signeringsbibliotek. Typkontroll, 99 Node-beteendetester, nio filsviter via `npm test`, sju SQL-regressioner och produktionsbygge har passerat. Lokal produktion passerar 31 browserkontroller; samlad utvecklings-/mock-/produktions-QA är 182/182. UI-harness använder mockade serveråtgärder, och autentiserad CRUD genom produktionsgränssnittet är ännu inte verifierad. [Draft-PR #4](https://github.com/heke99/trafexa-auto/pull/4) har en verifierad [Vercelpreview](https://trafexa-auto-304mxzp8h-div3rsa.vercel.app) med status `READY`; `main` och produktion är ännu inte ersatta av denna preview. Exakta kommandon, resultat och begränsningar finns i [IMPLEMENTATION_STATUS](docs/IMPLEMENTATION_STATUS.md).
+
+Previewn gäller commit `cf953d4078c047efefe3da1674a989ad571eea52`, tree `a204d647a4d81fa5d6f26f67c57165afa3ac1d0c` och deployment `dpl_GveGscnZV3szkXC3xwgYKJNbtkst` i rätt projekt/team, region `arn1`. Byggloggar bekräftar `npm ci` med 73 installerade paket på sex sekunder, följt av `npm run build` och `READY`. Skyddad fetch bekräftar HTTP 200 för lagerdemo, kunddemo/CRM och inloggning. Den verifierar inte autentiserad remote-CRUD eller PDF-hämtning: PDF-anropet rapporterade 401 men åtkomstverktyget klassade svaret som deploymentautentisering och lämnade inte ut body.
+
+Denna dokumentuppdatering och låsningen till Node.js `24.x` i `package.json`/lockfilen ska ingå i nästa commit/preview. De ingår inte i ovanstående verifierade deployment; nästa deployment är ännu inte bekräftad `READY`.
 
 Användaren godkände att den gamla webbplatsen skulle ersättas och att handlarappen skulle byggas i befintliga Trafexa Auto-resurser. Originalkällan är chatten `01a13504-1d80-7611-92e8-9076ccf7605d`, användarturn `01a13554-497f-7729-abd7-e91341e8105c`: ”du kan även radera hela hemsidan vi har idag på trafexa och börja om på nytt” och ”ta bort all kod i trafexa auto och börja bygg där”. Samma uppdrag angav Supabase-projektet Trafexa Dealer och önskade ett genomarbetat gränssnitt. Användaren angav senare att `app.trafexa.com` finns hos Strato och bad om parallellt agentarbete. Fortsättningen omfattar repository och publicering i det befintliga projektet; externa finans- och signeringstjänster behöver fortfarande sina faktiska integrationsunderlag.
 
@@ -19,7 +23,7 @@ Användaren godkände att den gamla webbplatsen skulle ersättas och att handlar
 
 ## Köra lokalt
 
-Använd Node.js 22 eller senare och projektets låsta beroenden:
+Använd Node.js `24.x` och projektets låsta beroenden. Den lokala verifieringsmaskinen kör `24.19.0`. Majorversionen är låst i `package.json` och lockfilen för att undvika en framtida automatisk majoruppgradering på Vercel:
 
 ```bash
 npm ci
@@ -78,7 +82,7 @@ Offertflödet sparar oföränderliga versioner av företag, kund, bil, pris, vil
 
 DocuSeal-transport och signeringsmodell har integrerats som avstängda serverbyggdelar från PR #3, med mockade tester. Applikationswrappern tvingar skapande till `enabled: false`; inga providercredentials, routes, webhookmottagare, utskick eller beständigt signeringsflöde är kopplade. [DOCUSEAL_INTEGRATION](docs/DOCUSEAL_INTEGRATION.md) beskriver ursprung och de återstående stegen. Sourcingmodellen från PR #2 har inte kopierats: appens befintliga `companies` och `memberships` är fortsatt organisationsmodell.
 
-Reservationsutgång hanteras atomiskt när ny affär skapas eller en bil reserveras; det gamla affärsutkastet och lagerposten frigörs med bevarad historik. Ingen schemalagd bakgrundskörning är aktiv. Förslaget [reservation_expiry_schedule.sql](docs/proposals/reservation_expiry_schedule.sql) ligger utanför migrationskatalogen: automatisk godkännandegranskning avvisade installation av permanent `pg_cron` och minutvisa produktionsmutationer. Förslaget behöver separat godkännande före aktivering; utgången reservation kan därför ligga kvar i liststatus fram till nästa relevant lageroperation.
+Reservationsutgång hanteras atomiskt när ny affär skapas eller en bil reserveras; det gamla affärsutkastet och lagerposten frigörs med bevarad historik. Ingen schemalagd bakgrundskörning är aktiv. Förslaget [reservation_expiry_schedule.sql](docs/proposals/reservation_expiry_schedule.sql) ligger utanför migrationskatalogen: automatisk godkännandegranskning avvisade installation av permanent `pg_cron` och minutvisa produktionsmutationer. Separat godkännandefråga är fortfarande obesvarad och förslaget är inte applicerat; utgången reservation kan därför ligga kvar i liststatus fram till nästa relevant lageroperation.
 
 `vercel.json` använder Next.js och region `arn1`. Domänrouting skiljer publik webb från handlarapp; appdomänens rot leder mot `/dashboard`, och skyddade sidor kräver session och företagskontext. Appen ersätter den tidigare statiska webbplatsen som ett sammanhängande Next.js-projekt. Publicering måste verifiera både den publika sidan och handlarappen.
 

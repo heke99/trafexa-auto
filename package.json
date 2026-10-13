@@ -22,7 +22,7 @@
     "zod": "4.1.12"
   },
   "engines": {
-    "node": ">=22"
+    "node": "24.x"
   },
   "devDependencies": {
     "@playwright/test": "1.64.0",
