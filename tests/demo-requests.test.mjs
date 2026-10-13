@@ -12,7 +12,7 @@ const hook = registerHooks({
 const { POST } = await import('../src/app/api/demo-requests/route.ts');
 hook.deregister();
 
-const ENV_KEYS = ['NODE_ENV', 'NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'NEXT_PUBLIC_SITE_URL', 'VERCEL_URL'];
+const ENV_KEYS = ['NODE_ENV', 'NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'NEXT_PUBLIC_SITE_URL', 'VERCEL_URL', 'VERCEL_BRANCH_URL'];
 const valid = { name: ' Test Buyer ', company: 'Test Dealer', email: 'buyer@example.com', phone: '+46 123456', message: 'Help with inventory', website: '' };
 let savedEnv, calls, provider;
 beforeEach(t => {
@@ -22,6 +22,7 @@ beforeEach(t => {
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_mock_for_tests_only';
   process.env.NEXT_PUBLIC_SITE_URL = 'https://trafexa.com';
   process.env.VERCEL_URL = 'trafexa-preview.test.invalid';
+  process.env.VERCEL_BRANCH_URL = 'trafexa-git-preview-team.vercel.app';
   calls = [];
   provider = async () => new Response(null, { status: 204 });
   t.mock.method(globalThis, 'fetch', async (url, options) => {
@@ -81,6 +82,23 @@ test('untrusted origins and unsupported content types never call the database', 
   for (const origin of ['http://localhost:3000', 'http://127.0.0.1:3000', 'https://trafexa-preview.test.invalid']) {
     assert.equal((await request(valid, { headers: { origin } })).status, 201);
   }
+});
+
+test('production accepts only the configured unique and branch preview origins', async () => {
+  process.env.VERCEL_URL = 'trafexa-preview-123-team.vercel.app';
+  for (const origin of ['https://another-project.vercel.app', 'https://trafexa-git-preview-team.vercel.app.evil.invalid', 'http://trafexa-git-preview-team.vercel.app']) {
+    await assertError(await request(valid, { headers: { origin } }), 403);
+  }
+  assert.equal(calls.length, 0);
+  for (const origin of [`https://${process.env.VERCEL_URL}`, `https://${process.env.VERCEL_BRANCH_URL}`]) {
+    const response = await request(valid, { headers: { origin } });
+    assert.equal(response.status, 201);
+    assert.deepEqual(await response.json(), { success: true });
+  }
+  assert.equal(calls.length, 2);
+  delete process.env.VERCEL_BRANCH_URL;
+  await assertError(await request(valid, { headers: { origin: 'https://trafexa-git-preview-team.vercel.app' } }), 403);
+  assert.equal(calls.length, 2);
 });
 
 test('malformed JSON, invalid UTF-8 and non-object bodies return safe validation errors', async () => {

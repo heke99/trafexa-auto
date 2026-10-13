@@ -4,7 +4,7 @@
 
 ## Hur status ska läsas
 
-Bygggrunden är återhämtad från originalarbetet och fortsättningen har lagt till finansåtkomst, företagskontext, reservationsutgång, import, kostnader, CRM, offertversion/PDF och ett avstängt signeringsbibliotek. Typkontroll, 99/99 Node-beteenden, 9/9 filsviter via `npm test`, 7/7 SQL-regressioner med rollback och produktionsbygge har passerat. Alla åtta migrationer har verifierats genom live-readback och databastyper har regenererats efter CRM. Lokal produktionsbrowser passerar 31/31 kontroller; samlad utvecklings-/mock-/produktions-QA är 182/182. Draft-PR #4 och en `READY`-preview för commit `cf953d4` är bekräftade enligt releaseprotokollet nedan. Autentiserad CRUD genom produktionsgränssnittet är ännu inte verifierad; `main` och produktion har inte ersatts av previewn.
+Bygggrunden är återhämtad från originalarbetet och fortsättningen har lagt till finansåtkomst, företagskontext, reservationsutgång, import, kostnader, CRM, offertversion/PDF och ett avstängt signeringsbibliotek. Senaste typkontroll, 102/102 Node-beteenden, 10/10 `npm test`-filsviter, 7/7 SQL-regressioner med rollback och produktionsbygge med fonttrace har passerat. Alla åtta migrationer har verifierats genom live-readback och databastyper har regenererats efter CRM. Tidigare lokal produktionsbrowser passerade 31/31 och samlad utvecklings-/mock-/produktions-QA 182/182; dessa är historiska resultat och har inte räknats om efter slutfixarna. Draft-PR #4 har historiskt verifierade `READY`-checkpoints `cf953d4` och `69ed849`; senare kodpushar följs genom PR/Vercelstatus. Autentiserad CRUD genom produktionsgränssnittet är ännu inte verifierad; `main` och produktion har inte ersatts.
 
 Den tidigare statiska Trafexa-sajtens formulärkontroller hör till en annan kodbas och är inte verifiering av denna Next.js-/Supabase-app.
 
@@ -19,14 +19,14 @@ Den tidigare statiska Trafexa-sajtens formulärkontroller hör till en annan kod
 | Domäner | Readback bekräftar `trafexa.com`, `www.trafexa.com` och `app.trafexa.com` som verifierade i Vercel. Ingen DNSmutation; appens faktiska HTTP-/authflöde kontrolleras vid publicering. |
 | Uppdrag | Originalchatten `01a13504-1d80-7611-92e8-9076ccf7605d`, användarturn `01a13554-497f-7729-abd7-e91341e8105c`, godkänner ersättningen av gamla sajten och byggandet i befintliga Trafexa Auto-resurser. |
 
-## Verifierad preview och nästa ändring
+## Verifierade preview-checkpoints
 
 | Artefakt | Bekräftad referens/status |
 |---|---|
 | Pull request | [Draft-PR #4](https://github.com/heke99/trafexa-auto/pull/4), attached till uppdraget. |
 | Branch | `codex/trafexa-dealer-continuation-20261013` |
 | Commit | `cf953d4078c047efefe3da1674a989ad571eea52` |
-| Tree | `a204d647a4d81fa5d6f26f67c57165afa3ac1d0c`; commit/tree avstämda mot lokalt HEAD. |
+| Tree | `a204d647a4d81fa5d6f26f67c57165afa3ac1d0c`; avstämd mot den publicerade checkpointen `cf953d4`. |
 | Deployment | `dpl_GveGscnZV3szkXC3xwgYKJNbtkst`, automatiskt skapad preview, `READY`. |
 | URL | [trafexa-auto-304mxzp8h-div3rsa.vercel.app](https://trafexa-auto-304mxzp8h-div3rsa.vercel.app) |
 | Mål | Preview i `prj_zWks8Qd6m9ijWdu3tzid9RJlGgGE`, team `team_e3htkJPyBNSw3Ix1KQLlf180`, region `arn1`. |
@@ -36,17 +36,30 @@ Den tidigare statiska Trafexa-sajtens formulärkontroller hör till en annan kod
 
 Remote PDF-anrop utan appsession rapporterade HTTP 401, men åtkomstverktyget klassade det som `deploymentAuthRequired` och returnerade inte body. Det resultatet räknas därför inte som bevis för appens PDF-behörighetsgräns eller autentiserad remote PDF-CRUD. Appgränserna har passerat lokalt; faktisk remote PDF-hämtning återstår.
 
-Aktuellt `package.json` och lockfil låser nu Node.js till `24.x`; lokal verifieringsmaskin är `24.19.0`. Låsningen är gjord för att undvika den tidigare Vercelvarningen om framtida majoruppgradering. Denna Node-/dokumentändring ska ingå i nästa commit och preview, inte i ovanstående redan verifierade deployment. Nästa commit/deployment-ID och `READY`-resultat är ännu inte bekräftade och ska läggas till efter faktisk readback.
+Den senare verifierade Node-checkpointen är:
+
+| Artefakt | Bekräftad referens/status |
+|---|---|
+| Commit | `69ed849af1afe19c1c637f71940ec70384f1ce46` |
+| Tree | `f9de92c9198e49135bb7fac2326dcd384f50e168` |
+| Deployment | `dpl_EgM71HipZpPg2XVMzxefqFzt6vTx`, `READY`. |
+| URL | [trafexa-auto-qv9b55c4h-div3rsa.vercel.app](https://trafexa-auto-qv9b55c4h-div3rsa.vercel.app) |
+| Avstämning | Native readback verifierar projekt och commit; rätt projekt/team och `arn1`. Lager- och kunddemo gav 200 med förväntat gränssnitt. |
+| Node.js | Manifest och lockfil låser `24.x`; lokal verifieringsmaskin kör `24.19.0`. |
+
+Dessa är historiskt verifierade checkpoints. Efterföljande kodpushar följs i [PR #4](https://github.com/heke99/trafexa-auto/pull/4) och Vercels deploymentstatus med respektive commit. Checkpointresultat överförs inte till senare kodversioner.
+
+Efter Node-checkpointen tillkom två lokalt verifierade korrigeringar: beloppsvisningen i lager/affärer bevarar ören i stället för att avrunda till hela kronor, och pilot-API:t accepterar den specifika `VERCEL_BRANCH_URL`-originen. Andra Vercelhosts nekas fortfarande med 403. Två SSR-beloppsregressioner och en produktions-originregression ingår i de senaste 102 beteendetesterna.
 
 ## Återhämtad och fortsatt implementation
 
 | Område | Vad som finns i kod/schema | Kvarstående omverifiering eller funktion |
 |---|---|---|
-| Webbgrund | Next.js App Router, React, TypeScript, Supabase SSR, låsta beroenden och Vercelkonfiguration. Databastyper regenererade; lokala kontroller PASS. Draft-PR och första preview `READY`. | Nästa Node-/dokumentpreview, GitHubgranskning och produktionsrelease återstår. |
+| Webbgrund | Next.js App Router, React, TypeScript, Supabase SSR, Node `24.x`, låsta beroenden och Vercelkonfiguration. Databastyper regenererade; lokala kontroller PASS. Två verifierade preview-checkpoints `READY`. | Fortsatt PR-granskning, autentiserad remote-CRUD och produktionsrelease återstår. |
 | Publik sida | Ny svensk Trafexa-hemsida, demo, integritet/villkor och mobilmeny. Lokal produktionsbrowser PASS. | Faktiskt remote domänflöde och efterkontroll vid release. |
 | Konto | Registrering, bekräftelsecallback, inloggning, utloggning och lösenordsåterställning. | Komplett authflöde och rätt redirects/cookies i avsedd miljö. |
 | Företag | Företagsskapande, företagsväxling och fem roller. Gemensam kontext verifierar användare, aktuellt medlemskap och aktivt företag; stale/ogiltigt val väljer inget annat företag automatiskt. SQL-isolering och tolv permanenta kontexttester PASS. | Autentiserat browserflöde mot produktionsgränssnitt, inbjudningar och filialer återstår. |
-| Lager | Manuell bilregistrering, sök/filter/sortering, detaljvy, prisändring/kostnader och CSV-import. Importens server-/SQL-regressioner och mockade UI-flöden passerade. | Autentiserad produktions-CRUD och samtidighet; bilder, inköpsunderlag och full kostnadsspårning återstår. |
+| Lager | Manuell registrering, sök/filter/sortering, pris/kostnader och CSV-import. Beloppsvisning bevarar ören; SSR-, server-/SQL- och mockade UI-regressioner PASS. | Autentiserad produktions-CRUD och samtidighet; bilder, inköpsunderlag och full kostnadsspårning återstår. |
 | Kunder/CRM | Kundkort/sök samt behovsladdad förfrågningspanel. Atomiskt kontakt-/lead-intag, sjudagars UUID-retry, sidindelning och statusbyte med kontroll av tidigare status. Action-, live-SQL- och mockade UI-kontroller PASS. | Autentiserad produktions-CRUD, full kontakt-/aktivitetshistorik och bredare kunduppdatering återstår. |
 | Affärer | Affärsutkast, reservation/frigivning/utgång och offertversionering med prisbekräftelse/återförsöksskydd. SQL samt lokala/mockade kontroller passerade. | Autentiserad produktions-CRUD, två samtidiga anslutningar, kundaccept, inbyte och leverans återstår. Ingen scheduler aktiv. |
 | Finansiering | Internt `intake` med skärpt RLS: ägare/admin/finans ser företagets intag; säljare ser sitt eget. SQL för läs-/skrivgräns passerade. | Ingen bankadapter, kreditbedömning, utbetalning eller lagerkredit är aktiv. |
@@ -54,7 +67,7 @@ Aktuellt `package.json` och lockfil låser nu Node.js till `24.x`; lokal verifie
 | Signeringsbibliotek | `docuseal.ts` och `signing-state.ts` från PR #3, commit `23f474b856d55eef19b6922597fe0602859d4173`. Lokal server-only-wrapper tvingar `enabled: false`. 32 mockade beteendetester PASS; full typkontroll PASS. | Ingen providercredential, route, webhookmottagare, datastore, extern avisering eller faktisk signering är kopplad. Se [integrationsguiden](DOCUSEAL_INTEGRATION.md). |
 | Nätverk | Informationsvy inför kontrollerad pilot. | Publicering, inköpsönskemål, matchning, bud och B2B-affär återstår. |
 | Ekonomi | Inköps-/försäljningsbelopp, registrerade fordonskostnader och momsmodell. Offert för standardmoms använder bekräftat totalpris; VMB presenteras separat. | Ingen full ekonomimodul, VMB-beräkning, faktura, betalningsavstämning eller export. |
-| Demo-/pilotförfrågan | `POST /api/demo-requests`, ursprungskontroll, JSON-validering, storleksgräns, honeypot och privat databasintag. | Komplett browser/API/databasflöde; förfrågningar sparas, automatiska aviseringar ingår inte. |
+| Demo-/pilotförfrågan | `POST /api/demo-requests`, ursprungskontroll inklusive specifik `VERCEL_BRANCH_URL`, JSON/storleksgräns, honeypot och privat intag. Produktionsregression tillåter avsedd branchorigin och nekar andra Vercelhosts med 403. | Komplett browser/API/databasflöde; förfrågningar sparas, automatiska aviseringar ingår inte. |
 | Audit/integritet | RLS, företagsreferenser, kontrollerade mutationer och audittriggers. Sju live-SQL-regressioner med rollback passerade, inklusive CRM:s statuskolumn/grants och audit. | Aktuellt företags-/sessionsflöde och samtidiga anslutningar behöver ytterligare browser/integrationskontroll. |
 
 ## Migrationer och återhämtningsluckor
@@ -92,26 +105,27 @@ Originalplanens innehållsförteckning 1–22 och fulla fas 0–10 återhämtade
 |---|---|
 | Projekthälsa och migrationlista | Bekräftat live av koordinerande agent: aktivt och friskt projekt, åtta applied-versioner enligt ovan med full readback. |
 | Security advisor | Endast advisory om avstängt skydd mot läckta lösenord, enligt koordinerande agents senaste kontroll. |
-| Node.js | Lokal verifieringsmaskin `24.19.0`; aktuell manifest/lockfil låser `24.x`. Den nya låsningen ingår i nästa commit/preview och har ännu inget eget remote `READY`-resultat. |
-| Remote `npm ci` och bygge | PASS i `dpl_GveGscnZV3szkXC3xwgYKJNbtkst` för commit `cf953d4078c047efefe3da1674a989ad571eea52`: 73 paket installerade på sex sekunder, följt av `npm run build` och `READY`. Nästa Node-/dokumentpreviews resultat ska verifieras separat. |
-| `npm run typecheck` | PASS efter full typregenerering inklusive CRM, bekräftat av koordinerande agent 13 oktober 2026. |
-| `node --test --test-isolation=none tests/*.test.mjs` | PASS 99/99: 43 routing-/validerings-/demo-/import-/PDF-fall, 32 DocuSeal-fall, 12 företagskontextfall och 12 CRM-actionfall. Providertransport och serverberoenden mockas där respektive svit kräver det. |
-| `npm test` | PASS 9/9 filsviter via exakt package-script. Nodedefault rapporterar filsviter i stället för de 99 enskilda fallen i ovanstående körning. |
+| Node.js | Lokal verifieringsmaskin `24.19.0`; manifest/lockfil låser `24.x` i verifierad `READY`-checkpoint `69ed849`. |
+| Remote `npm ci` och bygge | PASS i första checkpointen `dpl_GveGscnZV3szkXC3xwgYKJNbtkst` / `cf953d4078c047efefe3da1674a989ad571eea52`: 73 paket på sex sekunder, följt av `npm run build` och `READY`. |
+| `npm run typecheck` | Senaste PASS efter CRM-typregenerering samt belopps-/originfixar, bekräftat av koordinerande agent 13 oktober 2026. |
+| `node --test --test-isolation=none tests/*.test.mjs` | PASS 102/102: 44 routing-/validerings-/demo-/import-/PDF-fall, 32 DocuSeal-fall, 12 företagskontextfall, 12 CRM-actionfall och två SSR-beloppsfall. Providertransport och serverberoenden mockas där respektive svit kräver det. |
+| `npm test` | Senaste PASS 10/10 filsviter efter belopps-/originfixar, via exakt package-script. Nodedefault rapporterar filsviter; de enskilda beteendena är 102 enligt kommandot ovan. |
 | Företagskontext | Tolv permanenta regressioner i `tests/company-context.test.mjs` PASS efter gemensam verifierad session och hantering av stale cookie. |
-| `npm run build` | PASS med Next.js 16.4/Turbopack: 14 sidor samt API/SSR/proxy. Inbäddad PDF-font finns i NFT-filspårningen. Bekräftat av koordinerande agent 13 oktober 2026. |
+| `npm run build` | Färskt slutbygge och fonttrace PASS efter belopps-/originfixar med Next.js 16.4/Turbopack. Tidigare bygge verifierade 14 sidor/API/SSR/proxy; den inbäddade PDF-fonten finns också i senaste filspårningen. |
 | SQL-regressioner | PASS 7/7 mot `buqdtssxrotkzndublrt` med rollback, inklusive CRM. Offertens simulerade legacyfall utelämnat live; hela offertsviten inklusive tolv källdatagränser PASS i isolerad PGlite. |
 | Reservationskonkurrens/utgång | Lazy expiry applicerad; schema/testunderlag finns. Separata samtidiga anslutningar och bakgrundsscheduler är olika kontroller. |
-| Lokal produktionsbrowser | PASS 31/31 mot port 3010, noll POST-anrop och noll JavaScriptfel. Detta är lokal produktionskontroll, inte autentiserad produktions-CRUD. |
-| Samlad browser/QA | PASS 182/182 över utveckling, mockade UI-actions och lokal produktion, enligt browseragentens sammanställning. Mockad UI-harness bevisar användarbeteenden men ingen verklig produktionsmutation. |
+| Lokal produktionsbrowser | Historiskt PASS 31/31 mot port 3010, noll POST-anrop och noll JavaScriptfel. Detta är lokal produktionskontroll, inte autentiserad produktions-CRUD. De senare belopps-/originfixarna har separata regressioner ovan. |
+| Samlad browser/QA | Tidigare PASS 182/182 över utveckling, mockade UI-actions och lokal produktion. Mockad UI-harness bevisar användarbeteenden men ingen verklig produktionsmutation. |
+| Riktad browserkontroll efter slutfixar | PASS 9/9 för berörda lager-/affärsvyer, kostnadsdialog och behovsladdad CRM vid 320/1280 px mot produktionsbygget på port 3011. Noll POST-anrop och JavaScriptfel. Historiska 182/182 räknas inte om som ny full körning. |
 | Mobil och tillgänglighet | Lokala QA-kontroller av förbättrade mobilmenyer/åtkomst passerade; remote efterkontroll återstår. |
-| Remote preview | `READY` för `cf953d4078c047efefe3da1674a989ad571eea52`, rätt projekt/team och `arn1`; skyddad fetch 200 för lagerdemo, kunddemo/CRM och login. Ingen remote autentiserad CRUD eller PDF-CRUD verifierad. |
-| Produktionsrelease/domäner | Alla tre domäner verifierade via readback. Draft-PR #4/preview innebär ingen ersättning av `main` eller produktion. Nästa Node-/dokumentpreview och produktionsrelease är ännu inte bekräftade. |
+| Remote preview | `READY`-checkpoints `cf953d4` och `69ed849`, rätt projekt/team och `arn1`. Skyddad fetch verifierar respektive demo/loginyta; ingen autentiserad remote CRUD eller PDF-CRUD verifierad. Senare pushar följs via PR/Vercelstatus. |
+| Produktionsrelease/domäner | Alla tre domäner verifierade via readback. Draft-PR #4/preview innebär ingen ersättning av `main` eller produktion. |
 
 Uppdatera detta protokoll med faktiskt kommando, miljö, resultat och begränsning. Räkna inte partnerfunktioner som verifierade genom mockade beslut eller genom att en intern intresseanmälan går att spara.
 
 ## Prioriterad fortsättning
 
-1. För in Node.js `24.x`-låsningen och denna dokumentuppdatering i nästa commit på draft-PR #4; verifiera den nya previewns egen commit, runtime, byggresultat och `READY`.
+1. Följ efterföljande kodpushar via draft-PR #4 och Vercelstatus, med de verifierade checkpoints som konkreta referenser.
 2. Komplettera remote font-/domän-/auth-/PDF-kontroller; de åtta migrationerna är redan applicerade och cronförslaget förblir separat med obesvarad godkännandefråga.
 3. Komplettera ännu ej verifierad autentiserad browser-CRUD för två syntetiska företag och separata samtidiga reservationsanslutningar.
 4. Följ upp advisory om läckta lösenord samt faktisk driftåtkomst för publikt intag och dokument.
@@ -119,3 +133,5 @@ Uppdatera detta protokoll med faktiskt kommando, miljö, resultat och begränsni
 6. Fortsätt fas 1–3:s återstående personal-/filial-, inköps-/bild-, CRM-/kundaccept- och inbytesarbete, därefter dokumentfasen och de partnerberoende faserna.
 
 Ingen finanspartner, signeringstjänst, BankID-underskrift, bokföringsadapter eller fordonsdataadapter är aktiverad av dokumentationen eller den återhämtade bygggrunden.
+
+Arbetsytans grundsnapshot begränsar lager, kunder och affärer till de 500 senaste posterna per företag. Importens dubblettkontroll använder hela företagets lager, men full sidindelning, sökning och dashboardtotaler för större register återstår före bredare produktionsbruk.

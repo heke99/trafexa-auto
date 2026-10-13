@@ -2,7 +2,7 @@ import { NextRequest,NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase/database.types';
 export async function POST(request:NextRequest) {
- const origin=request.headers.get('origin');const allowed=new Set(['https://trafexa.com','https://www.trafexa.com','https://app.trafexa.com',process.env.NEXT_PUBLIC_SITE_URL,process.env.VERCEL_URL?`https://${process.env.VERCEL_URL}`:undefined]);
+ const origin=request.headers.get('origin');const allowed=new Set(['https://trafexa.com','https://www.trafexa.com','https://app.trafexa.com',process.env.NEXT_PUBLIC_SITE_URL,process.env.VERCEL_URL?`https://${process.env.VERCEL_URL}`:undefined,process.env.VERCEL_BRANCH_URL?`https://${process.env.VERCEL_BRANCH_URL}`:undefined]);
  if(process.env.NODE_ENV!=='production') {
   allowed.add('http://localhost:3000');
   allowed.add('http://127.0.0.1:3000');
