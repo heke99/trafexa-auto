@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   SigningStateError, createSigningJob, validateSigningJob, startDispatch,
-  dispatchUnknown, bindSubmission, applyVerifiedEvent, completeArchive,
+  dispatchUnknown, dispatchRejected, bindSubmission, applyVerifiedEvent, completeArchive,
 } from '../src/lib/signing/signing-state.ts';
 
 const COMPANY = '10000000-0000-4000-8000-000000000001';
@@ -11,6 +11,7 @@ const ids = {
   documentId: '30000000-0000-4000-8000-000000000001',
   dealId: '40000000-0000-4000-8000-000000000001',
   documentVersion: 4, sourceSha256: 'a'.repeat(64), templateId: 44,
+  templateVersion: 2, templateSha256: 'e'.repeat(64),
 };
 const input = () => ({...ids, expectedSignerExternalIds: ['job-1:buyer', 'job-1:dealer']});
 const context = () => ({...ids});
@@ -57,7 +58,8 @@ test('preparation captures immutable identity/source and validates required runt
   assert.equal(job.archive, null);
   assert.equal(createSigningJob({...input(), dealId:null}).dealId, null);
   for (const invalid of [null, [], {}, {...input(), documentVersion:0}, {...input(), templateId:'44'},
-    {...input(), sourceSha256:'hash'}, {...input(), companyId:'bad'}, {...input(), dealId:undefined},
+    {...input(), sourceSha256:'hash'}, {...input(), templateVersion:0}, {...input(), templateSha256:'hash'},
+    {...input(), companyId:'bad'}, {...input(), dealId:undefined},
     {...input(), expectedSignerExternalIds:[]}, {...input(), expectedSignerExternalIds:['duplicate','duplicate']},
     {...input(), expectedSignerExternalIds:[' untrusted ']}, {...input(), expectedSignerExternalIds:['line\nbreak']},
     {...input(), state:'completed'}, {...input(), financeStatus:'approved'},
@@ -92,13 +94,26 @@ test('confirmed provider submission binds all external IDs, independent of submi
   fails(() => bindSubmission(result,confirmation()),'invalid_transition');
 });
 
+test('known dispatch rejection is terminal and never confused with signer decline or unknown outcome', () => {
+  const failed = dispatchRejected(freeze(startDispatch(prepared())));
+  assert.equal(failed.state, 'dispatch_failed');
+  assert.equal(failed.submissionId, null);
+  assert.equal(failed.version, 3);
+  fails(() => startDispatch(failed), 'invalid_transition');
+  fails(() => bindSubmission(failed, confirmation()), 'invalid_transition');
+  assert.equal(applyVerifiedEvent(failed, event()), failed);
+  for (const job of [prepared(), dispatchUnknown(startDispatch(prepared())), bound(), completed()]) {
+    fails(() => dispatchRejected(job), 'invalid_transition');
+  }
+});
+
 test('bind rejects wrong local IDs, document version, template and source hash', () => {
   for (const field of ['id','companyId','documentId','dealId']) {
     const result = confirmation();
     result.context[field] = 'f0000000-0000-4000-8000-000000000001';
     fails(() => bindSubmission(startDispatch(prepared()),result),'binding_mismatch');
   }
-  for (const [field,value] of [['documentVersion',5],['templateId',45],['sourceSha256','d'.repeat(64)]]) {
+  for (const [field,value] of [['documentVersion',5],['templateId',45],['sourceSha256','d'.repeat(64)],['templateVersion',3],['templateSha256','f'.repeat(64)]]) {
     const result = confirmation(); result.context[field] = value;
     fails(() => bindSubmission(startDispatch(prepared()),result),'binding_mismatch');
   }
@@ -166,7 +181,7 @@ test('archive requires exact context, bound submission, private paths and checks
     const proof = archive(); proof.context[field] = 'f0000000-0000-4000-8000-000000000001';
     fails(() => completeArchive(job,proof),'binding_mismatch');
   }
-  for (const [field,value] of [['documentVersion',5],['templateId',99],['sourceSha256','d'.repeat(64)]]) {
+  for (const [field,value] of [['documentVersion',5],['templateId',99],['sourceSha256','d'.repeat(64)],['templateVersion',3],['templateSha256','f'.repeat(64)]]) {
     const proof = archive(); proof.context[field]=value;
     fails(() => completeArchive(job,proof),'binding_mismatch');
   }
