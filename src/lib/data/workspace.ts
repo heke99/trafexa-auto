@@ -1,6 +1,10 @@
 import 'server-only';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getCompanySession } from './company-context';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { CalculationDatabase } from '@/lib/calculations/database.types';
+import type { InventoryDashboardTotals } from '@/lib/calculations/vehicle-calculation';
+import { parseInventoryDashboardTotals } from '@/lib/calculations/source';
 export type Organization={id:string;name:string;organisation_number:string};
 export type Membership={company_id:string;role:string;companies:Organization};
 export type Vehicle={id:string;registration_number:string;make:string;model:string;model_year:number;mileage_km:number;fuel:string;gearbox:string};
@@ -18,7 +22,15 @@ export type WorkspaceSnapshot={
  inventory:InventoryItem[];vehicle_costs:VehicleCost[];customers:Customer[];deals:Deal[];finance_applications:FinanceApplication[];
  documents:Document[];activities:Activity[];finance_partners:FinancePartner[];dealer_approvals:DealerApproval[];
  integrations:{name:string;status:string}[];
+ dashboardTotals?:InventoryDashboardTotals;dashboardTotalsError?:string;
 };
+async function dashboardTotals(db:Awaited<ReturnType<typeof createServerSupabaseClient>>,company:string) {
+ try {
+  const {data,error}=await (db as unknown as SupabaseClient<CalculationDatabase>).rpc('inventory_dashboard_totals',{p_company_id:company});
+  if(error)throw new Error();
+  return {totals:parseInventoryDashboardTotals(data,company.toLowerCase())};
+ } catch {return {error:'Företagets totalsiffror kunde inte verifieras. Läs in sidan igen.'};}
+}
 async function getVehicleCosts(db:Awaited<ReturnType<typeof createServerSupabaseClient>>,company:string):Promise<VehicleCost[]> {
  const costs:VehicleCost[]=[];
  for(let offset=0;;offset+=500) {
@@ -35,7 +47,7 @@ export async function getWorkspaceSnapshot():Promise<WorkspaceSnapshot|null> {
  const snapshot:WorkspaceSnapshot={user,organization:membership?.companies??null,membership,memberships,inventory:[],vehicle_costs:[],customers:[],deals:[],finance_applications:[],documents:[],activities:[],finance_partners:[],dealer_approvals:[],integrations:[]};
  if(!membership)return snapshot;
  const company=membership.company_id;
- const [results,costs]=await Promise.all([Promise.all([
+ const [results,costs,totals]=await Promise.all([Promise.all([
  db.from('stock_items').select('id,status,acquired_on,purchase_price_ore,asking_price_ore,vat_scheme,vehicles(id,registration_number,make,model,model_year,mileage_km,fuel,gearbox)').eq('company_id',company).order('created_at',{ascending:false}).limit(500),
  db.from('customers').select('*').eq('company_id',company).order('created_at',{ascending:false}).limit(500),
  db.from('deals').select('*').eq('company_id',company).order('created_at',{ascending:false}).limit(500),
@@ -44,7 +56,7 @@ export async function getWorkspaceSnapshot():Promise<WorkspaceSnapshot|null> {
  db.from('activities').select('*').eq('company_id',company).order('created_at',{ascending:false}).limit(50),
  db.from('finance_partners').select('id,name,status'),
  db.from('dealer_approvals').select('*').eq('company_id',company)
- ]),getVehicleCosts(db,company)]);
+ ]),getVehicleCosts(db,company),dashboardTotals(db,company)]);
  if(results.some(r=>r.error)) throw new Error('Uppgifterna kunde inte hämtas. Försök igen.');
  snapshot.inventory=results[0].data as unknown as InventoryItem[];
  const stockIds=new Set(snapshot.inventory.map(item=>item.id));
@@ -52,6 +64,7 @@ export async function getWorkspaceSnapshot():Promise<WorkspaceSnapshot|null> {
  snapshot.customers=results[1].data as Customer[];snapshot.deals=results[2].data as Deal[];
  snapshot.finance_applications=results[3].data as FinanceApplication[];snapshot.documents=results[4].data as Document[];
  snapshot.activities=results[5].data as Activity[];snapshot.finance_partners=results[6].data as FinancePartner[];snapshot.dealer_approvals=results[7].data as DealerApproval[];
+ snapshot.dashboardTotals=totals.totals;snapshot.dashboardTotalsError=totals.error;
  return snapshot;
 }
 export const getWorkspace=getWorkspaceSnapshot;

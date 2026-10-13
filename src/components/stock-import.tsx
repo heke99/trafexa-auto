@@ -78,7 +78,7 @@ export function StockImport({ canImport, demo = false, companyId, existingRegist
     <summary style={{ padding: 20, cursor: 'pointer', fontWeight: 600 }}><Upload size={16} style={{ display: 'inline', marginRight: 8 }} />Importera lager från CSV</summary>
     <div className="workspace-form" style={{ padding: 20 }}>
       <p className="form-intro">Välj en CSV-fil i UTF-8 med rubrikrad och högst 500 bilar, maximalt 1 MB. Komma och semikolon stöds. Priser anges i kronor och mätarställning i kilometer.</p>
-      <p className="settings-note">Försäljningspriset är totalpris inklusive eventuell moms. Inköpspriset följer företagets inköpsunderlag. Momsmodell måste anges uttryckligen som standard, vmb eller unknown för varje bil. Registreringsnummer som redan finns i företaget eller upprepas i filen måste rättas.</p>
+      <p className="settings-note">Inköpspriset och försäljningspriset ska vara totalbelopp inklusive eventuell moms, enligt respektive underlag. Momsmodell måste anges uttryckligen som standard, vmb eller unknown för varje bil. Registreringsnummer som redan finns i företaget eller upprepas i filen måste rättas.</p>
       {demo ? <p className="inline-note">Demoläge: du kan förhandsgranska en fil. Inga bilar sparas.</p> : !canImport ? <p className="inline-note">Din roll kan förhandsgranska importer. En ägare, administratör eller säljare kan spara dem.</p> : null}
       <label htmlFor={`${id}-file`}>Lagerfil<input ref={fileRef} id={`${id}-file`} type="file" accept=".csv,text/csv" disabled={busy} onChange={chooseFile} /></label>
       {reading ? <p role="status">Läser CSV-filen…</p> : null}

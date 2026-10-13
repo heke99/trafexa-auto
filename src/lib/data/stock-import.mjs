@@ -10,7 +10,7 @@ export const STOCK_FIELDS = [
   { key: 'mileage_km', label: 'Mätarställning, km', aliases: ['matarstallningkm', 'miltalkm', 'kilometer', 'mileage'] },
   { key: 'fuel', label: 'Drivmedel', aliases: ['drivmedel', 'fueltype'] },
   { key: 'gearbox', label: 'Växellåda', aliases: ['vaxellada', 'transmission'] },
-  { key: 'purchase_price', label: 'Inköpspris, kr', aliases: ['inkopspris', 'inkopspriskr', 'purchaseprice'] },
+  { key: 'purchase_price', label: 'Inköpspris inklusive eventuell moms, kr', aliases: ['inkopspris', 'inkopspriskr', 'inkopsprisinklusiveeventuellmomskr', 'purchaseprice'] },
   { key: 'asking_price', label: 'Försäljningspris, kr', aliases: ['forsaljningspris', 'forsaljningspriskr', 'askingprice', 'pris'] },
   { key: 'vat_scheme', label: 'Momsmodell', aliases: ['momsmodell', 'moms', 'vat'] },
 ];

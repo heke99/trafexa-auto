@@ -27,7 +27,7 @@ const snapshot:WorkspaceSnapshot={
 };
 export default async function DemoPage({searchParams}:{searchParams:Promise<{section?:string}>}) {
   const params=await searchParams;
-  const sections:WorkspaceSection[]=['dashboard','inventory','customers','deals','finance','network','documents','settings'];
+  const sections:WorkspaceSection[]=['dashboard','inventory','customers','deals','finance','network','documents','settings','advertising'];
   const section=sections.includes(params.section as WorkspaceSection)?params.section as WorkspaceSection:'dashboard';
   return <DealerWorkspace snapshot={snapshot} section={section} demo/>;
 }
