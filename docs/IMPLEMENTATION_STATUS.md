@@ -149,14 +149,14 @@ Arbetsytans grundsnapshot begränsar lager, kunder och affärer till de 500 sena
 
 ## Tillägg: privat offertarkiv och beständig signeringsgrund
 
-Integrationsgrenen `feat/offer-signing-integration-20261013` utgår från PR #4, commit `aed26df`. Den inför PR #3:s slutliga signeringsmoduler, commit `86bbce9`, i huvudappens `src/lib/signing/`, plus privat offertarkivering och autentiserad hämtning. Providerklient och workerdispatch förblir tvingat avstängda via applikationens server-wrapper.
+Integrationsgrenen `feat/offer-signing-integration-20261013` utgår från PR #4, commit `4037761`. Den inför PR #3:s slutliga signeringsmoduler, commit `86bbce9`, i huvudappens `src/lib/signing/`, plus privat offertarkivering och autentiserad hämtning. Providerklient och workerdispatch förblir tvingat avstängda via applikationens server-wrapper.
 
 Arkivering gäller befintliga oföränderliga offertversioner, `kind=other`, för owner/admin/finance. Servergenererade PDF-bytes återläses och hashkontrolleras före service-only registrering. Direkta användaranrop kan inte förfalska arkivregistreringen. En ny offert registreras högst en gång; historiska kvitton behåller första dokument, fil, aktör och begäransreferens. UI ignorerar sena svar efter företagsbyte och bevarar referensen vid retry. Downloadroute `/api/documents/[documentId]/pdf` verifierar faktisk filhash och privat bucket före och efter fil-I/O.
 
 | Kontroll i denna integrationsgren | Resultat och gräns |
 | --- | --- |
 | `npm run typecheck` | PASS efter appintegrationen |
-| `node --test --test-isolation=none tests/*.test.mjs` | PASS 132/132 beteenden, inklusive 15 arkiv-/server-action-/servicefall, 8 downloadfall och 6 browserfall. Provider och SDK-gränser är kontrollerade fixtures |
+| `node --test --test-isolation=none tests/*.test.mjs` | PASS 137/137 beteenden, inklusive 15 arkiv-/server-action-/servicefall, 8 downloadfall och 6 browserfall. Provider och SDK-gränser är kontrollerade fixtures |
 | `npm run test:signing` | PASS 106 fall i adapter/domän/store/worker/user/storage samt 8 flödesfall mot lokal PostgreSQL/PGlite. Delvis överlapp med huvudappens tester; summorna ska inte adderas som unika fall |
 | `npm test --prefix tests/offer-archive-db` | PASS: hela huvudappens migrationsordning körs lokalt före arkivets SQL-rollbackassertioner med faktiska roller, RLS, grants, privata Storage-kataloger, oföränderlighet och service-only registrering |
 | Chromium-komponentflöde | PASS 6/6 med verkliga DealOffers/DealerWorkspace, mockade serveråtgärder och blockerad HTTP. Next HTTP/RSC-transport och hosted CRUD ingår inte |

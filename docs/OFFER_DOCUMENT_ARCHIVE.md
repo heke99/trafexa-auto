@@ -1,6 +1,6 @@
 # Privat arkiv för sparade offertversioner
 
-Denna integration utgår från huvudappens PR #4, commit `aed26df`, och signeringsmodulerna i PR #3, commit `86bbce9`. Den kopplar en redan sparad, oföränderlig offertversion till en faktisk privat PDF och ett dokument i samma företag. Dokumentet får `kind=other`; offertarkivering innebär varken ett godkänt köpeavtal, signering eller kreditbeslut.
+Denna integration utgår från huvudappens PR #4, commit `4037761`, och signeringsmodulerna i PR #3, commit `86bbce9`. Den kopplar en redan sparad, oföränderlig offertversion till en faktisk privat PDF och ett dokument i samma företag. Dokumentet får `kind=other`; offertarkivering innebär varken ett godkänt köpeavtal, signering eller kreditbeslut.
 
 ## Användarflöde
 
