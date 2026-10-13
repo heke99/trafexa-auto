@@ -1,0 +1,53 @@
+'use client';
+
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { ArrowUpRight, Check } from 'lucide-react';
+
+export function PilotForm() {
+  const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'success-with-changes' | 'error'>('idle');
+  const [message, setMessage] = useState('');
+  const [ready, setReady] = useState(false);
+  const inFlight = useRef(false);
+  useEffect(() => setReady(true), []);
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!ready || inFlight.current || !form.reportValidity()) return;
+    const fields = Object.fromEntries(new FormData(form));
+    const payload = JSON.stringify(fields);
+    inFlight.current = true;
+    setStatus('sending');
+    setMessage('');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch('/api/demo-requests', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, signal: controller.signal });
+      const body = await response.json().catch(() => null);
+      if (controller.signal.aborted || !response.ok || body?.success !== true) {
+        throw new Error(typeof body?.error === 'string' ? body.error : 'Förfrågan kunde inte sparas. Försök igen eller kontakta oss via mejl.');
+      }
+      const changed = JSON.stringify(Object.fromEntries(new FormData(form))) !== payload;
+      setStatus(changed ? 'success-with-changes' : 'success');
+      if (changed) setMessage('Din förfrågan har sparats. Dina senaste ändringar har behållits och är inte skickade ännu.');
+    } catch (error) {
+      setMessage(controller.signal.aborted ? 'Det tog för lång tid att skicka förfrågan. Försök igen eller kontakta oss via mejl.' : error instanceof Error ? error.message : 'Förfrågan kunde inte sparas.');
+      setStatus('error');
+    } finally {
+      clearTimeout(timeout);
+      inFlight.current = false;
+    }
+  }
+  if (status === 'success') return <div className="pilot-success" role="status"><span className="success-symbol"><Check size={28}/></span><h3>Tack. Vi hörs snart.</h3><p>Din förfrågan har sparats. Vi kontaktar dig för att prata om din verksamhet och nästa steg.</p><button className="text-link" onClick={() => setStatus('idle')}>Skicka en till förfrågan <ArrowUpRight size={16}/></button></div>;
+  return <form className="pilot-form" action="/api/demo-requests" method="post" onSubmit={submit} aria-busy={status === 'sending'}>
+    <div className="field-pair"><label>Företag<input name="company" autoComplete="organization" placeholder="Din bilfirma" required maxLength={160}/></label><label>Ditt namn<input name="name" autoComplete="name" placeholder="För- och efternamn" required maxLength={160}/></label></div>
+    <div className="field-pair"><label>Mejladress<input name="email" autoComplete="email" type="email" placeholder="namn@bilfirma.se" required maxLength={254}/></label><label><span>Telefon <span className="optional">valfritt</span></span><input name="phone" autoComplete="tel" type="tel" placeholder="070 000 00 00" maxLength={40}/></label></div>
+    <label>Vad vill du förenkla?<textarea name="message" rows={3} placeholder="Berätta kort om din verksamhet, ditt lager och vad du behöver hjälp med." maxLength={2000}/></label>
+    <div className="honeypot" aria-hidden="true"><label>Webbplats<input name="website" tabIndex={-1} autoComplete="off"/></label></div>
+    <p className="form-privacy">Vi använder uppgifterna för att besvara din förfrågan. Läs vår <a href="/privacy">integritetspolicy</a>.</p>
+    <noscript><p className="form-privacy">Mejla din förfrågan till <a href="mailto:hekmat.h@div3rsa.com">hekmat.h@div3rsa.com</a>.</p></noscript>
+    {status === 'error' ? <p className="form-error" role="alert">{message} <a href="mailto:hekmat.h@div3rsa.com">hekmat.h@div3rsa.com</a></p> : null}
+    {status === 'success-with-changes' ? <p className="form-privacy" role="status">{message}</p> : null}
+    {status === 'sending' ? <p className="form-privacy" role="status">Skickar din förfrågan…</p> : null}
+    <button className="button button-green" type="submit" disabled={!ready || status === 'sending'}>{status === 'sending' ? 'Skickar…' : 'Prata med oss'}<ArrowUpRight size={18}/></button>
+  </form>;
+}
