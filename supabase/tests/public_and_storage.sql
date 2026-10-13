@@ -1,0 +1,45 @@
+-- Test confidential storage and bounded public intake. Transaction leaves no records.
+begin;
+create temporary table test_fixture(user_id uuid,company_a uuid,company_b uuid);
+insert into test_fixture values(gen_random_uuid(),gen_random_uuid(),gen_random_uuid());
+grant select on test_fixture to authenticated,anon;
+insert into auth.users(id,email,email_confirmed_at) select user_id,'storage-test@test.invalid',now() from test_fixture;
+insert into public.companies(id,name,organisation_number,created_by) select company_a,'Storage A','5560000031',user_id from test_fixture;
+insert into public.companies(id,name,organisation_number,created_by) select company_b,'Storage B','5560000032',user_id from test_fixture;
+insert into public.memberships(company_id,user_id,role) select company_a,user_id,'owner' from test_fixture;
+insert into storage.objects(bucket_id,name) select 'dealer-documents',company_b::text||'/private.pdf' from test_fixture;
+select set_config('request.jwt.claim.sub',(select user_id::text from test_fixture),true);
+select set_config('request.jwt.claims',json_build_object('sub',(select user_id from test_fixture),'role','authenticated')::text,true);
+set local role authenticated;
+do $$ declare blocked boolean:=false; begin
+ if exists(select 1 from storage.objects where bucket_id='dealer-documents') then raise exception 'FAIL private storage visibility';end if;
+ insert into storage.objects(bucket_id,name) select 'dealer-documents',company_a::text||'/authorized.pdf' from test_fixture;
+ begin insert into storage.objects(bucket_id,name) select 'dealer-documents',company_b::text||'/unauthorized.pdf' from test_fixture;
+ exception when insufficient_privilege then blocked:=true;end;
+ if not blocked then raise exception 'FAIL foreign storage upload';end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{"role":"anon"}',true);
+set local role anon;
+do $$ declare blocked boolean:=false; begin
+ begin perform 1 from public.customers;exception when insufficient_privilege then blocked:=true;end;
+ if not blocked then raise exception 'FAIL anon customer access';end if;
+ blocked:=false;
+ begin perform 1 from private.demo_requests;exception when insufficient_privilege then blocked:=true;end;
+ if not blocked then raise exception 'FAIL anon inbox access';end if;
+ perform public.submit_demo_request('Test Contact','bounded-intake@test.invalid','Test Dealer',null,null);
+ perform public.submit_demo_request('Test Contact','bounded-intake@test.invalid','Test Dealer',null,null);
+ perform public.submit_demo_request('Test Contact','bounded-intake@test.invalid','Test Dealer',null,null);
+ blocked:=false;
+ begin perform public.submit_demo_request('Test Contact','bounded-intake@test.invalid','Test Dealer',null,null);
+ exception when raise_exception then blocked:=true;end;
+ if not blocked then raise exception 'FAIL public intake throttle';end if;
+ blocked:=false;
+ begin perform public.submit_demo_request('Test Contact','invalid email','Test Dealer',null,null);
+ exception when raise_exception then blocked:=true;end;
+ if not blocked then raise exception 'FAIL public intake validation';end if;
+end $$;
+reset role;
+select 'PASS: confidential tenant storage, foreign uploads denied, anonymous data denied, private inbox denied, intake throttle and validation' as result;
+rollback;
