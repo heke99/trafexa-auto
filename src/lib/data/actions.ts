@@ -128,8 +128,13 @@ export async function createVehicleCostAction(form:FormData) {
 
 export async function forgotPasswordAction(form:FormData) {
  const email=authEmail(form,'/forgot-password');
+ let failed=false;
+ try {
  const db=await createServerSupabaseClient();
- await db.auth.resetPasswordForEmail(email,{redirectTo:`${process.env.NEXT_PUBLIC_APP_URL??'https://app.trafexa.com'}/auth/callback?next=/reset-password`});
+ const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:`${process.env.NEXT_PUBLIC_APP_URL??'https://app.trafexa.com'}/auth/callback?next=/reset-password`});
+ failed=Boolean(error);
+ } catch {failed=true;}
+ if(failed)outcome('/forgot-password','error','Återställningsförfrågan kunde inte behandlas just nu. Försök igen senare.');
  outcome('/forgot-password','success','Om adressen har ett konto får du ett mejl med instruktioner för återställning.');
 }
 export async function updatePasswordAction(form:FormData) {
