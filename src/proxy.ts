@@ -24,6 +24,7 @@ export async function proxy(request: NextRequest) {
   const { data } = await db.auth.getClaims();
   if (!data?.claims?.sub && (isWorkspacePath(pathname) || isPlatformAdminPath(pathname) || isCompanyInvitationsPath(pathname) || pathname === '/onboarding')) {
     const login = request.nextUrl.clone(); login.pathname = '/login'; login.search = '';
+    if (isWorkspacePath(pathname)) login.searchParams.set('next', pathname);
     if (isPlatformAdminPath(pathname)) login.searchParams.set('next', '/admin');
     if (isCompanyInvitationsPath(pathname)) login.searchParams.set('next', '/invitations');
     const redirect = NextResponse.redirect(login);

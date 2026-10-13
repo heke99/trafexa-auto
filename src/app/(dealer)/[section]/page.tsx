@@ -13,7 +13,7 @@ export default async function WorkspacePage({ params, searchParams }: {
   const { section } = await params;
   if (!WORKSPACE_SECTIONS.includes(section)) notFound();
   const [snapshot, query] = await Promise.all([getWorkspaceSnapshot(), searchParams]);
-  if (!snapshot) redirect('/login');
+  if (!snapshot) redirect(`/login?next=${encodeURIComponent(`/${section}`)}`);
   if (!snapshot.organization && !snapshot.memberships.length) redirect('/onboarding');
   if (!snapshot.organization && section !== 'settings') redirect('/settings');
   const notice = query.error ? { type: 'error' as const, message: query.error } : query.success ? { type: 'success' as const, message: query.success } : !snapshot.organization ? { type: 'error' as const, message: 'Ditt tidigare företagsval är inte längre tillgängligt. Välj ett aktivt företag nedan för att fortsätta.' } : undefined;
