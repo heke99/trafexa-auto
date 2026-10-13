@@ -31,7 +31,7 @@ Verifierad katalogmetadata: Supabaseprojekt `buqdtssxrotkzndublrt`, **Trafexa de
 | Handlargodkännande | `dealer_approvals`, produkt `purchase/stock`, status `pending/approved/rejected/suspended` | Separat godkännande per handlare, partner och produkt |
 | Finansärende | `finance_applications`, status `intake/awaiting_partner/submitted/withdrawn` | Sparad förfrågan är inte ett kreditbeslut |
 
-Alla verifierade public-tabeller har RLS. `private.has_company_role` kontrollerar användare, aktivt medlemskap och aktivt företag. Dokumentinsert kräver `owner/admin/sales`; dokumentets objektväg börjar med företagets UUID och affärsreferensen är företagsbunden.
+Alla verifierade public-tabeller har RLS. `private.has_company_role` kontrollerar användare, aktivt medlemskap och aktivt företag. Dokumentläsning och insert kräver nu `owner/admin/finance` enligt den senaste policykontrollen; dokumentets objektväg börjar med företagets UUID och affärsreferensen är företagsbunden.
 
 Dessa uppgifter kommer från läsning av schema- och policykataloger, inte affärsrader. App- och databasändringar ska alltid följa samma verifierade kontrakt.
 
@@ -44,11 +44,13 @@ Dessa uppgifter kommer från läsning av schema- och policykataloger, inte affä
 | Affär och reservation | Huvudagentens affärsagent bygger säkra reservationer och affärsflöde | Affärsmodul och dess migrationer |
 | Fordonskostnader | Huvudagentens kostnadsagent bygger registrering och summering per bil | Kostnadsmodul och tillhörande vyer |
 | Granskning och dokumentation | Huvudagentens granskningsagent verifierar sammansatt app | Huvudappens tester och leveransunderlag |
-| Avtalsadapter | Denna chats API-agent bygger DocuSeal-providerbibliotek och webhookverifiering | `src/lib/documents/docuseal.ts`, `tests/docuseal/` |
+| Avtalsflöde | Denna chats API-agent bygger autentiserad förberedelse och beständig DocuSeal-worker | `src/lib/documents/`, användar- och workertester |
+| Signeringsdatabas | Denna chats schemaagent bygger additiv ledger och verifierar riktiga SQL-transaktioner | `supabase/migrations/*signing_ledger.sql`, ledger-/flödestester |
+| Regler och acceptans | Denna chats kravagent dokumenterar regler, integration och färdigkriterier | `docs/DEALER_RULES_AND_CONTRACTS.md` i avtals-PR |
 | Avtalsgranskning | Denna chats oberoende granskare kontrollerar adapter, okända utfall och händelsegränser | Läsning och testresultat |
 | Samordning och driftunderlag | Denna chats huvudagent och driftagent håller plan, providerkontrakt och katalogmetadata aktuella | Plan-PR och integrationsdokumentation |
 
-Varje spår arbetar i en isolerad gren. En integrationsändring i schema, API eller statusmodell delas i det gemensamma GitHub-underlaget innan beroende kod ändras. Huvudagenten äger sammansättningen av den verkliga handlarappen.
+Huvudappen och detta stödarbete har separata arbetsgrenar; underagenter delar respektive arbetsyta med uttryckliga filägare. En integrationsändring i schema, API eller statusmodell delas i det gemensamma GitHub-underlaget innan beroende kod ändras. Huvudagenten äger sammansättningen av den verkliga handlarappen.
 
 ## Byggordning och färdigkriterier
 
@@ -70,14 +72,15 @@ Den första kompletta affären ska följa importerad bil → kund och offert →
 
 ## Avtalsdelen som byggs nu
 
-DocuSeal-adaptern är ett serverbibliotek för att skapa ett uppdrag från en befintlig mall, läsa leverantörsstatus och verifiera webhookens HMAC över exakt rå requestbody. Den gör inga egna schemaändringar och använder inte sourcing-modulens företagstabeller.
+[Avtals-PR 3](https://github.com/heke99/trafexa-auto/pull/3) innehåller DocuSeal-adapter och ett tillhörande beständigt flöde mot befintliga Dealer-tabeller: additiv ledger, godkända dokument-/mallversioner, autentiserad användargräns, worker, webhook-inbox och privat arkivering. Koden verifieras lokalt; migration, godkänt offertrenderunderlag, faktiskt malläsning och worker/UI-koppling återstår i huvudappen. Providerutskick är avstängda tills integrationen aktiveras uttryckligt.
 
 - Företag, affär, dokument, mallversion och förväntade parter ska bindas av huvudappens verifierade serverkontext.
 - Bilköpeavtal och finanspartnerns kreditavtal hålls isär. Adaptern fattar inga kreditbeslut.
 - En undertecknares `form.completed` är inte hela uppdragets `submission.completed`.
 - Om ett POST-anrop kan ha nått leverantören men svaret försvinner måste utfallet hanteras som okänt. Inget automatiskt nytt signeringsuppdrag skickas.
-- Beständig dispatchledger, webhook-inbox, dokumentversion/checksumma och provider-ID-bindning behövs innan appen kan registrera signeringsstatus.
+- Beständig dispatchledger och webhook-inbox finns i avtals-PR:n. Dokumentversion/hash, hela servergodkända signer-/fältpayloadet samt mall-ID/version/hash binds oföränderligt. Unik dokumentversion hindrar dubbla signeringsjobb även med ny idempotensnyckel.
 - Nuvarande `documents` saknar signeringsstatus. Adaptern får därför inte skriva `signed` till dokument eller affär.
+- Faktiska käll-, mall- och arkivbytes kontrolleras; completed kräver privat signerad PDF och revisionsbevis med verifierad återläsning. Lokala fixtures är inte bevis på hosted Storage-policyer eller semantiskt identisk providerrendering.
 - BankID, PDF-editor och provideraktivering följer sina separata integrations- och licenskontrakt.
 
 DocuSeal, pdfme och pdf-lib kommer från originalplanens avtalsförslag. Exakt utgåva och driftmodell ska kontrolleras före aktivering; basic selfhost API och moln-/Pro-funktioner har olika villkor.
