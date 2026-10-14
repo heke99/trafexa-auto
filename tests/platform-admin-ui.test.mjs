@@ -10,7 +10,7 @@ import { createSourceLoader } from './helpers/source-loader.mjs';
 const require = createRequire(import.meta.url);
 const { chromium: playwright, expect } = require('@playwright/test');
 const Chromium = require('@sparticuz/chromium').default;
-const { webpack } = require('next/dist/compiled/webpack/webpack');
+const { webpack, LimitChunkCountPlugin } = require('next/dist/compiled/webpack/webpack');
 const repo = fileURLToPath(new URL('../', import.meta.url));
 const helpers = resolve(repo, 'tests/helpers/platform-admin-ui');
 const COMPANY = '10000000-0000-4000-8000-000000000001';
@@ -24,9 +24,9 @@ before(async () => {
   bundle = resolve(directory, 'fixture.js');
   styles = await readFile(resolve(repo, 'src/app/globals.css'), 'utf8');
   const config = {
-    mode: 'development', target: 'web', devtool: false, context: repo,
-    entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js' },
-    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/platform-admin/actions': resolve(helpers, 'actions.js'), 'next/navigation': resolve(helpers, 'navigation.js'), '@/lib/platform-admin/overview-actions': resolve(helpers, 'overview-actions.js'), '@/lib/platform-admin/account-actions': resolve(helpers, 'account-actions.js') } },
+    plugins: [new LimitChunkCountPlugin({maxChunks:1})], mode: 'development', target: 'web', devtool: false, context: repo,
+    entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js', publicPath: '' },
+    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/advertising/usage-actions': resolve(repo, 'tests/helpers/advertising-usage-ui/actions.js'), '@/lib/advertising/actions': resolve(repo, 'tests/helpers/advertising-ui/actions.js'), '@/lib/platform-admin/actions': resolve(helpers, 'actions.js'), 'next/navigation': resolve(helpers, 'navigation.js'), '@/lib/platform-admin/overview-actions': resolve(helpers, 'overview-actions.js'), '@/lib/platform-admin/account-actions': resolve(helpers, 'account-actions.js') } },
     module: { rules: [{ test: /\.tsx?$/, use: resolve(helpers, 'swc-loader.cjs') }] },
   };
   await new Promise((resolveBuild, reject) => {
@@ -261,5 +261,26 @@ test('account navigation is accessible from overview and fits a narrow mobile vi
  const page=await setup({overviewTab:true,accountRows:[makeAccount()]});
  try{
   await page.setViewportSize({width:320,height:850});await page.getByRole('button',{name:'Konton',exact:true}).click();await expect(page.getByRole('heading',{name:'Konton och åtkomst'})).toBeVisible();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ }finally{await page.close();}
+});
+
+
+test('superadmin opens selected company advertising basis lazily and revoked access clears the parent company list',async()=>{
+ const page=await setup();try{
+  await page.evaluate(()=>{
+   window.calls=[];window.responses=[];
+   const counts={queued:1,dispatching:0,outcomeUnknown:0,submitted:1,published:2,rejected:0,retryable:0,newPublications:1};
+   window.usage={ok:true,companyId:'10000000-0000-4000-8000-000000000001',actorUserId:'30000000-0000-4000-8000-000000000001',actorRole:'platform_admin',timeZone:'Europe/Stockholm',trackingStartedAt:'2026-10-14T00:00:00Z',legacyPublishedJobs:0,totals:{drafts:1,ready:1,...counts},channels:[{channel:'blocket',...counts}],billing:{status:'unconfigured',unitPriceOre:null,totalOre:null,unpricedPublications:1}};
+  });
+  assert.equal(await page.evaluate(()=>window.calls.length),0);
+  await page.getByRole('button',{name:'Annonsunderlag för Fixture AB'}).click();
+  await expect(page.getByRole('heading',{name:'Annonsunderlag för Fixture AB'})).toBeVisible();
+  await expect(page.getByText('Unika publiceringar under vald månad')).toBeVisible();
+  assert.equal((await page.evaluate(()=>window.calls[0])).companyId,COMPANY);
+  await page.evaluate(()=>window.responses.push({ok:false,code:'access_denied',message:'Åtkomst återkallad'}));
+  await page.getByRole('button',{name:'Uppdatera statistik'}).click();
+  await expect(page.getByRole('alert')).toContainText('Åtkomst återkallad');
+  await expect(page.getByRole('cell',{name:'Fixture AB'})).toHaveCount(0);
+  await expect(page.getByText('Unika publiceringar under vald månad')).toHaveCount(0);
  }finally{await page.close();}
 });

@@ -1,5 +1,7 @@
 # Trafexa Dealer
 
+[Annonsstatistik och antalunderlag](docs/ADVERTISING_USAGE_CONTRACT.md) räknar en unik verifierad annons per kanal och visar månadens enheter separat från jobbstatus. Superadmin väljer företag under Företag → Annonsunderlag; företagets ägare, administratör och ekonomiansvarig hittar samma statistik under Annonsering. Privat CSV-export finns. Priser och fakturautställning återstår; Blocket/Wayke är fortsatt inaktiva utan partneråtkomst.
+
 [Transaktionsmejl](docs/TRANSACTIONAL_EMAIL_SETUP.md) har sex svenska mallar, privat utskickskö och superadminstatus. Ansökningar, kontogodkännande och signeringshändelser kopplas till serverbundna mottagare. Resend-domänen är förberedd; DNS, produktionsnyckel och Supabase Auth SMTP behöver konfigureras innan riktiga utskick aktiveras.
 
 Företagets avtalsmallar har separat granskning och godkännande. Privata, oföränderliga avtalsutkast skapas från exakt accepterad offert och en godkänd mallversion; originalvillkor, kund/bil/pris, moms och eventuellt inbyte återges i osignerad PDF. Avtalshistorik och mallfamiljer är sidindelade. Den selektiva [DocuSeal-portningen](docs/DOCUSEAL_SELECTIVE_PORT.md) använder låst källversion och namnteckningsfältets lokala formkontroll. [Tvåpartssignering](docs/CONTRACT_SIGNING_CONTRACT.md) binder kundens och bolagets underskrifter till samma avtalsinnehåll. Färdigsignerade avtal ger privat PDF och signeringsbevis; originalfilsarkiv återstår.
