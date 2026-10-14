@@ -1,0 +1,10 @@
+import type { AdvertisingChannel, AdvertisingScope, AdvertisingResult } from './database.types';
+export type AdvertisingUsageCounts = { queued:number; dispatching:number; outcomeUnknown:number; submitted:number; published:number; rejected:number; retryable:number; newPublications:number };
+export type AdvertisingUsagePage = Omit<AdvertisingScope,'actorRole'> & {actorRole:AdvertisingScope['actorRole']|'platform_admin';
+ month:string; timeZone:'Europe/Stockholm'; periodStart:string; periodEnd:string;
+ totals:AdvertisingUsageCounts & {drafts:number;ready:number};
+ channels:(AdvertisingUsageCounts & {channel:AdvertisingChannel})[];
+ billing:{status:'unconfigured';unitPriceOre:null;totalOre:null;unpricedPublications:number};
+ trackingStartedAt:string;legacyPublishedJobs:number;
+};
+export type AdvertisingUsageResult = AdvertisingResult<AdvertisingUsagePage>;

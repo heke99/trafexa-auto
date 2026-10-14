@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { activatePlatformAdminAction, erasePlatformWebApplicationAction, getPlatformWebApplicationAction, setPlatformWebApplicationStatusAction, listPlatformCompaniesAction, listPlatformContactRequestsAction, setPlatformCompanyStatusAction } from '@/lib/platform-admin/actions';
 import { PlatformAccountAccess } from './platform-account-access';
@@ -8,6 +9,8 @@ import { PlatformAdminOverview } from './platform-admin-overview';
 import { getPlatformOverviewAction } from '@/lib/platform-admin/overview-actions';
 import type { PlatformOverview } from '@/lib/platform-admin/overview-types';
 import type { CompanyPage, CompanyStatus, PlatformCompany, PlatformContact } from '@/lib/platform-admin/database.types';
+
+const AdvertisingUsagePanel = dynamic(() => import('./advertising-usage-panel').then(module => module.AdvertisingUsagePanel), { loading: () => <p role="status">Läser in annonsunderlag…</p> });
 
 type Review = { company: PlatformCompany; status: CompanyStatus; reason: string; confirmed: boolean };
 const applicationLabels: Record<string, string> = { new: 'Ny', in_review: 'Under granskning', contacted: 'Kontaktad', closed: 'Avslutad' };
@@ -44,6 +47,7 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
   const applicationIntent = useRef<{ payload: string; requestId: string } | null>(null);
   const [search, setSearch] = useState('');
   const [loadedSearch, setLoadedSearch] = useState('');
+  const [usageCompany, setUsageCompany] = useState<PlatformCompany | null>(null);
   const [review, setReview] = useState<Review | null>(null);
   const [error, setError] = useState<string | null>(initialError);
   const [notice, setNotice] = useState<string | null>(null);
@@ -59,7 +63,7 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
   function handleFailure(result: { code: string; message: string }) {
     setError(result.message);
     if (result.code === 'access_denied') {
-      ++generation.current; ++overviewGeneration.current; setOverview(null); setOverviewError(null); setOverviewLoading(false); setDenied(true); setCompanies([]); setContacts([]); setNextPageKey(null); setContactCursor(null); setReview(null); setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null);
+      ++generation.current; ++overviewGeneration.current; setOverview(null); setOverviewError(null); setOverviewLoading(false); setDenied(true); setUsageCompany(null); setCompanies([]); setContacts([]); setNextPageKey(null); setContactCursor(null); setReview(null); setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null);
     }
   }
   function loadOverview() {
@@ -223,10 +227,11 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
     {!denied && tab === 'companies' && <>
       <section className="surface" aria-label="Företag">
         <form className="table-toolbar" onSubmit={event => { event.preventDefault(); loadCompanies(); }}><div className="table-controls"><label className="search-field"><span className="sr-only">Sök företag eller organisationsnummer</span><input placeholder="Namn eller organisationsnummer" value={search} onChange={event => setSearch(event.target.value)} maxLength={160} disabled={pending}/></label><button type="submit" className="button button-outline" disabled={pending}>Sök</button></div></form>
-        <div className="table-scroll"><table className="data-table"><caption className="sr-only">Företag som använder Trafexa</caption><thead><tr><th scope="col">Företag</th><th scope="col">Status</th><th scope="col">Medlemmar</th><th scope="col">Lagerobjekt</th><th scope="col">Registrerat</th><th scope="col">Åtgärd</th></tr></thead><tbody>{companies.map(company => <tr key={company.id}><td><strong>{company.name}</strong><br/>{company.organisationNumber}</td><td><span className="badge">{statusLabel(company.status)}</span></td><td>{company.membershipCount}</td><td>{company.stockCount}</td><td>{dateLabel(company.createdAt)}</td><td><button type="button" className="text-link" disabled={pending} onClick={() => { setReview({ company, status: company.status === 'active' ? 'suspended' : 'active', reason: '', confirmed: false }); setError(null); setNotice(null); }}>Hantera status<span className="sr-only"> för {company.name}</span></button></td></tr>)}</tbody></table></div>
+        <div className="table-scroll"><table className="data-table"><caption className="sr-only">Företag som använder Trafexa</caption><thead><tr><th scope="col">Företag</th><th scope="col">Status</th><th scope="col">Medlemmar</th><th scope="col">Lagerobjekt</th><th scope="col">Registrerat</th><th scope="col">Åtgärd</th></tr></thead><tbody>{companies.map(company => <tr key={company.id}><td><strong>{company.name}</strong><br/>{company.organisationNumber}</td><td><span className="badge">{statusLabel(company.status)}</span></td><td>{company.membershipCount}</td><td>{company.stockCount}</td><td>{dateLabel(company.createdAt)}</td><td><button type="button" className="text-link" disabled={pending} onClick={() => { setReview({ company, status: company.status === 'active' ? 'suspended' : 'active', reason: '', confirmed: false }); setError(null); setNotice(null); }}>Hantera status<span className="sr-only"> för {company.name}</span></button><br/><button type="button" className="text-link" disabled={pending} onClick={() => setUsageCompany(company)}>Annonsunderlag<span className="sr-only"> för {company.name}</span></button></td></tr>)}</tbody></table></div>
         {!companies.length && <div className="empty-state"><h2>Inga företag hittades</h2><p>Ändra sökningen eller läs in listan igen.</p></div>}
         <div className="table-footer"><span>{companies.length} företag inlästa</span>{nextPageKey && <button type="button" className="text-link" disabled={pending} onClick={() => loadCompanies(true)}>Läs in fler</button>}</div>
       </section>
+      {usageCompany && !denied && <section aria-label="Valt företags annonsunderlag"><div className="panel-heading"><h2 style={{ overflowWrap: 'anywhere' }}>Annonsunderlag för {usageCompany.name}</h2><button type="button" className="text-link" onClick={() => setUsageCompany(null)}>Stäng annonsunderlag</button></div><AdvertisingUsagePanel companyId={usageCompany.id} userId={actorUserId} role="platform_admin" superadmin onDenied={message => handleFailure({ code: 'access_denied', message })}/></section>}
       {review && <section className="surface" aria-labelledby="status-review-title" style={{ marginTop: 24 }}><div className="panel-heading"><h2 ref={reviewHeading} tabIndex={-1} id="status-review-title">{review.confirmed ? 'Bekräfta statusändring' : 'Ändra företagsstatus'}</h2></div><div className="dialog-content"><form className="workspace-form" onSubmit={event => { event.preventDefault(); if (review.confirmed) saveStatus(); else setReview(previous => previous ? { ...previous, reason: previous.reason.trim(), confirmed: true } : null); }}><p><strong>{review.company.name}</strong> · {review.company.organisationNumber}</p><p>{statusLabel(review.company.status)} → {statusLabel(review.status)}</p><p>{review.status === 'suspended' ? 'Företagets användare förlorar åtkomst till företagets data. Befintlig information behålls.' : 'Aktiva medlemskap återfår åtkomst till företagets data.'}</p>{review.confirmed ? <div><strong>Motivering</strong><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{review.reason}</p></div> : <label>Motivering (obligatorisk)<input type="text" required maxLength={500} value={review.reason} disabled={pending} onChange={event => setReview(previous => previous ? { ...previous, reason: event.target.value } : null)}/></label>}<div className="table-controls"><button className="button button-green" type="submit" disabled={pending || !review.reason.trim()}>{review.confirmed ? review.status === 'suspended' ? 'Bekräfta avstängning' : 'Bekräfta aktivering' : 'Granska ändring'}</button>{review.confirmed && <button className="button button-outline" type="button" disabled={pending} onClick={() => setReview(previous => previous ? { ...previous, confirmed: false } : null)}>Ändra motivering</button>}<button className="text-link" type="button" disabled={pending} onClick={() => { setReview(null); intent.current = null; }}>Avbryt</button></div></form></div></section>}
     </>}
     {!denied && tab === 'contacts' && <>

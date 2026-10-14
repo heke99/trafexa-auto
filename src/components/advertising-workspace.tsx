@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
+import dynamic from 'next/dynamic';
 import { createAdvertisingListingAction, getStockAdvertisingAction, listAdvertisingStockAction, listAdvertisingWorkspaceAction, markAdvertisingListingReadyAction, saveAdvertisingListingAction, sendAdvertisingListingAction } from '@/lib/advertising/actions';
 import { ChannelConnections, channelNames, type AdvertisingChannel } from './channel-connections';
 import { VehiclePhotoGallery } from '@/components/vehicle-photo-gallery';
@@ -11,6 +12,7 @@ type StockPage = AdvertisingStockPage & { ok: true };
 type Listing = WorkspacePage['listings'][number];
 type Editor = { stockId: string; listing: Listing | null; title: string; description: string; photoIds: string[]; includeRegistrationNumber: boolean };
 type Review = { kind: 'ready' | 'send'; listing: Listing; channels: AdvertisingChannel[]; confirmed: boolean };
+const AdvertisingUsagePanel = dynamic(() => import('./advertising-usage-panel').then(module => module.AdvertisingUsagePanel), { loading: () => <p role="status">Läser in annonsstatistik…</p> });
 const money = (ore: string) => { const amount = BigInt(ore); return `${new Intl.NumberFormat('sv-SE').format(amount / BigInt(100))},${String(amount % BigInt(100)).padStart(2, '0')} kr`; };
 const jobLabel = (status: string) => ({ queued: 'Köad för leverans', dispatching: 'Leverans pågår', published: 'Publicerad', submitted: 'Inskickad – publicering ej verifierad', retryable: 'Leverans behöver nytt försök', failed: 'Leverans misslyckades', rejected: 'Avvisad av kanal', outcome_unknown: 'Utfallet behöver avstämmas', unavailable: 'Kanalanslutning krävs' }[status] ?? status);
 const dateLabel = (value: string) => new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Stockholm' }).format(new Date(value));
@@ -24,6 +26,7 @@ export function AdvertisingWorkspace({ companyId, role, userId, demo = false }: 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [denied, setDenied] = useState(false);
+  const [showUsage, setShowUsage] = useState(false);
   const [channelBusy, setChannelBusy] = useState(false);
   const [pending, startTransition] = useTransition();
   const generation = useRef(0);
@@ -182,11 +185,13 @@ export function AdvertisingWorkspace({ companyId, role, userId, demo = false }: 
   const dirty = editor?.listing && (editor.title !== editor.listing.snapshot.title || editor.description !== editor.listing.snapshot.description || editor.includeRegistrationNumber !== editor.listing.snapshot.includeRegistrationNumber || JSON.stringify(editor.photoIds) !== JSON.stringify(editor.listing.snapshot.photos.map(photo => photo.id)));
   if (demo) return <section className="surface"><div className="empty-state"><h2>Annonskonto</h2><p>Demonstration med exempeldata. Företagets annonser och kanalanslutningar visas i det inloggade företagskontot.</p></div></section>;
   return <section aria-label="Annonskonto"><div className="surface"><div className="panel-heading"><h2>Företagets annonser</h2><button type="button" className="text-link" disabled={busy || denied} onClick={() => load()}>Uppdatera annonskonto</button></div>
+    {!denied && page && ['owner', 'admin', 'finance'].includes(actorRole) && <button type="button" className="text-link" aria-expanded={showUsage} onClick={() => setShowUsage(value => !value)}>{showUsage ? 'Dölj statistik och faktureringsunderlag' : 'Visa statistik och faktureringsunderlag'}</button>}
     <p className="settings-note">Skapa annonsunderlag från lagrets biluppgifter och bilder. Ett sparat utkast eller köat leveransjobb är ingen publicerad annons.</p>
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="notice" role="status">{notice}</p>}{pending && <p role="status">Verifierar annonskontot…</p>}
     {!denied && page && <><div className="table-scroll"><table className="data-table"><caption className="sr-only">Annonsutkast och färdiga annonsversioner</caption><thead><tr><th scope="col">Annons</th><th scope="col">Pris från lager</th><th scope="col">Version</th><th scope="col">Status</th><th scope="col">Åtgärd</th></tr></thead><tbody>{page.listings.map(listing => <tr key={listing.id}><td><strong>{listing.snapshot.title}</strong></td><td>{money(listing.snapshot.priceGrossOre)}</td><td>{listing.version}</td><td>{listing.status === 'ready' ? 'Klar annonsversion' : 'Utkast'}</td><td><button type="button" className="text-link" disabled={busy} onClick={() => chooseStock(listing.stockId)}>Visa annons<span className="sr-only"> {listing.snapshot.title}</span></button></td></tr>)}</tbody></table></div>{!page.listings.length && <p className="quiet-empty">Inga annonsutkast ännu. Välj en lagerbil för att skapa underlaget.</p>}<div className="table-footer"><span>{page.listings.length} annonser inlästa</span>{page.nextPageKey && <button type="button" className="text-link" disabled={busy} onClick={() => load('listings')}>Läs in fler annonser</button>}</div></>}
     {!denied && stock && <div className="workspace-form" style={{ padding: 20 }}><label>Välj lagerbil<select value={editor?.stockId ?? ''} disabled={busy} onChange={event => chooseStock(event.target.value)}><option value="">Välj en bil från företagets lager</option>{stock.stock.map(choice => <option key={choice.id} value={choice.id}>{choice.make} {choice.model} · {choice.year} · {money(choice.priceGrossOre)}</option>)}</select></label>{stock.nextPageKey && <button type="button" className="text-link" disabled={busy} onClick={moreStock}>Läs in fler lagerbilar</button>}</div>}
   </div>
+    {!denied && page && showUsage && ['owner', 'admin', 'finance'].includes(actorRole) && <AdvertisingUsagePanel key={`${companyId}:${userId}:${actorRole}`} companyId={companyId} userId={userId} role={actorRole} onDenied={message => failure({ code: 'access_denied', message })}/>}
     {!denied && editor && <section className="surface" style={{ marginTop: 24 }} aria-label="Annonseditor"><div className="panel-heading"><h2>{editor.listing ? `Annonsversion ${editor.listing.version}` : 'Nytt annonsutkast'}</h2></div><form className="workspace-form" style={{ padding: 20 }} onSubmit={event => { event.preventDefault(); if (event.currentTarget.reportValidity()) saveDraft(); }}>
       <label>Annonstitel<input type="text" required maxLength={160} value={editor.title} disabled={busy || !canEdit} onChange={event => { setEditor({ ...editor, title: event.target.value }); setReview(null); }}/></label><label>Annonsbeskrivning<textarea rows={5} maxLength={5000} value={editor.description} disabled={busy || !canEdit} onChange={event => { setEditor({ ...editor, description: event.target.value }); setReview(null); }}/></label>
       <p>Annonspris från fordonslagret: <strong>{editor.listing ? money(editor.listing.snapshot.priceGrossOre) : stock?.stock.find(choice => choice.id === editor.stockId) ? money(stock.stock.find(choice => choice.id === editor.stockId)!.priceGrossOre) : 'Läses från lagret vid sparande'}</strong></p><p className="form-privacy">Priset hämtas från bilens försäljningspris vid sparande. Ändra priset i fordonslagret. Annonsen innehåller inte interna inköpspriser, kostnader eller kunduppgifter.</p>
