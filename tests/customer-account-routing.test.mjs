@@ -37,16 +37,18 @@ test('customer proxy preserves refreshed cookies and no-store through an unauthe
  const priorUrl=process.env.NEXT_PUBLIC_SUPABASE_URL,priorKey=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
  process.env.NEXT_PUBLIC_SUPABASE_URL='https://project.example.invalid';process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY='public';
  try{
+  for (const path of ['/my-offers','/my-contracts']) {
   const loader=await createSourceLoader({
    'next/server':{NextResponse:{next:()=>make(),redirect:location=>make(location)}},
    '@supabase/ssr':{createServerClient:(_url,_key,{cookies})=>({auth:{getClaims:async()=>{cookies.setAll([{name:'auth',value:'refreshed',options:{httpOnly:true}}]);return {data:{claims:null}};}}})},
   });
-  const nextUrl=new URL('https://app.trafexa.com/my-offers');nextUrl.clone=()=>new URL(nextUrl);
+  const nextUrl=new URL(`https://app.trafexa.com${path}`);nextUrl.clone=()=>new URL(nextUrl);
   const writes=[];const request={nextUrl,method:'GET',cookies:{getAll:()=>[],set:(...args)=>writes.push(args)}};
   const result=await loader.load('src/proxy.ts').proxy(request);
-  assert.equal(result.location.pathname,'/login');assert.equal(result.location.searchParams.get('next'),'/my-offers');
+  assert.equal(result.location.pathname,'/login');assert.equal(result.location.searchParams.get('next'),path);
   assert.equal(result.headers.get('Cache-Control'),'private, no-store');assert.equal(result.cookies.items[0][0].name,'auth');
   assert.deepEqual(writes,[['auth','refreshed']]);
+  }
  }finally{
   if(priorUrl===undefined)delete process.env.NEXT_PUBLIC_SUPABASE_URL;else process.env.NEXT_PUBLIC_SUPABASE_URL=priorUrl;
   if(priorKey===undefined)delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=priorKey;
