@@ -33,7 +33,8 @@ before(async () => {
     resolve: { extensions: ['.tsx', '.ts', '.js'], alias: {
       '@/lib/data/offer-actions': actions, '@/lib/data/offer-archive-actions': actions, '@/lib/data/actions': actions,
       '@/lib/calculations/vehicle-calculation': resolve(repo, 'src/lib/calculations/vehicle-calculation.ts'),
-      'next/link': unrelated,
+      'next/link': unrelated, 'next/navigation': unrelated,
+      [resolve(repo, 'src/components/deal-cancellation')]: unrelated,
       [resolve(repo, 'src/components/stock-import')]: unrelated,
       [resolve(repo, 'src/components/customer-leads')]: unrelated,
       [resolve(repo, 'src/components/customer-contact-log')]: unrelated,
@@ -103,6 +104,22 @@ test('actual DealerWorkspace maps owner/admin/finance archive rights and hides a
     await expect(page.getByText(/Demoläge · läsvisning/)).toBeVisible();
     assert.equal(await page.evaluate(() => window.fixture.listCalls.length + window.fixture.archiveCalls.length), 0);
   } finally { await page.close(); }
+});
+
+test('actual dealer cancellation scopes roles, company and supported deal statuses',async()=>{
+ const page=await browser.newPage();
+ try {
+  await page.route('**/*',route=>route.abort());await page.setContent('<div id="root"></div>');await page.evaluate(()=>{window.fixture={offers:[],listCalls:[],archiveCalls:[]};});await page.addScriptTag({path:bundle});
+  for(const role of ['owner','admin','sales','finance','viewer']){
+   await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot}),workspace(role));
+   await expect(page.locator('[data-cancellation]')).toHaveAttribute('data-edit',String(['owner','admin','sales'].includes(role)));
+  }
+  await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot,demo:true}),workspace('owner',otherCompany));
+  await expect(page.locator('[data-cancellation]')).toHaveAttribute('data-company',otherCompany);await expect(page.locator('[data-cancellation]')).toHaveAttribute('data-edit','false');
+  for(const status of ['offered','contracted','sold','delivered','closed']){
+   const snapshot=workspace('owner');snapshot.deals[0].status=status;await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot}),snapshot);await expect(page.locator('[data-cancellation]')).toHaveCount(0);
+  }
+ }finally{await page.close();}
 });
 
 test('actual dealer followups open a customer outside the table sample, clear on denial and cannot carry a modal across companies',async()=>{
