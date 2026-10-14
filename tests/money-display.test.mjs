@@ -24,6 +24,8 @@ async function render(section) {
     '@/lib/data/actions': new Proxy({}, { get: () => () => { throw new Error('SSR must not invoke a server action.'); } }),
     './stock-import': { StockImport: () => null },
     './deal-offers': { DealOffers: () => null },
+    './deal-cancellation': { DealCancellation: () => null },
+    'next/navigation': { useRouter: () => ({refresh(){}}) },
     './customer-leads': { CustomerLeads: () => null },
   });
   const { DealerWorkspace } = loader.load('src/components/dealer-workspace.tsx');

@@ -1,5 +1,13 @@
 # Implementationsstatus
 
+## Kontrollerad avbrytning av affärer, 14 oktober 2026
+
+Fortsättning från main `3042d900ecc04dec5c3924011e9740b909d9fb36`: ägare/admin/säljare kan granska motiverad avbrytning av företagets utkast eller reserverade affär. Endast affärens aktiva reservationer avslutas; tillgänglig lagerstatus kräver att ingen aktiv reservation återstår. Sålda/arkiverade lagerposter öppnas inte. Offerter, kundsvar och privat oföränderligt auditkvitto bevaras. Accepterad offert spärrar vanlig avbrytning och manuell reservationsfrigivning; den förlänger inte befintlig reservations giltighet. Se [kontraktet](DEAL_CANCELLATION_CONTRACT.md) och [hela planläget](PLAN_PROGRESS.md).
+
+Färsk faktisk Auth, medlemskap, företag, förväntad affärsstatus och aktörbundet exakt återförsök kontrolleras. UI granskar före skrivning, behåller nonce vid okänt utfall, blockerar vid konflikt/nekad åtkomst och uppdaterar arbetsytan efter verifierat kvitto. Komponentnycklar omfattar användare/företag/roll/affär/status; demo och läsroller kan inte skriva. Lager-/affärslåsen har samma ordning i avbrytning och reservationsfrigivning.
+
+Verifiering: **376/376 apptester**, inklusive sex nya actionfall, fyra faktiska browsergrupper och verklig DealerWorkspace-roll-/företags-/demo-/statusintegration. Produktionsbygge, TypeScript och diffkontroll PASS. **7/7 PostgreSQL/PGlite-grupper** kontrollerar faktisk migrationskedja och hosted basis, terminalstatus, annan affärs reservation, accepterad offert, nonce/CAS, roller, Auth, privat audit och rollback. Hosted migrationer `20261014113331_deal_cancellation` och `20261014113343_cancellation_reservation_release` applicerade; totalt 25 hosted migrationer. Live rollback PASS och efterkontroll noll testkonton/företag/kunder/fordon/lager/affärer/audit. Inga nya säkerhetsvarningar. Inga mejl, providers eller schedulerjobb aktiverade. Full autentiserad produktionsbrowser och verklig multi-connection-låsväntan återstår separat. Äldre signing/archive-migrationer fortsatt pending.
+
 ## Kundens offertgranskning och tydligare startsida, 14 oktober 2026
 
 Fortsättning från main `da3ae5b89933d07be9f1e247bb7d3fed8e9aa6eb`: handlaren granskar den senaste sparade offertversionens mottagare och giltighet innan den uttryckligen tillgängliggörs. Kunden använder `/my-offers` med faktisk verifierad Auth och matchande sparad kundadress, utan företagsmedlemskap eller onboarding. Offertens oföränderliga företag/kund/bil/pris/moms/giltighet/villkor visas; interna inköpskostnader, kollegors Auth-identiteter och CRM-anteckningar ingår inte.
