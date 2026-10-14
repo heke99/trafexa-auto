@@ -42,6 +42,7 @@ before(async () => {
       [resolve(repo, 'src/components/dealer-offer-reviews')]: unrelated,
       [resolve(repo, 'src/components/company-team')]: unrelated,
       [resolve(repo, 'src/components/vehicle-calculation')]: unrelated,
+      [resolve(repo, 'src/components/purchase-condition')]: unrelated,
       [resolve(repo, 'src/components/vehicle-photo-gallery')]: unrelated,
       [resolve(repo, 'src/components/advertising-workspace')]: unrelated,
     } },
@@ -70,6 +71,33 @@ function workspace(role, companyId = company) {
     deals: [{ id: deal, status: 'draft', sale_price_ore: 25000000, customer_id: 'fixture-customer', stock_item_id: 'fixture-stock', created_at: '2026-10-13T12:00:00Z' }],
     finance_applications: [], documents: [], activities: [], finance_partners: [], dealer_approvals: [], integrations: [] };
 }
+test('actual vehicle panel binds purchase underlay to current company user role stock and demo', async () => {
+  const page = await browser.newPage();
+  const stock = { id: '71000000-0000-4000-8000-000000000001', status: 'available', acquired_on: '2026-10-14', purchase_price_ore: 10001, asking_price_ore: 20001, vat_scheme: 'standard', vehicles: {id:'72000000-0000-4000-8000-000000000001',registration_number:'PUR123',make:'Volvo',model:'V60',model_year:2020,mileage_km:50000,fuel:'petrol',gearbox:'automatic'} };
+  try {
+    await page.route('**/*', route => route.abort());
+    await page.setContent('<div id="root"></div>');
+    await page.evaluate(() => { window.fixture = {offers:[],listCalls:[],archiveCalls:[]}; });
+    await page.addScriptTag({path:bundle});
+    for (const role of ['owner','admin','finance','sales','viewer']) {
+      const snapshot = workspace(role); snapshot.inventory = [stock]; snapshot.user.id = `user-${role}`;
+      await page.evaluate(snapshot => window.mountArchiveFixture({workspace:true,snapshot,section:'inventory'}), snapshot);
+      await expect(page.locator('[data-purchase-stock]')).toHaveCount(0);
+      await page.getByRole('button', {name:'Volvo V60',exact:true}).click();
+      const panel = page.locator('[data-purchase-stock]');
+      await expect(panel).toHaveAttribute('data-purchase-stock', stock.id);
+      await expect(panel).toHaveAttribute('data-company', company);
+      await expect(panel).toHaveAttribute('data-user', `user-${role}`);
+      await expect(panel).toHaveAttribute('data-role', role);
+      await page.getByRole('button', {name:'Stäng',exact:true}).click();
+    }
+    const snapshot = workspace('owner',otherCompany); snapshot.inventory = [{...stock,id:'71000000-0000-4000-8000-000000000002'}];
+    await page.evaluate(snapshot => window.mountArchiveFixture({workspace:true,snapshot,section:'inventory',demo:true}), snapshot);
+    await page.getByRole('button', {name:'Volvo V60',exact:true}).click();
+    await expect(page.locator('[data-purchase-stock]')).toHaveAttribute('data-company',otherCompany);
+    await expect(page.locator('[data-purchase-stock]')).toHaveAttribute('data-demo','true');
+  } finally { await page.close(); }
+});
 async function setup(props = {}, responses = []) {
   const page = await browser.newPage();
   // Any accidental HTTP request fails; all actions are deliberately local fixtures.
