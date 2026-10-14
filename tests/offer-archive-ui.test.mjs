@@ -43,6 +43,8 @@ before(async () => {
       [resolve(repo, 'src/components/company-team')]: unrelated,
       [resolve(repo, 'src/components/vehicle-calculation')]: unrelated,
       [resolve(repo, 'src/components/purchase-condition')]: unrelated,
+      [resolve(repo, 'src/components/contract-template-workspace')]: unrelated,
+      [resolve(repo, 'src/components/deal-contracts')]: unrelated,
       [resolve(repo, 'src/components/vehicle-photo-gallery')]: unrelated,
       [resolve(repo, 'src/components/advertising-workspace')]: unrelated,
     } },
@@ -71,6 +73,30 @@ function workspace(role, companyId = company) {
     deals: [{ id: deal, status: 'draft', sale_price_ore: 25000000, customer_id: 'fixture-customer', stock_item_id: 'fixture-stock', created_at: '2026-10-13T12:00:00Z' }],
     finance_applications: [], documents: [], activities: [], finance_partners: [], dealer_approvals: [], integrations: [] };
 }
+test('actual contract panels bind company user role deal and demo independently of dealer write permissions', async () => {
+  const page = await browser.newPage();
+  try {
+    await page.route('**/*',route=>route.abort());
+    await page.setContent('<div id="root"></div>');
+    await page.evaluate(()=>{window.fixture={offers:[],listCalls:[],archiveCalls:[]};});
+    await page.addScriptTag({path:bundle});
+    for (const role of ['owner','admin','finance','sales','viewer']) {
+      const snapshot=workspace(role);snapshot.user.id=`contract-user-${role}`;
+      await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot,section:'settings'}),snapshot);
+      await expect(page.locator('[data-contract-templates]')).toHaveAttribute('data-contract-templates',company);
+      await expect(page.locator('[data-contract-templates]')).toHaveAttribute('data-user',snapshot.user.id);
+      await expect(page.locator('[data-contract-templates]')).toHaveAttribute('data-role',role);
+      await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot,section:'deals'}),snapshot);
+      await expect(page.locator('[data-contract-deal]')).toHaveAttribute('data-contract-deal',deal);
+      await expect(page.locator('[data-contract-deal]')).toHaveAttribute('data-company',company);
+      await expect(page.locator('[data-contract-deal]')).toHaveAttribute('data-user',snapshot.user.id);
+      await expect(page.locator('[data-contract-deal]')).toHaveAttribute('data-role',role);
+    }
+    await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot,section:'deals',demo:true}),workspace('owner',otherCompany));
+    await expect(page.locator('[data-contract-deal]')).toHaveAttribute('data-company',otherCompany);
+    await expect(page.locator('[data-contract-deal]')).toHaveAttribute('data-demo','true');
+  } finally { await page.close(); }
+});
 test('actual vehicle panel binds purchase underlay to current company user role stock and demo', async () => {
   const page = await browser.newPage();
   const stock = { id: '71000000-0000-4000-8000-000000000001', status: 'available', acquired_on: '2026-10-14', purchase_price_ore: 10001, asking_price_ore: 20001, vat_scheme: 'standard', vehicles: {id:'72000000-0000-4000-8000-000000000001',registration_number:'PUR123',make:'Volvo',model:'V60',model_year:2020,mileage_km:50000,fuel:'petrol',gearbox:'automatic'} };

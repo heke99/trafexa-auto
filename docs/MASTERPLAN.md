@@ -1,5 +1,7 @@
 # Trafexa Dealer – fortsättningsplan
 
+Företagets avtalsmallar har separat granskning och godkännande. Privata, oföränderliga avtalsutkast skapas från exakt accepterad offert och en godkänd mallversion; originalvillkor, kund/bil/pris, moms och eventuellt inbyte återges i osignerad PDF. Avtalshistorik och mallfamiljer är sidindelade. Den selektiva [DocuSeal-portningen](DOCUSEAL_SELECTIVE_PORT.md) använder låst källversion och namnteckningsfältets lokala formkontroll. Aktiv underskrift och signerade filer är separata nästa steg.
+
 Bilkortets privata inköps- och skickunderlag sparar leverantör, inköpsreferens, sex manuella skickbedömningar och känd/okänd reparationsuppskattning i oföränderliga versioner. Ägare, administratör och ekonomiansvarig kan granska och spara; samma behörighet krävs för PDF av exakt version. Serverns inköpspris och momsunderlag kopieras utan att ändra lager eller registrerade kostnader. Se [PURCHASE_CONDITION_CONTRACT](PURCHASE_CONDITION_CONTRACT.md).
 
 Återhämtad och rekonstruerad arbetsplan • 13 oktober 2026

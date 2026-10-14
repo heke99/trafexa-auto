@@ -6,6 +6,8 @@ export function CustomerLeads() { return null; }
 export function CompanyTeam() { return null; }
 export function VehicleCalculation() { return null; }
 export function PurchaseCondition(props) { return React.createElement('section',{'data-purchase-stock':props.stockItemId,'data-company':props.companyId,'data-user':props.userId,'data-role':props.role,'data-demo':String(!!props.demo)},'Inköps- och skickfixture'); }
+export function ContractTemplateWorkspace(props) { return React.createElement('span',{'data-contract-templates':props.companyId,'data-user':props.userId,'data-role':props.role,'data-demo':String(!!props.demo)},'Avtalsmallfixture'); }
+export function DealContracts(props) { return React.createElement('details',null,React.createElement('summary',null,'Avtalsutkastfixture'),React.createElement('span',{'data-contract-deal':props.dealId,'data-company':props.companyId,'data-user':props.userId,'data-role':props.role,'data-demo':String(!!props.demo)},'Avtalsfixture')); }
 export function VehiclePhotoGallery() { return null; }
 export function AdvertisingWorkspace() { return null; }
 export function CustomerContactLog(props) { if(!window.fixture?.crmOutside)return null;return React.createElement('section',{'aria-label':'Kontaktfixture','data-company':props.companyId,'data-customer':props.customerId,'data-can-edit':String(props.canEdit)},React.createElement('button',{type:'button',onClick:props.onAccessDenied},'Neka kontaktåtkomst')); }
