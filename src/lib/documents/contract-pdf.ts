@@ -54,15 +54,21 @@ function getFontBytes(): Promise<Buffer> {
 }
 
 /** The source offer and approved template version are frozen; this renders no signature or payment state. */
-export async function generateContractPdf(value: unknown): Promise<Uint8Array> {
+export type ContractPdfSignature = { party: 'customer' | 'company'; fullName: string; signedAt: string; strokes: { points: { x: number; y: number }[] }[] };
+export type ContractPdfCompletion = { documentHash: string; completedAt: string; signatures: ContractPdfSignature[] };
+
+export async function generateContractPdf(value: unknown): Promise<Uint8Array> { return renderContractPdf(value); }
+
+/** Internal rendering boundary: completion is validated by signed-contract-pdf before use. */
+export async function renderContractPdf(value: unknown, completion?: ContractPdfCompletion): Promise<Uint8Array> {
   const draft = parseContractDraft(value), offer = draft.sourceOffer;
   const document = await PDFDocument.create(); document.registerFontkit(fontkit);
   const font = await document.embedFont(await getFontBytes(), { subset: true }), supported = new Set(font.getCharacterSet());
   const created = new Date(draft.createdAt);
-  document.setTitle(`AVTALSUTKAST – OSIGNERAT – v${draft.version} – ${offer.vehicle.registration_number}`);
+  document.setTitle(`${completion ? 'SIGNERAT AVTAL' : 'AVTALSUTKAST – OSIGNERAT'} – v${draft.version} – ${offer.vehicle.registration_number}`);
   document.setAuthor(offer.company.name); document.setCreator('Trafexa');
-  document.setSubject('Osignerat avtalsutkast från sparad offert och godkänd mallversion.');
-  document.setCreationDate(created); document.setModificationDate(created);
+  document.setSubject(completion ? 'Elektroniskt undertecknat avtal med två signeringskvitton.' : 'Osignerat avtalsutkast från sparad offert och godkänd mallversion.');
+  document.setCreationDate(created); document.setModificationDate(completion ? new Date(completion.completedAt) : created);
   const width = 595.28, height = 841.89, margin = 46, contentWidth = width - margin * 2;
   const ink = rgb(0.10, 0.16, 0.24), muted = rgb(0.34, 0.39, 0.45), accent = rgb(0.08, 0.41, 0.49);
   let page = document.addPage([width, height]), y = height - margin;
@@ -77,11 +83,11 @@ export async function generateContractPdf(value: unknown): Promise<Uint8Array> {
   }
   function section(title: string) { if (y < margin + 95) newPage(); y -= 10; draw(title, 13, accent, 8); }
   const dateTime = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Stockholm', dateStyle: 'medium', timeStyle: 'short' });
-  draw('AVTALSUTKAST', 26, accent, 10); draw('OSIGNERAT', 16, accent, 10);
+  draw(completion ? 'SIGNERAT AVTAL' : 'AVTALSUTKAST', 26, accent, 10); draw(completion ? 'ELEKTRONISKT UNDERTECKNAT' : 'OSIGNERAT', 16, accent, 10);
   draw(`Utkastversion ${draft.version} · Sparad ${dateTime.format(created)}`, 10, muted);
   draw(`Godkänd mallversion: ${draft.template.title} · Version ${draft.template.version}`, 10, muted);
   draw(`Underlag: accepterad offertversion ${draft.offerVersion}`, 10, muted);
-  draw('Detta är ett osignerat utkast. Dokumentet bekräftar ingen genomförd signering, betalning, leverans eller finansiering.', 10, muted);
+  draw(completion ? 'Kunden och bolaget har undertecknat samma avtalsinnehåll med inloggade, verifierade konton. Underskriften bekräftar ingen genomförd betalning, leverans eller finansiering.' : 'Detta är ett osignerat utkast. Dokumentet bekräftar ingen genomförd signering, betalning, leverans eller finansiering.', 10, muted);
   section('Säljare och kund');
   draw(`${offer.company.name} · Organisationsnummer ${offer.company.organisation_number}`, 11);
   draw(`${offer.customer.name} · ${offer.customer.kind === 'business' ? 'Företag' : 'Privatperson'}`);
@@ -114,11 +120,29 @@ export async function generateContractPdf(value: unknown): Promise<Uint8Array> {
   section('Villkor från den godkända mallversionen'); draw(renderContractTemplate(draft.template.body, offer));
   section('Om utkastet');
   draw('Offertuppgifter, originalvillkor och malltext sparades när denna utkastversion skapades. Senare ändringar påverkar inte versionen.', 9, muted);
-  draw('OSIGNERAT AVTALSUTKAST. Ingen signeringsleverantör har slutfört detta dokument genom denna PDF-generering.', 9, muted);
+  if (completion) {
+    section('Underskrifter och signeringsbevis');
+    draw('Enkel elektronisk underskrift via Trafexa. Ingen BankID-identifikation eller certifikatbaserad PDF-signatur.', 9, muted);
+    draw(`Avtalsinnehållets SHA-256: ${completion.documentHash}`, 8, muted);
+    for (const signature of completion.signatures) {
+      if (y < margin + 180) newPage();
+      draw(`${signature.party === 'customer' ? 'Kund' : 'Bolag'}: ${signature.fullName}`, 12, accent);
+      draw(`Undertecknat ${dateTime.format(new Date(signature.signedAt))}`, 9, muted);
+      const points = signature.strokes.flatMap(stroke => stroke.points);
+      const minX = Math.min(...points.map(p => p.x)), maxX = Math.max(...points.map(p => p.x));
+      const minY = Math.min(...points.map(p => p.y)), maxY = Math.max(...points.map(p => p.y));
+      const scale = Math.min(280 / Math.max(1, maxX-minX), 65 / Math.max(1, maxY-minY));
+      for (const stroke of signature.strokes) for (let i = 1; i < stroke.points.length; i++) {
+        const a = stroke.points[i-1], b = stroke.points[i];
+        page.drawLine({start:{x:margin+(a.x-minX)*scale,y:y-(a.y-minY)*scale},end:{x:margin+(b.x-minX)*scale,y:y-(b.y-minY)*scale},thickness:1.1,color:ink});
+      }
+      y -= 80;
+    }
+  } else draw('OSIGNERAT AVTALSUTKAST. Ingen signeringsleverantör har slutfört detta dokument genom denna PDF-generering.', 9, muted);
   const pages = document.getPages();
   pages.forEach((current, index) => {
     current.drawLine({ start: { x: margin, y: margin }, end: { x: width - margin, y: margin }, thickness: 0.5, color: muted });
-    current.drawText(`Trafexa · OSIGNERAT AVTALSUTKAST v${draft.version} · ${index + 1}/${pages.length}`, { x: margin, y: margin - 15, size: 8, font, color: muted });
+    current.drawText(`Trafexa · ${completion ? 'SIGNERAT AVTAL' : 'OSIGNERAT AVTALSUTKAST'} v${draft.version} · ${index + 1}/${pages.length}`, { x: margin, y: margin - 15, size: 8, font, color: muted });
   });
   return document.save();
 }

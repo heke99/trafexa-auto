@@ -1,6 +1,8 @@
 # Trafexa Dealer
 
-Företagets avtalsmallar har separat granskning och godkännande. Privata, oföränderliga avtalsutkast skapas från exakt accepterad offert och en godkänd mallversion; originalvillkor, kund/bil/pris, moms och eventuellt inbyte återges i osignerad PDF. Avtalshistorik och mallfamiljer är sidindelade. Den selektiva [DocuSeal-portningen](docs/DOCUSEAL_SELECTIVE_PORT.md) använder låst källversion och namnteckningsfältets lokala formkontroll. Aktiv underskrift och signerade filer är separata nästa steg.
+[Transaktionsmejl](docs/TRANSACTIONAL_EMAIL_SETUP.md) har sex svenska mallar, privat utskickskö och superadminstatus. Ansökningar, kontogodkännande och signeringshändelser kopplas till serverbundna mottagare. Resend-domänen är förberedd; DNS, produktionsnyckel och Supabase Auth SMTP behöver konfigureras innan riktiga utskick aktiveras.
+
+Företagets avtalsmallar har separat granskning och godkännande. Privata, oföränderliga avtalsutkast skapas från exakt accepterad offert och en godkänd mallversion; originalvillkor, kund/bil/pris, moms och eventuellt inbyte återges i osignerad PDF. Avtalshistorik och mallfamiljer är sidindelade. Den selektiva [DocuSeal-portningen](docs/DOCUSEAL_SELECTIVE_PORT.md) använder låst källversion och namnteckningsfältets lokala formkontroll. [Tvåpartssignering](docs/CONTRACT_SIGNING_CONTRACT.md) binder kundens och bolagets underskrifter till samma avtalsinnehåll. Färdigsignerade avtal ger privat PDF och signeringsbevis; originalfilsarkiv återstår.
 
 Bilkortets privata inköps- och skickunderlag sparar leverantör, inköpsreferens, sex manuella skickbedömningar och känd/okänd reparationsuppskattning i oföränderliga versioner. Ägare, administratör och ekonomiansvarig kan granska och spara; samma behörighet krävs för PDF av exakt version. Serverns inköpspris och momsunderlag kopieras utan att ändra lager eller registrerade kostnader. Se [PURCHASE_CONDITION_CONTRACT](docs/PURCHASE_CONDITION_CONTRACT.md).
 

@@ -1,3 +1,4 @@
+import { EmailDeliveryStatus } from '@/components/email-delivery-status';
 import { notFound, redirect } from 'next/navigation';
 import { PlatformAdminActivation, PlatformAdminWorkspace } from '@/components/platform-admin-workspace';
 import { PlatformAdminError, requirePlatformAdminPageContext, requirePlatformAuthenticatedContext } from '@/lib/platform-admin/context';
@@ -19,5 +20,5 @@ export default async function AdminPage() {
   }
   const result = await listPlatformCompaniesAction({ limit: 50 });
   if (!result.ok && result.code === 'access_denied') notFound();
-  return <PlatformAdminWorkspace key={actorUserId} actorUserId={actorUserId} initialPage={result.ok ? { companies: result.companies, nextPageKey: result.nextPageKey } : { companies: [], nextPageKey: null }} initialError={result.ok ? null : result.message}/>;
+  return <><PlatformAdminWorkspace key={actorUserId} actorUserId={actorUserId} initialPage={result.ok ? { companies: result.companies, nextPageKey: result.nextPageKey } : { companies: [], nextPageKey: null }} initialError={result.ok ? null : result.message}/><div className="wrap"><EmailDeliveryStatus key={`email:${actorUserId}`}/></div></>;
 }

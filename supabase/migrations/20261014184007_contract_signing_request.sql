@@ -1,0 +1,22 @@
+begin;
+create function private.request_contract_signing(p_company_id uuid,p_deal_id uuid,p_draft_id uuid,p_acknowledged boolean,p_request_id uuid) returns jsonb language plpgsql security definer set search_path='' as $$declare a uuid;r text;d private.sale_contract_drafts;s private.contract_signings;p jsonb;receipt jsonb;canonical text;e text;ds text;begin
+ select actor,actor_role into a,r from private.sale_contract_access(p_company_id,true);
+ select status into ds from public.deals where company_id=p_company_id and id=p_deal_id for update;if not found then raise exception 'Deal denied' using errcode='42501';end if;
+ if p_draft_id is null or p_acknowledged is distinct from true then raise exception 'Review required' using errcode='22023';end if;
+ p:=jsonb_build_object('operation','requestSigning','companyId',p_company_id,'dealId',p_deal_id,'draftId',p_draft_id,'acknowledged',true);
+ receipt:=private.contract_signing_replay(a,p_request_id,p);if receipt is not null then return receipt;end if;
+ if ds not in('draft','reserved') then raise exception 'Deal unavailable' using errcode='40001';end if;
+ select * into d from private.sale_contract_drafts where company_id=p_company_id and deal_id=p_deal_id and id=p_draft_id;
+ if not found then raise exception 'Draft denied' using errcode='42501';end if;
+ if exists(select 1 from private.contract_signings where company_id=p_company_id and deal_id=p_deal_id) then raise exception 'Signing already requested' using errcode='40001';end if;
+ if not exists(select 1 from private.offer_reviews where company_id=p_company_id and deal_id=p_deal_id and offer_id=d.offer_id and status='accepted') then raise exception 'Accepted offer required' using errcode='40001';end if;
+ e:=lower(btrim(d.snapshot#>>'{sourceOffer,customer,email}'));
+ if e is null or length(e) not between 3 and 254 or e !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then raise exception 'Customer email required' using errcode='22023';end if;
+ canonical:=jsonb_build_object('draftId',d.id,'companyId',d.company_id,'dealId',d.deal_id,'draftVersion',d.version,'content',d.snapshot)::text;
+ insert into private.contract_signings(company_id,deal_id,draft_id,customer_email,canonical_content,document_hash,created_by)values(p_company_id,p_deal_id,d.id,e,canonical,encode(sha256(convert_to(canonical,'UTF8')),'hex'),a)returning * into s;
+ perform private.enqueue_transactional_email('contract_invitation',s.id,s.customer_email,null);
+ receipt:=jsonb_build_object('companyId',p_company_id,'actorUserId',a,'actorRole',r,'requestId',p_request_id,'signing',private.contract_signing_json(s,a,r));
+ insert into private.contract_signing_audit(actor_user_id,request_id,payload,receipt)values(a,p_request_id,p,receipt);return receipt;
+end$$;
+revoke all on function private.request_contract_signing(uuid,uuid,uuid,boolean,uuid) from public,anon,authenticated,service_role;
+commit;
