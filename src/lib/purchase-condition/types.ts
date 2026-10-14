@@ -1,0 +1,9 @@
+export type ConditionStatus='unassessed'|'good'|'issues';
+export type ConditionKey='body'|'interior'|'engine'|'transmission'|'tyres'|'service';
+export type Conditions=Record<ConditionKey,{status:ConditionStatus;notes:string}>;
+export type PurchaseConditionVehicle={id:string;registration:string;make:string;model:string;modelYear:number;mileageKm:number};
+export type PurchaseConditionBasis={purchasePriceOre:string;vatScheme:'standard'|'vmb'|'unknown';purchaseVatOre:string|null;vatBasisConfirmed:boolean;calculationVersion:string;vehicle:PurchaseConditionVehicle};
+export type PurchaseCondition={id:string;companyId:string;stockId:string;version:number;company:{name:string;organisationNumber:string};basis:PurchaseConditionBasis;supplierKind:'person'|'business';supplierName:string;supplierOrganisationNumber:string|null;acquiredOn:string;documentReference:string|null;checkedOn:string;mileageKm:number;conditions:Conditions;repairEstimateOre:string|null;createdAt:string;actorLabel:'Du'|'Kollega'};
+export type PurchaseConditionPage={companyId:string;stockId:string;businessDate:string;latestVersion:number;nextBeforeVersion:number|null;canCreate:boolean;basis:PurchaseConditionBasis;versions:PurchaseCondition[]};
+export type CreatePurchaseConditionInput={companyId:string;stockId:string;expectedVersion:number;expectedPurchasePriceOre:string;expectedCalculationVersion:string;expectedVehicleId:string;supplierKind:'person'|'business';supplierName:string;supplierOrganisationNumber:string|null;acquiredOn:string;documentReference:string|null;checkedOn:string;mileageKm:number;conditions:Conditions;repairEstimateOre:string|null;reviewAcknowledged:boolean;requestId:string};
+export type PurchaseConditionResult<T>=({ok:true}&T)|{ok:false;code:'unauthenticated'|'access_denied'|'invalid_input'|'conflict'|'unavailable';message:string};

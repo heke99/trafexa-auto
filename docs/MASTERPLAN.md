@@ -1,5 +1,7 @@
 # Trafexa Dealer – fortsättningsplan
 
+Bilkortets privata inköps- och skickunderlag sparar leverantör, inköpsreferens, sex manuella skickbedömningar och känd/okänd reparationsuppskattning i oföränderliga versioner. Ägare, administratör och ekonomiansvarig kan granska och spara; samma behörighet krävs för PDF av exakt version. Serverns inköpspris och momsunderlag kopieras utan att ändra lager eller registrerade kostnader. Se [PURCHASE_CONDITION_CONTRACT](PURCHASE_CONDITION_CONTRACT.md).
+
 Återhämtad och rekonstruerad arbetsplan • 13 oktober 2026
 
 Kontofortsättning 14 oktober: aktiv privat UUID-superadmin landar direkt i administrationen. Alla övriga nya/befintliga konton utan privat godkännande väntar på ett granskat superadminbeslut; spärren gäller även kundofferter, företagsinbjudningar och direkt RPC/RLS/Storage. Företagsroll och verifierad e-post ger inte i sig systemåtkomst. Se [ACCOUNT_APPROVAL_CONTRACT](ACCOUNT_APPROVAL_CONTRACT.md).

@@ -1,5 +1,19 @@
 # Implementationsstatus
 
+## Privat inköps- och skickunderlag, 14 oktober 2026
+
+Fortsättning från publicerad main `867b73bacfebdb09b186295a9125920249a7224a`, PR #15. Bilkortet hämtar privata versionsbundna inköps- och skickunderlag först vid öppning. Verifierade ägare, administratörer och ekonomiansvariga kan granska, spara och hämta exakt PDF-version; säljare/läsroller och väntande eller avstängda konton nekas även via direkt RPC.
+
+Serverläst inköpspris, momsunderlag och fordonsidentitet sparas med leverantör, frivillig inköpsreferens, separata inköps-/kontrolldatum och sex manuella skickområden. Anmärkningar kräver beskrivning och ej bedömt presenteras uttryckligen. Okänd reparationsuppskattning är null; uttryckligt noll är 0. PostgreSQL-bigint och indikativ inköpspris-plus-uppskattning använder BigInt. Inga lager-, pris-, moms-, kostnads- eller betalningsuppgifter ändras av underlaget.
+
+Aktörsbundet exakt återförsök, versions-/pris-/kalkyl-/fordons-CAS och oföränderlig historik skyddar sparningen. UI kräver granskning och rensar privat information vid nekad åtkomst eller byte av användare/företag/roll/bil. PDF-route verifierar den privata versionen och aktuellt konto/medlemskap före och efter rendering; svar använder private/no-store och inga delningslänkar. Se [PURCHASE_CONDITION_CONTRACT](PURCHASE_CONDITION_CONTRACT.md).
+
+Färsk verifiering: **477/477 apptester**, produktionsbygge, TypeScript och diffkontroll PASS. Nya grupper inom apptotalen: åtta actiongrupper, sex Chromiumgrupper, åtta verkliga PDF-render/text/parsergrupper, sju nedladdningsgrupper och en faktisk DealerWorkspace-integration. **31/31 PostgreSQL/PGlite-grupper** för nytt underlag (6), kontogodkännande (6), kalkyl (7) och webbansökan (12) PASS. Tidigare 447/59 är en separat checkpoint och adderas inte som nya tester. Färsk bascheck av ansökan/Auth/godkännande passerar 31 grupper inom apptotalen.
+
+Hosted historik är verifierad med 43 versioner: `20261014170812_purchase_condition_storage`, `20261014170827_purchase_condition_reads`, `20261014170842_purchase_condition_mutation` och `20261014170856_purchase_condition_api` är applicerade. Live rollback bevisar privat versionskopiering, exakt återförsök, okänd uppskattning och oförändrat lager. Efterkontroll visar noll syntetiska Auth-konton, företag, underlagsversioner, kvitton eller approvals. Säkerhetsadvisorn har inga nya varningar; privata deny-all-tabeller ger INFO och tidigare avstängt skydd mot läckta lösenord är oförändrat.
+
+Kontomejlmallar är versionshanterade och ägaren har uppgett att Supabase-mejlen är konfigurerade. Faktisk mejlleverans och full autentiserad produktionsbrowser är fortfarande separata verifieringssteg; inga mejl eller SMTP-/DNS-ändringar sker här. PDF skapas i Trafexa; DocuSeal-grunden och de två äldre signing/archive-migrationerna förblir inaktiva. Underlaget är varken ett inköpsavtal eller signerat dokument. Verklig fleranslutningslåsväntan återstår separat.
+
 ## Granskat inbyte i offert, kundvy och PDF, 14 oktober 2026
 
 Fortsättning från main `d21baadf3f6c2c22ddc1cd15a38005fe86ff5c00` (PR #14). Handlaren kan välja den senaste privata inbytesversionen med känd skuld till en **ny** offertversion och granskar exakt kundsynligt innehåll före skrivning. Noll skuld är känd skuld; okänd skuld kan inte bifogas. Affärspris, senaste offertversion och inbytesversion kontrolleras mot servern. Befintliga offerter och deras oföränderliga bytes behålls.

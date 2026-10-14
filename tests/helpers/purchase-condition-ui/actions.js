@@ -1,0 +1,4 @@
+const f=()=>window.fixture;
+async function respond(queue,normal){const next=queue.shift();if(next?.throw)throw Error('unknown');if(next?.delay)await new Promise(r=>setTimeout(r,next.delay));if(next?.defer)return new Promise(resolve=>{f().release=()=>resolve(next.result);});return next?.result||next||normal();}
+export async function listStockPurchaseConditionsAction(input){f().reads.push(input);return respond(f().readResponses,()=>({ok:true,companyId:input.companyId,stockId:input.stockId,businessDate:'2026-10-14',latestVersion:f().latestVersion,nextBeforeVersion:f().cursor,canCreate:f().canCreate,basis:f().basis,versions:f().versions}));}
+export async function createPurchaseConditionVersionAction(input){f().writes.push(input);return respond(f().writeResponses,()=>({ok:true,purchaseCondition:f().versions[0]}));}
