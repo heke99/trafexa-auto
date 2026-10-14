@@ -1,5 +1,19 @@
 # Implementationsstatus
 
+## Webbansökningar och integritet, 14 oktober 2026
+
+Fortsättning från main `74b0e9b7df559ced10229775025c1008107b6abb`: webbansökan kräver kontaktens namn, e-post, telefon, företagsnamn, svenskt organisationsnummer med kontrollsiffra, sökta tjänster och beskrivning. En omarkerad bekräftelse av läst integritetsinformation sparar policyversion och serverns mottagningstid. Den är inte ett generellt dataskydds- eller marknadsföringssamtycke. Stabilt begärans-ID och exakt kvitto förhindrar dubbletter och falsk framgång vid återförsök.
+
+Superadminens **Inkomna ansökningar** visar alla uppgifter, äldre ofullständiga förfrågningar, status och historik. Behörighet bygger på faktisk verifierad Auth och det privata UUID-registret. Statusändring och uttryckligen granskad radering använder versionskontroll. Radering tar bort ansökarens uppgifter och ärendehistorik; ett begränsat pseudonymiserat tekniskt kvitto förhindrar återskapande vid sena återförsök. Ingen ansökan skapar automatiskt konto, kreditbeslut eller utskick till partner.
+
+Cookiepolicy och integritetspolicy beskriver faktiska uppgifter, rättsliga grunder, lagringskriterier, rättigheter och leverantörsöverföringar. Endast nödvändiga cookies används; informationsrutan är inget samtycke till spårning och blockerar inte ansökan. Policybekräftelsen kan återöppnas och glömmas utan att autentiseringscookies raderas. Trafexa Nordic AB, 556855-4884, och kontaktadressen info@trafexa.com är bekräftade av ägaren. [WEB_PRIVACY_OPERATIONS](WEB_PRIVACY_OPERATIONS.md) beskriver verksamhetens återstående rutiner och avtalskontroller; policytext certifierar inte full GDPR-efterlevnad.
+
+Verifiering: **325/325 apptester**, produktionsbygge och TypeScript PASS. **12/12 PostgreSQL/PGlite-grupper** passerar den faktiska migrationskedjan. Hosted rollbacktester verifierar obligatoriska fält, privat åtkomst, exakta återförsök, superadmindetaljer, status-CAS, radering och spärr mot återskapande. Efterkontroll: noll kvarvarande testkonton, ansökningar och raderingskvitton.
+
+Hosted applicerat: `20261014075213_web_application_schema`, `20261014075229_web_application_submission`, `20261014075241_web_application_admin`, `20261014075445_web_application_erasure`. Migrationsverktygets requestState-fel löstes genom att dela samma testade förändring i mindre beroendeordnade migrationer. De gamla inkompletta submit-RPC:erna är stängda. Äldre pending signering/arkiv är inte applicerade. Inga nya säkerhetsvarningar; tidigare avstängt läckt-lösenordskydd kvarstår. Full inloggad produktionsbrowser verifieras separat från rollback och lokala UI-fixtures.
+
+Färsk kontroll visar att `hekmat.h@trafexa.com` har aktiv förgodkänd reservation men ännu inget Auth-konto eller aktiverat UUID-registry. Ägaren registrerar adressen via `/register?next=/admin`, verifierar e-post och aktiverar den förgodkända åtkomsten i `/admin`. Detta skickar inga kontomejl från agenten.
+
 13 oktober 2026 • aktuell leverans på `feat/vehicle-ads-and-calculations-20261013`, från main `0604605c9a96ca02c1a5d874e3d69b6288d4ed0b`; tidigare checkpoints redovisas nedan
 
 ## Annonskonto, privata fordonsbilder och kalkyl, 13 oktober

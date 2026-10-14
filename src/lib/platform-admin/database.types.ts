@@ -1,4 +1,5 @@
 import type { Database, Json } from '@/lib/supabase/database.types';
+import type { WebApplicationSeeking, WebApplicationStatus } from '@/lib/web-applications/database.types';
 
 type PlatformFunctions = {
   get_platform_admin_session: { Args: Record<string, never>; Returns: Json };
@@ -12,7 +13,9 @@ export type PlatformAdminDatabase = Omit<Database, 'public'> & {
 };
 export type CompanyStatus = 'active' | 'suspended';
 export type PlatformCompany = { id: string; name: string; organisationNumber: string; status: CompanyStatus; createdAt: string; membershipCount: number; stockCount: number };
-export type PlatformContact = { id: string; name: string; email: string; company: string; phone: string | null; message: string | null; createdAt: string };
+export type PlatformContact = { id: string; name: string; email: string; company: string; phone: string | null; message: string | null; createdAt: string; organisationNumber: string | null; seeking: WebApplicationSeeking[]; privacyVersion: string | null; privacyAcknowledgedAt: string | null; legacy: boolean; status: WebApplicationStatus; version: number };
+export type WebApplicationAudit = { status: WebApplicationStatus; reason: string; createdAt: string };
+export type WebApplicationStatusReceipt = { applicationId: string; requestId: string; status: WebApplicationStatus; previousStatus: WebApplicationStatus; version: number; reason: string; createdAt: string };
 export type CompanyPage = { companies: PlatformCompany[]; nextPageKey: string | null };
 export type ContactPage = { requests: PlatformContact[]; nextPageKey: string | null };
 export type StatusReceipt = { companyId: string; status: CompanyStatus; previousStatus: CompanyStatus; changed: boolean; requestId: string; reason: string; createdAt: string };

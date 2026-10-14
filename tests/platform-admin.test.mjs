@@ -158,7 +158,7 @@ test('unknown network outcomes are sanitized and can retry the exact original re
 });
 
 test('read-only contact requests preserve multiline messages and expose only the authorized DTO', async () => {
-  const contact = { id: COMPANY, name: 'Kontakt', email: 'contact@example.com', company: 'Dealer AB', phone: null, message: 'Rad ett\nRad två', created_at: NOW, hidden_auth_token: 'secret' };
+  const contact = { id: COMPANY, name: 'Kontakt', email: 'contact@example.com', company: 'Dealer AB', phone: null, message: 'Rad ett\nRad två', created_at: NOW, hidden_auth_token: 'secret',organisation_number:null,seeking:[],privacy_version:null,privacy_acknowledged_at:null,legacy:true,status:'new',version:1 };
   const { actions, calls } = await fixture({ contactPage: { requests: [contact], next_page_key: COMPANY } });
   const result = await actions.listPlatformContactRequestsAction({ limit: 1 });
   assert.equal(result.ok, true); assert.equal(result.requests[0].message, contact.message);
@@ -170,7 +170,7 @@ test('read-only contact requests preserve multiline messages and expose only the
 });
 
 test('contact duplicate or backwards-order results fail closed', async () => {
-  const contact = { id: COMPANY, name: 'A', email: 'a@example.com', company: 'A', phone: null, message: null, created_at: NOW };
+  const contact = { id: COMPANY, name: 'A', email: 'a@example.com', company: 'A', phone: null, message: null, created_at: NOW,organisation_number:null,seeking:[],privacy_version:null,privacy_acknowledged_at:null,legacy:true,status:'new',version:1 };
   for (const requests of [[contact, contact], [contact, { ...contact, id: NEXT }], [contact, { ...contact, id: NEXT, created_at: '2026-10-14T18:00:00Z' }]]) {
     const { actions } = await fixture({ contactPage: { requests, next_page_key: null } });
     assert.equal((await actions.listPlatformContactRequestsAction()).code, 'unavailable');

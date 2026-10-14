@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import { before, after, test } from 'node:test';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { chromium: playwright, expect } = require('@playwright/test');
+const Chromium = require('@sparticuz/chromium').default;
+const { webpack } = require('next/dist/compiled/webpack/webpack');
+const repo = fileURLToPath(new URL('../', import.meta.url));
+let browser, directory, bundle, css;
+before(async () => {
+ directory = await mkdtemp(resolve(tmpdir(), 'trafexa-cookie-ui-')); bundle = resolve(directory, 'fixture.js');
+ css = await readFile(resolve(repo, 'src/components/cookie-consent.css'), 'utf8');
+ const helpers = resolve(repo, 'tests/helpers/cookie-ui');
+ await new Promise((done, fail) => { const compiler = webpack({ mode: 'development', target: 'web', devtool: false, context: repo, entry: resolve(helpers, 'entry.tsx'), output: {path: directory,filename:'fixture.js'}, resolve:{extensions:['.tsx','.ts','.js'],alias:{'@/lib/privacy/cookies':resolve(repo,'src/lib/privacy/cookies.ts')}},module:{rules:[{test:/\.tsx?$/,use:resolve(helpers,'swc-loader.cjs')},{test:/entry\.js$/,use:resolve(helpers,'swc-loader.cjs')},{test:/\.css$/,use:resolve(helpers,'ignore-css.cjs')}]}});compiler.run((error,stats)=>compiler.close(()=>error||stats.hasErrors()?fail(error??new Error(stats.toString({all:false,errors:true}))):done())); });
+ browser = await playwright.launch({executablePath:await Chromium.executablePath(),args:Chromium.args.filter(arg=>arg!=='--single-process'),headless:true});
+});
+after(async()=>{await browser?.close();if(directory)await rm(directory,{recursive:true,force:true});});
+async function mount(page){await page.goto('https://trafexa.test/');await page.addScriptTag({path:bundle});await page.evaluate(()=>window.mountCookieFixture());}
+async function setup(cookies=[]){const context=await browser.newContext();if(cookies.length)await context.addCookies(cookies);let requests=0;await context.route('**/*',async route=>{requests++;if(route.request().url()==='https://trafexa.test/')await route.fulfill({status:200,contentType:'text/html',body:`<style>${css}</style><div id="root"></div>`});else await route.abort();});const page=await context.newPage();await mount(page);return{context,page,requests:()=>requests};}
+test('necessary-only notice does not gate application, creates no tracking and remembers acknowledgement on reload',async()=>{const{context,page,requests}=await setup();try{await expect(page.getByRole('heading',{name:'Cookies på Trafexa'})).toBeVisible();await expect(page.getByRole('button',{name:'Skicka ansökan'})).toBeEnabled();assert.deepEqual(await context.cookies(),[]);await page.getByRole('button',{name:'Jag förstår'}).click();await expect(page.getByRole('heading',{name:'Cookies på Trafexa'})).toHaveCount(0);const cookies=await context.cookies();assert.equal(cookies.length,1);assert.equal(cookies[0].name,'trafexa-cookie-notice');assert.equal(cookies[0].value,'2026-10-14:necessary-only');assert.equal(cookies[0].secure,true);assert.equal(cookies[0].sameSite,'Lax');assert.ok(Math.abs(cookies[0].expires-Date.now()/1000-180*86400)<5);await mount(page);await expect(page.getByRole('button',{name:'Cookieinställningar'})).toBeVisible();await expect(page.getByRole('heading',{name:'Cookies på Trafexa'})).toHaveCount(0);assert.equal(requests(),2);assert.equal(await page.evaluate(()=>localStorage.length+sessionStorage.length),0);}finally{await context.close();}});
+test('settings are keyboard accessible and forgetting acknowledgement leaves authentication cookies intact',async()=>{const{context,page}=await setup([{name:'trafexa-cookie-notice',value:'2026-10-14:necessary-only',url:'https://trafexa.test/'},{name:'sb-test-auth-token',value:'fixture-session',url:'https://trafexa.test/'}]);try{await expect(page.getByRole('button',{name:'Cookieinställningar'})).toBeVisible();await page.getByRole('button',{name:'Cookieinställningar'}).focus();await page.keyboard.press('Enter');await expect(page.getByRole('heading',{name:'Cookies på Trafexa'})).toBeFocused();await page.getByRole('button',{name:'Glöm min bekräftelse'}).click();assert.equal((await context.cookies()).some(cookie=>cookie.name==='trafexa-cookie-notice'),false);assert.equal((await context.cookies()).find(cookie=>cookie.name==='sb-test-auth-token').value,'fixture-session');await expect(page.getByRole('button',{name:'Jag förstår'})).toBeVisible();}finally{await context.close();}});
+test('obsolete policy acknowledgement is not accepted and mobile notice fits the viewport',async()=>{const{context,page}=await setup([{name:'trafexa-cookie-notice',value:'2026-10-13:necessary-only',url:'https://trafexa.test/'}]);try{await page.setViewportSize({width:390,height:844});await expect(page.getByRole('heading',{name:'Cookies på Trafexa'})).toBeVisible();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=390));await expect(page.getByRole('link',{name:'Läs vår cookiepolicy'})).toHaveAttribute('href','/cookies');await expect(page.getByRole('button',{name:/Acceptera alla|Godkänn alla|Avvisa/})).toHaveCount(0);}finally{await context.close();}});

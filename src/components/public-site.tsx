@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowUpRight, ArrowRight, Check } from 'lucide-react';
 import { Brand } from './brand';
 import { PilotForm } from './pilot-form';
+import { CookieSettingsButton } from './cookie-consent';
 import { PublicMobileMenu } from './public-mobile-menu';
 
 export function PublicSite() {
@@ -33,4 +34,4 @@ function ProductPreview() {
 
 function CarSilhouette() { return <svg viewBox="0 0 100 45" width="60" height="30" aria-hidden="true"><path d="M12 29 15 21 33 17 43 8h25l15 13 8 3v10H8v-5h4Z" fill="currentColor" opacity=".25"/><path d="m37 18 9-7h18l9 9-36-2Z" fill="currentColor" opacity=".35"/><circle cx="26" cy="33" r="7" fill="currentColor"/><circle cx="77" cy="33" r="7" fill="currentColor"/><circle cx="26" cy="33" r="3" fill="#e8e9e4"/><circle cx="77" cy="33" r="3" fill="#e8e9e4"/></svg>; }
 
-export function PublicFooter() { return <footer className="public-footer wrap"><div><Brand/><p>Trafexa Nordic AB · 556855-4884</p></div><div className="footer-links"><Link href="/privacy">Integritet</Link><Link href="/terms">Om tjänsten</Link><a href="mailto:info@trafexa.com">Kontakt <ArrowUpRight size={14}/></a></div><p className="footer-year">© {new Date().getFullYear()} Trafexa</p></footer>; }
+export function PublicFooter() { return <footer className="public-footer wrap"><div><Brand/><p>Trafexa Nordic AB · 556855-4884</p></div><div className="footer-links"><Link href="/privacy">Integritet</Link><Link href="/cookies">Cookies</Link><CookieSettingsButton/><Link href="/terms">Om tjänsten</Link><a href="mailto:info@trafexa.com">Kontakt <ArrowUpRight size={14}/></a></div><p className="footer-year">© {new Date().getFullYear()} Trafexa</p></footer>; }

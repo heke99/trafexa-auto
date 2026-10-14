@@ -1,6 +1,7 @@
 import { NextRequest,NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/lib/supabase/database.types';
+import type { WebApplicationDatabase } from '@/lib/web-applications/database.types';
+import { validateWebApplication } from '@/lib/web-applications/validation';
 export async function POST(request:NextRequest) {
  const origin=request.headers.get('origin');const allowed=new Set(['https://trafexa.com','https://www.trafexa.com','https://app.trafexa.com',process.env.NEXT_PUBLIC_SITE_URL,process.env.VERCEL_URL?`https://${process.env.VERCEL_URL}`:undefined,process.env.VERCEL_BRANCH_URL?`https://${process.env.VERCEL_BRANCH_URL}`:undefined]);
  if(process.env.NODE_ENV!=='production') {
@@ -25,23 +26,19 @@ export async function POST(request:NextRequest) {
   data=parsed as Record<string,unknown>;
  }catch{return NextResponse.json({error:'Kontrollera formuläret.'},{status:400});}
  finally{reader.releaseLock();}
- for(const field of ['name','email','company','phone','message','website']) {
-  if(data[field]!==undefined&&typeof data[field]!=='string')return NextResponse.json({error:'Kontrollera formulärets textuppgifter.'},{status:400});
- }
- if(typeof data.website==='string'&&data.website)return NextResponse.json({success:true});
- const val=(key:string)=>typeof data[key]==='string'?String(data[key]).trim():'';
- const name=val('name'),email=val('email'),company=val('company'),phone=val('phone'),message=val('message');
- if(name.length<2||name.length>160||company.length<2||company.length>160||! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254||phone.length>60||message.length>2000)return NextResponse.json({error:'Fyll i namn, företag och en giltig e-postadress.'},{status:400});
+ let application:ReturnType<typeof validateWebApplication>;
+ try {application=validateWebApplication(data);}catch(error){return NextResponse.json({error:error instanceof Error?error.message:'Kontrollera formuläret.'},{status:400});}
  const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
  if(!url||!key)return NextResponse.json({error:'Förfrågan kunde inte sparas just nu.'},{status:503});
  const controller=new AbortController();
  const timeout=setTimeout(()=>controller.abort(),10000);
  try {
-  const db=createClient<Database>(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
-  const {error}=await db.rpc('submit_demo_request',{contact_name:name,contact_email:email,company_name:company,...(phone?{contact_phone:phone}:{}),...(message?{contact_message:message}:{})}).abortSignal(controller.signal);
+  const db=createClient<WebApplicationDatabase>(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+  const {data:receipt,error}=await db.rpc('submit_web_application',{p_request_id:application.requestId,p_name:application.name,p_email:application.email,p_company:application.company,p_phone:application.phone,p_organisation_number:application.organisationNumber,p_seeking:application.seeking,p_message:application.message,p_privacy_version:application.privacyVersion,p_privacy_acknowledged:true}).abortSignal(controller.signal);
   if(controller.signal.aborted)return NextResponse.json({error:'Det tog för lång tid att spara förfrågan. Försök igen senare.'},{status:504});
-  if(error)return NextResponse.json({error:'Förfrågan kunde inte sparas. Försök igen senare.'},{status:error.message.includes('Too many')?429:503});
-  return NextResponse.json({success:true},{status:201});
+  if(error)return NextResponse.json({error:'Ansökan kunde inte sparas. Försök igen senare.'},{status:error.code==='P0001'?429:error.code==='40001'?409:error.code==='22023'?400:503});
+  if(!receipt||typeof receipt!=='object'||Array.isArray(receipt)||receipt.request_id!==application.requestId||receipt.accepted!==true)return NextResponse.json({error:'Ansökan kunde inte verifieras. Försök igen med samma uppgifter.'},{status:503});
+  return NextResponse.json({success:true,receipt:{requestId:application.requestId,accepted:true}},{status:201});
  }catch {
   return NextResponse.json({error:controller.signal.aborted?'Det tog för lång tid att spara förfrågan. Försök igen senare.':'Förfrågan kunde inte sparas. Försök igen senare.'},{status:controller.signal.aborted?504:503});
  }finally {clearTimeout(timeout);}

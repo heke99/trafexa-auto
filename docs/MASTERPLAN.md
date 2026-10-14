@@ -2,6 +2,8 @@
 
 Återhämtad och rekonstruerad arbetsplan • 13 oktober 2026
 
+Fortsättning 14 oktober: obligatorisk webbansökan, superadminens privata ärendehandläggning med status/radering samt integritets- och cookieinformation är implementerade. Ansökan är ett intag till Trafexa och medför inget automatiskt konto, kreditbeslut eller partnerutskick. Företagets dataskyddsrutiner och leverantörsavtal följs separat enligt [WEB_PRIVACY_OPERATIONS](WEB_PRIVACY_OPERATIONS.md); faktisk kod-, databas- och releaseverifiering finns i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
+
 ## Underlag och läsning
 
 Detta dokument fortsätter originaluppdraget. Det är ett kodnära arbetsunderlag sammanställt från återhämtade planfragment, återhämtad Next.js-/Supabase-kod och bekräftade projektreferenser. Originalplanens 22 avsnitt är identifierade, men hela originaltexten har inte återhämtats. Fragmenten innehåller både version 1 och utdrag från version 2. Särskilt avsnitt 10–12, 16–17 och delar av version 2 har textluckor. Nedanstående sammanfattningar bevarar riktningen och markerar aktuella leveransgränser; de utger sig inte för att vara en fullständig kopia.

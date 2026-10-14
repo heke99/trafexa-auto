@@ -6,6 +6,7 @@ import { NextRequest } from 'next/server.js';
 // Next's bundler resolves this subpath; Node's direct TypeScript loader needs .js.
 const hook = registerHooks({
   resolve(specifier, context, nextResolve) {
+    if(specifier==='@/lib/web-applications/validation')return nextResolve(new URL('../src/lib/web-applications/validation.ts',import.meta.url).href,context);
     return nextResolve(specifier === 'next/server' ? 'next/server.js' : specifier, context);
   }
 });
@@ -13,7 +14,9 @@ const { POST } = await import('../src/app/api/demo-requests/route.ts');
 hook.deregister();
 
 const ENV_KEYS = ['NODE_ENV', 'NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'NEXT_PUBLIC_SITE_URL', 'VERCEL_URL', 'VERCEL_BRANCH_URL'];
-const valid = { name: ' Test Buyer ', company: 'Test Dealer', email: 'buyer@example.com', phone: '+46 123456', message: 'Help with inventory', website: '' };
+const requestId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const success={success:true,receipt:{requestId,accepted:true}};
+const valid = { requestId,name: ' Test Buyer ', company: 'Test Dealer', email: 'buyer@example.com', phone: '+46 123456', organisationNumber:'556855-4884',seeking:['system'],message: 'Help with inventory',privacyVersion:'2026-10-14',privacyAcknowledged:true,website: '' };
 let savedEnv, calls, provider;
 beforeEach(t => {
   savedEnv = new Map(ENV_KEYS.map(key => [key, process.env[key]]));
@@ -24,9 +27,9 @@ beforeEach(t => {
   process.env.VERCEL_URL = 'trafexa-preview.test.invalid';
   process.env.VERCEL_BRANCH_URL = 'trafexa-git-preview-team.vercel.app';
   calls = [];
-  provider = async () => new Response(null, { status: 204 });
+  provider = async () => new Response(JSON.stringify({request_id:requestId,accepted:true}), { status: 200 });
   t.mock.method(globalThis, 'fetch', async (url, options) => {
-    assert.equal(String(url), 'https://test.supabase.invalid/rest/v1/rpc/submit_demo_request');
+    assert.equal(String(url), 'https://test.supabase.invalid/rest/v1/rpc/submit_web_application');
     calls.push({ url, options, payload: JSON.parse(options.body) });
     return provider(url, options);
   });
@@ -57,20 +60,19 @@ async function assertError(response, status) {
 test('a valid inquiry uses the actual typed RPC and returns an explicit success acknowledgement', async () => {
   const response = await request();
   assert.equal(response.status, 201);
-  assert.deepEqual(await response.json(), { success: true });
+  assert.deepEqual(await response.json(), success);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].options.method, 'POST');
   assert.ok(calls[0].options.signal instanceof AbortSignal);
-  assert.deepEqual(calls[0].payload, { contact_name: 'Test Buyer', contact_email: valid.email, company_name: valid.company, contact_phone: valid.phone, contact_message: valid.message });
+  assert.deepEqual(calls[0].payload, {p_request_id:requestId,p_name:'Test Buyer',p_email:valid.email,p_company:valid.company,p_phone:valid.phone,p_organisation_number:'5568554884',p_seeking:['system'],p_message:valid.message,p_privacy_version:'2026-10-14',p_privacy_acknowledged:true});
 });
 
-test('void RPC confirmations accept an empty HTTP 200 body and omit blank optional arguments', async () => {
+test('empty or incorrectly bound RPC receipts never report a saved application', async () => {
   provider = async () => new Response('', { status: 200 });
-  const response = await request({ ...valid, phone: '', message: '' });
-  assert.equal(response.status, 201);
-  assert.deepEqual(await response.json(), { success: true });
-  assert.equal('contact_phone' in calls[0].payload, false);
-  assert.equal('contact_message' in calls[0].payload, false);
+  await assertError(await request(),503);
+  for(const receipt of [{request_id:requestId,accepted:false},{request_id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',accepted:true},{accepted:true}]) {
+   provider=async()=>new Response(JSON.stringify(receipt),{status:200});await assertError(await request(),503);
+  }
 });
 
 test('untrusted origins and unsupported content types never call the database', async () => {
@@ -93,7 +95,7 @@ test('production accepts only the configured unique and branch preview origins',
   for (const origin of [`https://${process.env.VERCEL_URL}`, `https://${process.env.VERCEL_BRANCH_URL}`]) {
     const response = await request(valid, { headers: { origin } });
     assert.equal(response.status, 201);
-    assert.deepEqual(await response.json(), { success: true });
+    assert.deepEqual(await response.json(), success);
   }
   assert.equal(calls.length, 2);
   delete process.env.VERCEL_BRANCH_URL;
@@ -126,17 +128,22 @@ test('wrong field types, missing required text and field overflow are rejected r
   for (const patch of [
     { name: null }, { company: {} }, { email: ['buyer@example.com'] }, { phone: 123 },
     { message: null }, { website: false }, { name: ' ' }, { company: 'x' },
-    { email: 'invalid' }, { name: 'x'.repeat(161) }, { phone: 'x'.repeat(61) }, { message: 'x'.repeat(2001) }
+    { email: 'invalid' }, { name: 'x'.repeat(161) }, { phone: 'x'.repeat(61) }, { message: 'x'.repeat(2001) },{phone:''},{message:''},{organisationNumber:''},{organisationNumber:'5568554885'}, {seeking:[]},{seeking:['unknown']},{seeking:['system','system']},{privacyAcknowledged:false},{privacyAcknowledged:'yes'},{privacyVersion:'old'},{requestId:'fake'},{userId:'admin'},{role:'owner'}
   ]) await assertError(await request({ ...valid, ...patch }), 400);
   assert.equal(calls.length, 0);
 });
 
 test('honeypot submissions do not write, while missing database configuration returns a service error', async () => {
-  const response = await request({ ...valid, website: 'spam.test.invalid' });
-  assert.deepEqual(await response.json(), { success: true });
+  await assertError(await request({ ...valid, website: 'spam.test.invalid' }),400);
   delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   await assertError(await request(), 503);
   assert.equal(calls.length, 0);
+});
+
+test('organisation, email and seeking normalization preserves a stable submission nonce on retries',async()=>{
+ const payload={...valid,email:' Buyer@Example.com ',organisationNumber:'165568554884',seeking:['stock_finance','system']};
+ assert.equal((await request(payload)).status,201);assert.equal((await request(payload)).status,201);
+ assert.equal(calls[0].payload.p_request_id,calls[1].payload.p_request_id);assert.equal(calls[0].payload.p_organisation_number,'5568554884');assert.equal(calls[0].payload.p_email,'buyer@example.com');assert.deepEqual(calls[0].payload.p_seeking,['stock_finance','system']);
 });
 
 test('provider rejection, malformed confirmation, network and configuration errors do not leak provider details', async () => {
