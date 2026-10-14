@@ -41,6 +41,7 @@ export async function setPlatformAccountAccessAction(value:unknown):Promise<Admi
  const receipt:AccountReceipt={userId,requestId,status:target,previousStatus,version:integer(row.version),reason,createdAt:timestamp(row.createdAt),changed};
  const fresh=await requirePlatformAdminContext();if(fresh.userId!==actor)throw new ActionError('access_denied');
  try{revalidatePath('/admin');}catch{}
+ if(receipt.changed&&receipt.status==='approved'&&process.env.TRANSACTIONAL_EMAIL_ENABLED==='true'){try{const {dispatchTransactionalEvent}=await import('@/lib/email/server');await dispatchTransactionalEvent('account_approved',receipt.userId);}catch{/* Approval persists; delivery remains in the durable queue. */}}
  return {ok:true,receipt};
  }catch(error){return failure(error);}
 }

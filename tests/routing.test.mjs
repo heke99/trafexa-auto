@@ -59,3 +59,5 @@ test('customer offer account route redirects to app without becoming a dealer wo
   for (const host of ['trafexa.com','www.trafexa.com']) assert.equal(domainRedirect(host,'/my-offers'), 'https://app.trafexa.com/my-offers');
   assert.equal(domainRedirect('www.trafexa.com','/my-offers-public'), null);
 });
+
+test('customer contracts use app domain and preserve safe destination',()=>{assert.equal(domainRedirect('www.trafexa.com','/my-contracts'),'https://app.trafexa.com/my-contracts');assert.equal(safeNextPath('/my-contracts'),'/my-contracts');assert.equal(domainRedirect('www.trafexa.com','/my-contracts-public'),null);});

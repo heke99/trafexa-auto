@@ -9,7 +9,7 @@ export function isCompanyInvitationsPath(path) {
   return path === '/invitations';
 }
 export function isCustomerOffersPath(path) {
-  return path === '/my-offers';
+  return path === '/my-offers' || path === '/my-contracts';
 }
 export function isAuthPath(path) {
   return ['/login', '/register', '/onboarding', '/forgot-password', '/reset-password', '/auth/callback', '/account-pending'].includes(path);

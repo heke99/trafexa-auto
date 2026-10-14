@@ -1,0 +1,8 @@
+'use server';
+import type {SupabaseClient} from '@supabase/supabase-js';
+import type {Database,Json} from '@/lib/supabase/database.types';
+import {requirePlatformAdminContext} from '@/lib/platform-admin/context';
+import {dispatchNextTransactionalEmail,transactionalEmailConfigurationStatus} from './server';
+type StatusDatabase=Omit<Database,'public'>&{public:Omit<Database['public'],'Functions'>&{Functions:{get_transactional_email_status:{Args:Record<string,never>;Returns:Json}}}};
+export async function getTransactionalEmailStatusAction(){try{const {db,userId}=await requirePlatformAdminContext();const result=await (db as unknown as SupabaseClient<StatusDatabase>).rpc('get_transactional_email_status',{});if(result.error||!result.data||typeof result.data!=='object'||Array.isArray(result.data))throw new Error();const counts:Record<string,number>={};for(const key of ['pending','processing','accepted','rejected','unknown','cancelled']){const value=result.data[key];if(typeof value!=='number'||!Number.isSafeInteger(value)||value<0)throw new Error();counts[key]=value;}if((await requirePlatformAdminContext()).userId!==userId)throw new Error();return {ok:true as const,...transactionalEmailConfigurationStatus(),counts};}catch{return {ok:false as const,message:'Du har inte tillgång till mejlhanteringen.'};}}
+export async function dispatchTransactionalEmailAction(value:unknown){try{if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).length!==1||!('acknowledged' in value)||value.acknowledged!==true)return {ok:false as const,message:'Bekräfta utskicket.'};return {ok:true as const,...await dispatchNextTransactionalEmail()};}catch{return {ok:false as const,message:'Utskicket kunde inte verifieras.'};}}
