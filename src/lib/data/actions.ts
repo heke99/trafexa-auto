@@ -6,6 +6,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getCompanySession } from './company-context';
 import { enumField,integerField,moneyField,requiredField,textField,uuidField } from './validation';
 import { safeNextPath } from '@/lib/routing.mjs';
+import { getAuthAppOrigin } from '@/lib/auth/app-origin';
 
 function outcome(path:string,type:'error'|'success',message:string):never {redirect(`${path}${path.includes('?')?'&':'?'}${type}=${encodeURIComponent(message)}`);}
 function friendlyError(error:unknown) {
@@ -48,7 +49,7 @@ export async function signupAction(form:FormData) {
  const errorPath=`/register?${new URLSearchParams({next:nextPath})}`;
  const email=authEmail(form,errorPath),password=authPassword(form,errorPath,12);
  if(form.get('acknowledgement')!=='yes')outcome(errorPath,'error','Godkänn villkoren och bekräfta att du har läst integritetsinformationen.');
- const callback=new URL('/auth/callback',process.env.NEXT_PUBLIC_APP_URL??'https://app.trafexa.com');
+ const callback=new URL('/auth/callback',getAuthAppOrigin());
  if(nextPath!=='/dashboard')callback.searchParams.set('next',nextPath);
  let failed=false;
  try {
@@ -145,7 +146,7 @@ export async function forgotPasswordAction(form:FormData) {
  const nextPath=safeNextPath(form.get('next'));
  const errorPath=nextPath==='/dashboard'?'/forgot-password':`/forgot-password?${new URLSearchParams({next:nextPath})}`;
  const email=authEmail(form,errorPath);
- const callback=new URL('/auth/callback',process.env.NEXT_PUBLIC_APP_URL??'https://app.trafexa.com');
+ const callback=new URL('/auth/callback',getAuthAppOrigin());
  callback.search=nextPath==='/dashboard'?'?next=/reset-password':new URLSearchParams({next:`/reset-password?${new URLSearchParams({next:nextPath})}`}).toString();
  let failed=false;
  try {

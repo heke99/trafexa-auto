@@ -2,6 +2,8 @@
 
 Återhämtad och rekonstruerad arbetsplan • 13 oktober 2026
 
+Superadminfortsättning 14 oktober: plattformsöversikt med faktiska totalsiffror och sju dagars aktivitet är implementerad. Appens kontomejlredirect är bunden till produktionsdomänen; sex svenska mejlmallar är förberedda. Hosted Auth URL-konfiguration och mallar kräver separat aktivering enligt [AUTH_EMAIL_SETUP](AUTH_EMAIL_SETUP.md).
+
 CRM-fortsättning 14 oktober: kontaktlogg och företagsgemensamma uppföljningar är implementerade med datumordning, privata anteckningar och granskad statusändring. Kundens granskning och accept/avböjande av en uttryckligen tillgängliggjord offertversion är också implementerade. Kontrollerad avbrytning av utkast/reservationer är implementerad. Nästa affärsdel är inbyte; kontaktlogg är inte ett avtal, kreditbeslut eller automatiskt meddelande. Se [aktuella verifieringsresultat](IMPLEMENTATION_STATUS.md).
 
 Fortsättning 14 oktober: obligatorisk webbansökan, superadminens privata ärendehandläggning med status/radering samt integritets- och cookieinformation är implementerade. Ansökan är ett intag till Trafexa och medför inget automatiskt konto, kreditbeslut eller partnerutskick. Företagets dataskyddsrutiner och leverantörsavtal följs separat enligt [WEB_PRIVACY_OPERATIONS](WEB_PRIVACY_OPERATIONS.md); faktisk kod-, databas- och releaseverifiering finns i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
