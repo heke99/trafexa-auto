@@ -1,0 +1,11 @@
+{
+  "name": "trafexa-offer-review-db-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node schema.test.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.3.14"
+  }
+}

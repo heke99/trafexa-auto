@@ -59,7 +59,7 @@ export async function signupAction(form:FormData) {
  if(failed)redirect(`/register?${new URLSearchParams({next:nextPath,error:'Kontot kunde inte skapas. Försök igen senare.'})}`);
  redirect(`/login?${new URLSearchParams({next:nextPath,success:'Kontrollera din e-post och bekräfta kontot innan du loggar in.'})}`);
 }
-export async function signOutAction() {const db=await createServerSupabaseClient();await db.auth.signOut();(await cookies()).delete('trafexa-company');redirect('/login');}
+export async function signOutAction(form?:FormData) {const nextPath=safeNextPath(form?.get('next'));const db=await createServerSupabaseClient();await db.auth.signOut();(await cookies()).delete('trafexa-company');redirect(nextPath==='/dashboard'?'/login':`/login?${new URLSearchParams({next:nextPath})}`);}
 async function context() {
  const session=await getCompanySession();
  if(!session)redirect('/login');
@@ -142,22 +142,28 @@ export async function createVehicleCostAction(form:FormData) {
 }
 
 export async function forgotPasswordAction(form:FormData) {
- const email=authEmail(form,'/forgot-password');
+ const nextPath=safeNextPath(form.get('next'));
+ const errorPath=nextPath==='/dashboard'?'/forgot-password':`/forgot-password?${new URLSearchParams({next:nextPath})}`;
+ const email=authEmail(form,errorPath);
+ const callback=new URL('/auth/callback',process.env.NEXT_PUBLIC_APP_URL??'https://app.trafexa.com');
+ callback.search=nextPath==='/dashboard'?'?next=/reset-password':new URLSearchParams({next:`/reset-password?${new URLSearchParams({next:nextPath})}`}).toString();
  let failed=false;
  try {
  const db=await createServerSupabaseClient();
- const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:`${process.env.NEXT_PUBLIC_APP_URL??'https://app.trafexa.com'}/auth/callback?next=/reset-password`});
+ const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:callback.toString()});
  failed=Boolean(error);
  } catch {failed=true;}
- if(failed)outcome('/forgot-password','error','Återställningsförfrågan kunde inte behandlas just nu. Försök igen senare.');
- outcome('/forgot-password','success','Om adressen har ett konto får du ett mejl med instruktioner för återställning.');
+ if(failed)outcome(errorPath,'error','Återställningsförfrågan kunde inte behandlas just nu. Försök igen senare.');
+ outcome(errorPath,'success','Om adressen har ett konto får du ett mejl med instruktioner för återställning.');
 }
 export async function updatePasswordAction(form:FormData) {
- const password=authPassword(form,'/reset-password',12);
- const db=await createServerSupabaseClient();const {data,error:authError}=await db.auth.getClaims();
- if(authError||!data?.claims?.sub)outcome('/forgot-password','error','Återställningslänken har gått ut. Begär en ny länk.');
+ const nextPath=safeNextPath(form.get('next'));
+ const route=(path:string)=>nextPath==='/dashboard'?path:`${path}?${new URLSearchParams({next:nextPath})}`;
+ const password=authPassword(form,route('/reset-password'),12);
+ const db=await createServerSupabaseClient();const {data,error:authError}=await db.auth.getUser();
+ if(authError||!data?.user)outcome(route('/forgot-password'),'error','Återställningslänken har gått ut. Begär en ny länk.');
  const {error}=await db.auth.updateUser({password});
- if(error)outcome('/reset-password','error','Lösenordet kunde inte ändras. Begär en ny länk och försök igen.');
+ if(error)outcome(route('/reset-password'),'error','Lösenordet kunde inte ändras. Begär en ny länk och försök igen.');
  await db.auth.signOut({scope:'global'});(await cookies()).delete('trafexa-company');
- outcome('/login','success','Lösenordet har ändrats. Logga in igen.');
+ outcome(route('/login'),'success','Lösenordet har ändrats. Logga in igen.');
 }

@@ -1,0 +1,24 @@
+begin;
+do $$begin if exists(select 1 from auth.users where id between 'ee150000-0000-4000-8000-000000000001'::uuid and 'ee150000-0000-4000-8000-000000000010'::uuid) or exists(select 1 from public.companies where id='ee150000-0000-4000-8000-000000000001') then raise exception 'Fixture collision';end if;end $$;
+insert into auth.users(id,email,email_confirmed_at)values('ee150000-0000-4000-8000-000000000003','offer-owner@fixture.invalid',now()),('ee150000-0000-4000-8000-000000000006','offer-buyer@fixture.invalid',now());
+insert into public.companies(id,name,organisation_number,created_by)values('ee150000-0000-4000-8000-000000000001','Offer SQL Fixture','1234567890','ee150000-0000-4000-8000-000000000003');
+insert into public.memberships(company_id,user_id,role)values('ee150000-0000-4000-8000-000000000001','ee150000-0000-4000-8000-000000000003','owner');
+insert into public.customers(id,company_id,name,email)values('ee150000-0000-4000-8000-000000000005','ee150000-0000-4000-8000-000000000001','Offer Buyer','offer-buyer@fixture.invalid');
+insert into public.vehicles(id,company_id,registration_number,make,model,model_year)values('ee150000-0000-4000-8000-000000000009','ee150000-0000-4000-8000-000000000001','TEST150','Volvo','V60',2020);
+insert into public.stock_items(id,company_id,vehicle_id,purchase_price_ore,asking_price_ore,vat_scheme)values('ee150000-0000-4000-8000-000000000007','ee150000-0000-4000-8000-000000000001','ee150000-0000-4000-8000-000000000009',10000,20000,'standard');
+insert into public.deals(id,company_id,stock_item_id,customer_id,sale_price_ore,created_by)values('ee150000-0000-4000-8000-000000000008','ee150000-0000-4000-8000-000000000001','ee150000-0000-4000-8000-000000000007','ee150000-0000-4000-8000-000000000005',20000,'ee150000-0000-4000-8000-000000000003');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','ee150000-0000-4000-8000-000000000003',true);
+do $$declare o uuid;v jsonb;again jsonb;begin
+ o:=public.create_offer_version('ee150000-0000-4000-8000-000000000001','ee150000-0000-4000-8000-000000000008','ee150000-0000-4000-8000-000000000011','Customer terms',(clock_timestamp()at time zone'Europe/Stockholm')::date+1,true);
+ v:=public.publish_offer_review('ee150000-0000-4000-8000-000000000001','ee150000-0000-4000-8000-000000000008',o,'ee150000-0000-4000-8000-000000000012');
+ again:=public.publish_offer_review('ee150000-0000-4000-8000-000000000001','ee150000-0000-4000-8000-000000000008',o,'ee150000-0000-4000-8000-000000000012');
+ if again<>v then raise exception 'Publication replay failed';end if;
+ perform set_config('request.jwt.claim.sub','ee150000-0000-4000-8000-000000000006',true);
+ again:=public.list_my_offer_reviews();if jsonb_array_length(again->'reviews')<>1 or again#>>'{reviews,0,snapshot,vat,amount_ore}'<>'4000' then raise exception 'Customer scope failed';end if;
+ again:=public.respond_offer_review((v#>>'{review,id}')::uuid,1,'accepted','Offer Buyer',null,'2026-10-14','ee150000-0000-4000-8000-000000000013');
+ if again#>>'{review,status}'<>'accepted' or again#>>'{review,version}'<>'2' then raise exception 'Customer response failed';end if;
+ if public.respond_offer_review((v#>>'{review,id}')::uuid,1,'accepted','Offer Buyer',null,'2026-10-14','ee150000-0000-4000-8000-000000000013')<>again then raise exception 'Response replay failed';end if;
+end $$;
+select 'PASS: scoped publication, exact retry, minimized customer offer and immutable response receipt' as result;
+rollback;
