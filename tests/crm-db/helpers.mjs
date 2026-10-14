@@ -1,14 +1,14 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFile, readdir } from 'node:fs/promises';
 
-export async function createDatabase({ includeSigningArchive=true }={}) {
+export async function createDatabase({ includeSigningArchive=true, approveEstablishedFixtures=true }={}) {
  const db=new PGlite();
  await db.exec(`
   create role anon nologin;
   create role authenticated nologin;
   create role service_role nologin bypassrls;
   create schema auth;
-  create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,
+  create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,created_at timestamptz not null default now(),
     is_anonymous boolean not null default false,is_sso_user boolean not null default false,banned_until timestamptz,raw_user_meta_data jsonb default '{}');
   create function auth.uid() returns uuid language sql stable as $$
    select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid
@@ -32,6 +32,13 @@ export async function createDatabase({ includeSigningArchive=true }={}) {
  for(const filename of (await readdir(directory)).filter(name=>name.endsWith('.sql') && (includeSigningArchive || !name.endsWith('_signing_ledger.sql') && !name.endsWith('_offer_document_archive.sql'))).sort()) {
   await db.exec(await readFile(new URL(filename,directory),'utf8'));
  }
+ // Established-fixture approval is TEST ONLY. The dedicated approval suite opts out.
+ // Production migrations deliberately contain neither this trigger nor a backfill.
+ if(approveEstablishedFixtures)await db.exec(`
+ create function auth.approve_established_test_fixture() returns trigger language plpgsql as $$
+ begin insert into private.account_approvals(user_id,status,updated_by) values(new.id,'approved',new.id); return new; end $$;
+ create trigger approved_established_test_fixture after insert on auth.users for each row execute function auth.approve_established_test_fixture();
+ `);
  // Preserve the existing privileged worker contract without granting the archive
  // table or private storage catalogs to ordinary authenticated users.
  await db.exec('grant select,insert,update,delete on public.documents to service_role');

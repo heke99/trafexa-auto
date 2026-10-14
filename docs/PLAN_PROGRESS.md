@@ -1,13 +1,13 @@
 # Planläge 14 oktober 2026
 
-Referens: senaste publicerade main `f462531aa39237cb4326de1364e81801d151c451`, PR #12. Status avser faktisk funktion och verifiering, inte antal menyval eller kodrader. Ingen procentandel eller leveranstid är fastställd; faserna är olika stora och flera kräver externa avtal.
+Utgångspunkt: publicerad main `f44bd5e5495eabf9dd876060738d7528b0de444f`, PR #13. Status avser faktisk funktion och verifiering, inte antal menyval eller kodrader. Ingen procentandel eller leveranstid är fastställd; faserna är olika stora och flera kräver externa avtal.
 
 | Fas | Byggt eller förberett | Återstår |
 |---|---|---|
 | 0 Produkt/partnerbeslut | Trafexas mål, resurser, roller och integrationernas gränser | Partneravtal, konkreta kanal-/signerings-/ekonomikontrakt och driftansvar |
-| 1 Konton/företag | Konto, e-postverifiering, lösenordsåterställning, företagsväxling, roller, personalinbjudningar, superadmin med plattformsöversikt, webbansökningar och versionshanterade kontomejlmallar | Hosted Auth-adresser/mejlmallar behöver sparas och verifieras i Supabase. Filialer, ägaröverlåtelse, organisationens godkännande och full verifiering av inloggade produktionsflöden |
+| 1 Konton/företag | Konto, e-postverifiering, lösenordsåterställning, företagsväxling, roller, personalinbjudningar, superadmin med plattformsöversikt, webbansökningar, obligatoriskt kontogodkännande och versionshanterade kontomejlmallar | Hosted Auth-adresser/mejlmallar behöver sparas och verifieras i Supabase. Filialer, ägaröverlåtelse, organisationens godkännande och full verifiering av inloggade produktionsflöden |
 | 2 Lager/inköp | Lagerkort, CSV-import, kostnader, privata bilder, exakt fordonskalkyl och moms/VMB-underlag | Inköpsunderlag, skickbedömning och avstämning |
-| 3 CRM/affär | Kunder, leads, kontaktlogg, uppföljningar, reservationer, offertversion/PDF, kundens offertgranskning/accept/avböjande och kontrollerad avbrytning | Inbyte samt verklig samtidig reservationsverifiering |
+| 3 CRM/affär | Kunder, leads, kontaktlogg, uppföljningar, reservationer, offertversion/PDF, kundens offertgranskning/accept/avböjande, kontrollerad avbrytning och internt versionsbundet inbytesunderlag | Verkligt inbytesköp/avtal och offertkoppling samt verklig samtidig reservationsverifiering |
 | 4 Avtal/dokument | Offert-PDF och avstängd signeringsgrund | Avtalsmallar, elektronisk underskrift, signerade filer/evidens och aktivt dokumentarkiv |
 | 5 Köpfinansiering | Internt finansintresse och behörighetsgränser | Verklig partneransökan, komplettering, erbjudande, kreditbeslut och utbetalningsstatus |
 | 6 Ekonomi/leverans | Fordonskalkyl och kostnadsunderlag | Faktura, betalning, avstämning, bokföringsexport, leverans och ägarbyte |
@@ -18,6 +18,6 @@ Referens: senaste publicerade main `f462531aa39237cb4326de1364e81801d151c451`, P
 
 Fas 1–3 innehåller stora delar av den interna handlargrunden men är inte helt slutverifierade. Ingen hel fas redovisas som godkänd enbart därför att grundfunktioner finns. Externa integrationer kan förberedas parallellt; avtal och faktisk åtkomst måste finnas innan aktivering.
 
-Arbetsordning för närmaste leveranser: inbytesunderlag, inköps-/skickunderlag och återstående organisationsflöden, därefter dokument/avtal samt ekonomi/leverans. Faktiska partneravtal kan ändra ordningen för finansieringen.
+Arbetsordning för närmaste leveranser: koppling av inbytesunderlag till granskad offert/avtal och inbytesköp, inköps-/skickunderlag och återstående organisationsflöden, därefter dokument/avtal samt ekonomi/leverans. Faktiska partneravtal kan ändra ordningen för finansieringen.
 
 Se [MASTERPLAN](MASTERPLAN.md) för fulla leveranskrav och [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md) för aktuella tester och verifieringsgränser. Publik marknadsföring beskriver användbara funktioner; detta interna planläge beskriver även kvarstående arbete.

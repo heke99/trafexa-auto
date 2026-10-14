@@ -17,7 +17,7 @@ function membership(id, { role = 'owner', status = 'active', companyStatus = 'ac
 }
 function fixture(overrides = {}) {
   return {
-    user: { id: 'verified-user', email: 'verified@example.invalid', user_metadata: { company_id: FOREIGN, role: 'owner' } },
+    user: { id: 'verified-user', email: 'verified@example.invalid', email_confirmed_at:'2026-10-14T00:00Z', user_metadata: { company_id: FOREIGN, role: 'owner' } },
     cookie: undefined, authError: null, membershipError: null, authCalls: 0, clients: 0, queries: [], inserts: [], cookieWrites: [], revalidated: [], reactCache: new Map(),
     memberships: [membership(B), membership(A), membership(PAUSED, { companyStatus: 'inactive' }), membership(REVOKED, { status: 'revoked' }), membership(FOREIGN, { user: 'other-user' })],
     stock: [{ id: STOCK, company_id: A, purchase_price_ore: 10000, asking_price_ore: 20000 }],
@@ -53,6 +53,7 @@ async function harness() {
         async getUser() { request.authCalls++; return { data: { user: request.user }, error: request.authError }; },
         getClaims() { throw new Error('Authorization must use verified getUser(), not JWT/user metadata.'); },
       },
+      async rpc(name) { assert.equal(name,'get_account_access'); return {data:{userId:request.user.id,email:request.user.email,emailVerified:Boolean(request.user.email_confirmed_at),status:request.approvalStatus??'approved',version:request.approvalStatus?0:1,isPlatformAdmin:false},error:request.approvalError??null}; },
       from(table) {
         const entry = { table, filters: {}, columns: '', order: null, start: 0, end: Infinity, cap: Infinity };
         request.queries.push(entry);
@@ -129,14 +130,14 @@ test('real React server cache shares a verified session across context and snaps
 test('auth and membership revocation are fresh across requests without leaking a cached actor', async () => {
   const h = await harness();
   await h.request(fixture(), async () => assert.equal((await h.context.getCompanySession()).membership.company_id, A));
-  const next = fixture({ cookie: A, memberships: [membership(A, { status: 'revoked' }), membership(B)], user: { id: 'verified-user', email: 'fresh@example.invalid' } });
+  const next = fixture({ cookie: A, memberships: [membership(A, { status: 'revoked' }), membership(B)], user: { id: 'verified-user', email: 'fresh@example.invalid',email_confirmed_at:'2026-10-14T00:00Z' } });
   await h.request(next, async () => {
     const session = await h.context.getCompanySession();
     assert.equal(session.user.email, 'fresh@example.invalid'); assert.equal(session.membership, null);
     await assert.rejects(h.context.getActiveCompanyContext(), /Välj ett företag/);
     assert.equal(next.authCalls, 1);
   });
-  const otherActor = fixture({ user: { id: 'other-user', email: 'other@example.invalid' } });
+  const otherActor = fixture({ user: { id: 'other-user', email: 'other@example.invalid',email_confirmed_at:'2026-10-14T00:00Z' } });
   await h.request(otherActor, async () => {
     const session = await h.context.getCompanySession();
     assert.equal(session.user.id, 'other-user'); assert.equal(session.membership.company_id, FOREIGN);
@@ -279,4 +280,9 @@ test('actual settings markup with null membership offers every active company fo
     assert.ok(html.includes('Välj företag')); assert.ok(html.includes('verified@example.invalid'));
     for (const forbidden of ['Company c', 'Company d', 'Company e', 'foreign-customer']) assert.ok(!html.includes(forbidden), forbidden);
   });
+});
+
+test('pending rejected and suspended accounts expose no companies even with active owner fixtures',async()=>{
+ const h=await harness();for(const approvalStatus of ['pending','rejected','suspended']){const request=fixture({approvalStatus});await h.request(request,async()=>{const session=await h.context.getCompanySession();assert.equal(session.accountAccess.status,approvalStatus);assert.deepEqual(session.memberships,[]);assert.equal(session.membership,null);assert.equal(request.queries.length,0);await assert.rejects(h.context.getActiveCompanyContext());});}
+ const unavailable=fixture({approvalError:{code:'XX000'}});await h.request(unavailable,async()=>{await assert.rejects(h.context.getCompanySession(),/godkännande/);assert.equal(unavailable.queries.length,0);});
 });

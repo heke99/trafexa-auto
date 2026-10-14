@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getAccountAccessContext } from '@/lib/account-access/context';
 import { redirect } from 'next/navigation';
 import { Brand } from '@/components/brand';
 import { CompanyInvitations } from '@/components/company-invitations';
@@ -13,6 +14,8 @@ export default async function InvitationsPage() {
   const { data, error } = await db.auth.getUser();
   const user = data?.user;
   if (error || !user) redirect('/login?next=/invitations');
+  let access; try { access = await getAccountAccessContext(); } catch { redirect('/account-pending?next=%2Finvitations'); }
+  if (!access || !access.emailVerified || access.status !== 'approved') redirect('/account-pending?next=%2Finvitations');
   const verified = !user.is_anonymous && Boolean(user.email && user.email_confirmed_at && Number.isFinite(Date.parse(user.email_confirmed_at)));
 
   return <div className="wrap">

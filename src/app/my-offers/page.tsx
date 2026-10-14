@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getAccountAccessContext } from '@/lib/account-access/context';
 import { redirect } from 'next/navigation';
 import { Brand } from '@/components/brand';
 import { CustomerOfferReviews } from '@/components/customer-offer-reviews';
@@ -13,6 +14,8 @@ export default async function MyOffersPage() {
   const { data, error } = await db.auth.getUser();
   const user = data?.user;
   if (error || !user) redirect('/login?next=/my-offers');
+  let access; try { access = await getAccountAccessContext(); } catch { redirect('/account-pending?next=%2Fmy-offers'); }
+  if (!access || !access.emailVerified || access.status !== 'approved') redirect('/account-pending?next=%2Fmy-offers');
   const verified = !user.is_anonymous && Boolean(user.email && user.email_confirmed_at && Number.isFinite(Date.parse(user.email_confirmed_at)));
   return <div className="wrap">
     <header className="public-header"><Brand href="/my-offers"/><nav className="nav-login" aria-label="Konto"><Link className="text-link" href="/privacy">Integritet</Link><form action={signOutAction}><input type="hidden" name="next" value="/my-offers"/><button className="text-link" type="submit">Logga ut</button></form></nav></header>

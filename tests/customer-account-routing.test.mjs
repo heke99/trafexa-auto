@@ -12,6 +12,7 @@ async function page(user,error=null){
   '@/components/brand':{Brand:()=>null},
   '@/components/customer-offer-reviews':{CustomerOfferReviews:({userId})=>({type:'div',props:{'data-customer':userId},$$typeof:Symbol.for('react.transitional.element')})},
   '@/lib/data/actions':{signOutAction:()=>{}},
+  '@/lib/account-access/context':{getAccountAccessContext:async()=>({userId:user?.id,emailVerified:true,status:'approved'})},
   '@/lib/supabase/server':{createServerSupabaseClient:async()=>({auth:{getUser:async()=>{checks++;return {data:{user},error};},getClaims:()=>assert.fail('Fresh user required')}})},
  });
  return {run:()=>loader.load('src/app/my-offers/page.tsx').default(),checks:()=>checks};

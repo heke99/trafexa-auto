@@ -7,6 +7,7 @@ import { getCompanySession } from './company-context';
 import { enumField,integerField,moneyField,requiredField,textField,uuidField } from './validation';
 import { safeNextPath } from '@/lib/routing.mjs';
 import { getAuthAppOrigin } from '@/lib/auth/app-origin';
+import { getAuthenticatedLandingPath } from '@/lib/auth/landing';
 
 function outcome(path:string,type:'error'|'success',message:string):never {redirect(`${path}${path.includes('?')?'&':'?'}${type}=${encodeURIComponent(message)}`);}
 function friendlyError(error:unknown) {
@@ -42,7 +43,7 @@ export async function loginAction(form:FormData) {
   failed=Boolean(error);
  } catch {failed=true;}
  if(failed)redirect(`/login?${new URLSearchParams({next:nextPath,error:'Inloggningen misslyckades. Kontrollera e-post och lösenord.'})}`);
- redirect(nextPath);
+ redirect(await getAuthenticatedLandingPath(nextPath));
 }
 export async function signupAction(form:FormData) {
  const nextPath=safeNextPath(form.get('next'));

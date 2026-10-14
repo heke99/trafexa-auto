@@ -26,7 +26,7 @@ test('actual signup and recovery send production callbacks preserving admin and 
 });
 test('actual callback exchanges a code only on the server then redirects safely to production',async()=>{
  process.env.VERCEL_ENV='production';process.env.NEXT_PUBLIC_APP_URL='http://localhost:3000';let exchanges=0;
- const loader=await createSourceLoader({'next/server':{NextResponse:{redirect:url=>({url:String(url)})}},'@/lib/supabase/server':{createServerSupabaseClient:async()=>({auth:{exchangeCodeForSession:async code=>{assert.equal(code,'fixture-code');exchanges++;return{error:null};}}})}});
+ const loader=await createSourceLoader({'@/lib/platform-admin/context':{getPlatformAdminContext:async()=>null},'@/lib/account-access/context':{getAccountAccessContext:async()=>({status:'approved',emailVerified:true})},'next/server':{NextResponse:{redirect:url=>({url:String(url)})}},'@/lib/supabase/server':{createServerSupabaseClient:async()=>({auth:{exchangeCodeForSession:async code=>{assert.equal(code,'fixture-code');exchanges++;return{error:null};}}})}});
  const handler=loader.load('src/app/auth/callback/route.ts').GET;
  const result=await handler({nextUrl:new URL('http://localhost:3000/auth/callback?code=fixture-code&next=/admin')});assert.equal(result.url,'https://app.trafexa.com/admin');assert.equal(exchanges,1);
  const external=await handler({nextUrl:new URL('https://host.invalid/auth/callback?code=fixture-code&next=//attacker.invalid')});assert.equal(external.url,'https://app.trafexa.com/dashboard');

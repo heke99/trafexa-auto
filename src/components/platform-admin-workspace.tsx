@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { activatePlatformAdminAction, erasePlatformWebApplicationAction, getPlatformWebApplicationAction, setPlatformWebApplicationStatusAction, listPlatformCompaniesAction, listPlatformContactRequestsAction, setPlatformCompanyStatusAction } from '@/lib/platform-admin/actions';
+import { PlatformAccountAccess } from './platform-account-access';
 import { PlatformAdminOverview } from './platform-admin-overview';
 import { getPlatformOverviewAction } from '@/lib/platform-admin/overview-actions';
 import type { PlatformOverview } from '@/lib/platform-admin/overview-types';
@@ -24,8 +25,8 @@ export function PlatformAdminActivation() {
   })}>{pending ? 'Verifierar åtkomst…' : 'Aktivera administratörsåtkomst'}</button>{message && <p role="alert">{message}</p>}</div></main>;
 }
 
-export function PlatformAdminWorkspace({ initialPage, initialError }: { initialPage: CompanyPage; initialError: string | null }) {
-  const [tab, setTab] = useState<'overview' | 'companies' | 'contacts'>('overview');
+export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId }: { initialPage: CompanyPage; initialError: string | null; actorUserId: string }) {
+  const [tab, setTab] = useState<'overview' | 'companies' | 'contacts' | 'accounts'>('overview');
   const [overview, setOverview] = useState<PlatformOverview | null>(null);
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
@@ -79,7 +80,7 @@ export function PlatformAdminWorkspace({ initialPage, initialError }: { initialP
     })();
   }
   useEffect(() => { loadOverview(); return () => { ++overviewGeneration.current; ++generation.current; }; }, []);
-  function navigate(nextTab: 'overview' | 'companies' | 'contacts') {
+  function navigate(nextTab: 'overview' | 'companies' | 'contacts' | 'accounts') {
     if (pending || denied) return;
     ++generation.current;
     setTab(nextTab); setReview(null); setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null); setError(null); setNotice(null);
@@ -213,11 +214,12 @@ export function PlatformAdminWorkspace({ initialPage, initialError }: { initialP
   return <main className="workspace-main platform-admin-workspace" style={{ paddingInline: 0 }}>
     <style>{`.platform-admin-workspace nav .table-controls{flex-wrap:wrap;gap:8px;justify-content:flex-start}.platform-admin-workspace nav .button{white-space:normal}.platform-admin-workspace .workspace-heading{min-width:0}.platform-admin-workspace .workspace-heading h1{overflow-wrap:anywhere}`}</style>
     <div className="workspace-heading"><div><p className="eyebrow">Trafexa · Administration</p><h1>Plattformsadministration</h1><p>Följ plattformens aktivitet, hantera företagens åtkomst och handlägg ansökningar.</p></div></div>
-    <nav className="table-toolbar" aria-label="Administrationsvyer"><div className="table-controls">{([['overview', 'Översikt'], ['companies', 'Företag'], ['contacts', 'Inkomna ansökningar']] as const).map(([view, label]) => <button key={view} className={`button ${tab === view ? 'button-green' : 'button-outline'}`} type="button" aria-pressed={tab === view} disabled={pending || denied} onClick={() => navigate(view)}>{label}</button>)}</div></nav>
+    <nav className="table-toolbar" aria-label="Administrationsvyer"><div className="table-controls">{([['overview', 'Översikt'], ['companies', 'Företag'], ['contacts', 'Inkomna ansökningar'], ['accounts', 'Konton']] as const).map(([view, label]) => <button key={view} className={`button ${tab === view ? 'button-green' : 'button-outline'}`} type="button" aria-pressed={tab === view} disabled={pending || denied} onClick={() => navigate(view)}>{label}</button>)}</div></nav>
     {error && <p role="alert" className="form-error">{error}</p>}
     {notice && <p role="status" className="notice">{notice}</p>}
     {pending && <p role="status">Läser in och verifierar…</p>}
     {!denied && tab === 'overview' && <PlatformAdminOverview overview={overview} loading={overviewLoading} error={overviewError} onRefresh={loadOverview} onNavigate={navigate}/> }
+    {!denied && tab === 'accounts' && <PlatformAccountAccess actorUserId={actorUserId} onAccessDenied={() => handleFailure({code:'access_denied',message:'Du har inte längre tillgång till plattformsadministrationen.'})}/> }
     {!denied && tab === 'companies' && <>
       <section className="surface" aria-label="Företag">
         <form className="table-toolbar" onSubmit={event => { event.preventDefault(); loadCompanies(); }}><div className="table-controls"><label className="search-field"><span className="sr-only">Sök företag eller organisationsnummer</span><input placeholder="Namn eller organisationsnummer" value={search} onChange={event => setSearch(event.target.value)} maxLength={160} disabled={pending}/></label><button type="submit" className="button button-outline" disabled={pending}>Sök</button></div></form>

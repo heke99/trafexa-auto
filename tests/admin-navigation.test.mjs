@@ -28,7 +28,10 @@ async function fixture({ signInError = null, signUpError = null, exchangeError =
     async signUp(value) { calls.push(['signUp', value]); if (throwSignUp) throw new Error('Private provider diagnostics'); return { error: signUpError }; },
     async exchangeCodeForSession(value) { calls.push(['exchangeCodeForSession', value]); if (throwExchange) throw new Error('Private provider diagnostics'); return { error: exchangeError }; },
   }, rpc() { throw new Error('Auth navigation must never claim admin or read tenant/global data'); } };
+  // These regression cases model established approved accounts; pending access is tested separately.
   const loader = await createSourceLoader({
+    '@/lib/platform-admin/context': { getPlatformAdminContext: async () => null },
+    '@/lib/account-access/context': { getAccountAccessContext: async () => ({ status: 'approved', emailVerified: true }) },
     '@/lib/supabase/server': { createServerSupabaseClient: async () => db },
     'next/navigation': { redirect },
     'next/server': { NextResponse: { redirect: url => ({ location: String(url), status: 307 }) } },

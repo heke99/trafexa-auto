@@ -6,11 +6,11 @@ const count = (value: string) => new Intl.NumberFormat('sv-SE').format(BigInt(va
 const money = (value: string) => { const ore = BigInt(value); return `${count((ore / 100n).toString())},${(ore % 100n).toString().padStart(2, '0')} kr`; };
 const shortDate = (value: string) => new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short', timeZone: 'Europe/Stockholm' }).format(new Date(`${value}T12:00:00Z`));
 
-export function PlatformAdminOverview({ overview, loading, error, onRefresh, onNavigate }: { overview: PlatformOverview | null; loading: boolean; error: string | null; onRefresh: () => void; onNavigate: (tab: 'companies' | 'contacts') => void }) {
+export function PlatformAdminOverview({ overview, loading, error, onRefresh, onNavigate }: { overview: PlatformOverview | null; loading: boolean; error: string | null; onRefresh: () => void; onNavigate: (tab: 'companies' | 'contacts' | 'accounts') => void }) {
   const metrics = overview ? [
     { title: 'Företag', value: overview.companies.total, description: `${count(overview.companies.active)} aktiva · ${count(overview.companies.suspended)} avstängda`, action: 'Hantera företag', tab: 'companies' as const },
     { title: 'Nya ansökningar', value: overview.applications.new, description: `${count(overview.applications.total)} ansökningar totalt`, action: 'Handlägg ansökningar', tab: 'contacts' as const },
-    { title: 'Användare', value: overview.users.total, description: `${count(overview.users.verified)} med bekräftad e-post · ${count(overview.users.activeMemberships)} aktiva medlemskap` },
+    { title: 'Användare', value: overview.users.total, action: 'Godkänn konton', tab: 'accounts' as const, description: `${count(overview.users.verified)} med bekräftad e-post · ${count(overview.users.activeMemberships)} aktiva medlemskap` },
     { title: 'Lagerobjekt', value: overview.inventory.total, description: `${count(overview.inventory.available)} tillgängliga · ${count(overview.inventory.reserved)} reserverade` },
   ] : [];
   const peak = overview ? overview.daily.reduce((max, day) => [day.applications, day.companies, day.deals].reduce((m, value) => BigInt(value) > m ? BigInt(value) : m, max), 1n) : 1n;

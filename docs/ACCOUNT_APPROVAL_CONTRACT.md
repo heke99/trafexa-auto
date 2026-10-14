@@ -1,0 +1,11 @@
+# Superadminens kontogodkännande
+
+Registrering och verifierad e-post ger inte systemåtkomst. Alla vanliga nya och befintliga konton utan privat godkännande behandlas som väntande. Inga befintliga produktionskonton godkänns automatiskt. Undantaget är en faktiskt aktiv plattformsadministratör i det privata UUID-registret, med verklig verifierad Auth; e-postadress, företagsroll och användarmetadata ger inget undantag.
+
+Superadminens Konton visar registrerade konton, verifieringsstatus och pending/approved/rejected/suspended. Kontobeslut kräver granskning, motivering, versionskontroll och explicit bekräftelse. Godkännande är skilt från företagsmedlemskap, företagsroll, organisationens finansgodkännande och kreditbeslut. Aktiva plattformsadministratörer och den egna administratören skyddas från denna rutinmässiga kontobeslutsfunktion.
+
+Väntande, avslagna och avstängda konton skickas till /account-pending och får inte läsa arbetsyta, kundofferter eller företagsinbjudningar, skapa företag eller kringgå spärren med direkta Data API-/RPC-/Storage-anrop. Kontoåtkomst kontrolleras centralt i SQL:s företagsroller, identitetskontroller och särskilda kalkylfunktioner. Applikationskontroller ger ett begripligt vänteläge; databaskontrollerna är den faktiska åtkomstgränsen. Inloggning, kontobekräftelse, lösenordsåterställning, egen åtkomststatus och utloggning är fortsatt tillgängliga.
+
+Aktören kontrolleras via färsk Auth och det privata superadminregistret före och efter serveråtkomst. Oföränderligt privat auditkvitto binder begärans-ID, aktör, konto, tidigare version, beslut och motivering. Identisk retry kan återvända med tidigare kvitto, men listan läses om för aktuell status. Databasens Auth-/godkännande-/registrylås serialiserar kontobeslut mot känsliga skrivningar. Ett giltigt gammalt JWT ersätter inte aktuell kontokontroll.
+
+Ingen automatisk godkännandemail, invitation, SMTP-ändring eller scheduler aktiveras. Hosted Auth URL och mejlmallar hanteras fortfarande separat enligt AUTH_EMAIL_SETUP.md. Lokala regressionsdatabaser kan uttryckligen förbereda redan godkända syntetiska konton; deras TESTONLY-trigger installeras aldrig i hosted databasen. Dedikerade negativa godkännandetester använder inga sådana automatiska fixtures.
