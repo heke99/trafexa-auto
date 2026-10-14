@@ -1,0 +1,25 @@
+begin;
+create function private.create_sale_contract_draft(p_company_id uuid,p_deal_id uuid,p_offer_id uuid,p_template_version_id uuid,p_expected_template_approval_version integer,p_request_id uuid) returns jsonb language plpgsql security definer set search_path='' as $$declare a uuid;r text;p jsonb;receipt jsonb;t private.sale_contract_template_versions;tid uuid;o public.offers;d private.sale_contract_drafts;latest integer;deal_status text;begin
+ select actor,actor_role into a,r from private.sale_contract_access(p_company_id,false);
+ if p_offer_id is null or p_template_version_id is null or p_expected_template_approval_version is null or p_expected_template_approval_version<1 then raise exception 'Invalid contract draft' using errcode='22023';end if;
+ select status into deal_status from public.deals where company_id=p_company_id and id=p_deal_id for update;
+ if not found then raise exception 'Deal access denied' using errcode='42501';end if;
+ p:=jsonb_build_object('operation','createDraft','company',p_company_id,'deal',p_deal_id,'offer',p_offer_id,'templateVersionId',p_template_version_id,'expectedTemplateApprovalVersion',p_expected_template_approval_version);
+ receipt:=private.sale_contract_replay(a,p_request_id,p);if receipt is not null then return receipt;end if;
+ if deal_status not in ('draft','reserved') then raise exception 'Deal unavailable for new contract' using errcode='40001';end if;
+ select template_id into tid from private.sale_contract_template_versions where company_id=p_company_id and id=p_template_version_id;
+ if not found then raise exception 'Template access denied' using errcode='42501';end if;
+ perform pg_advisory_xact_lock(hashtextextended(p_company_id::text||tid::text,1));
+ select * into t from private.sale_contract_template_versions where company_id=p_company_id and id=p_template_version_id for share;
+ if t.status<>'approved' or t.approval_version<>p_expected_template_approval_version or t.version<>(select max(version) from private.sale_contract_template_versions where company_id=p_company_id and template_id=tid and status='approved') then raise exception 'Approved template conflict' using errcode='40001';end if;
+ select * into o from public.offers where company_id=p_company_id and deal_id=p_deal_id and id=p_offer_id;
+ if not found then raise exception 'Offer access denied' using errcode='42501';end if;
+ if not exists(select 1 from private.offer_reviews where company_id=p_company_id and deal_id=p_deal_id and offer_id=o.id and offer_version=o.version and status='accepted') then raise exception 'Exact accepted offer required' using errcode='40001';end if;
+ if exists(select 1 from private.sale_contract_drafts where company_id=p_company_id and offer_id=p_offer_id and template_version_id=p_template_version_id) then raise exception 'Contract draft already exists' using errcode='40001';end if;
+ select coalesce(max(version),0)+1 into latest from private.sale_contract_drafts where company_id=p_company_id and deal_id=p_deal_id;
+ insert into private.sale_contract_drafts(company_id,deal_id,version,offer_id,template_version_id,snapshot,created_by)values(p_company_id,p_deal_id,latest,p_offer_id,t.id,jsonb_build_object('offerVersion',o.version,'template',jsonb_build_object('id',t.id,'templateId',t.template_id,'version',t.version,'approvalVersion',t.approval_version,'title',t.title,'body',t.body),'sourceOffer',private.offer_review_snapshot(o.snapshot)),a) returning * into d;
+ receipt:=jsonb_build_object('companyId',p_company_id,'actorUserId',a,'requestId',p_request_id,'draft',private.sale_contract_draft_json(d));
+ insert into private.sale_contract_audit(company_id,actor_user_id,request_id,payload,receipt)values(p_company_id,a,p_request_id,p,receipt);return receipt;
+end$$;
+revoke all on function private.create_sale_contract_draft(uuid,uuid,uuid,uuid,integer,uuid) from public,anon,authenticated,service_role;
+commit;

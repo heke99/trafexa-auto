@@ -115,4 +115,4 @@ Tester omfattar företagsisolering, dokument-/affärskoppling, signer-/prisförf
 - [OSS och Pro](https://github.com/docusealco/docuseal), [egen drift](https://www.docuseal.com/on-premises).
 - [Hämta signerade dokument](https://www.docuseal.com/guides/download-signed-documents).
 
-Basic API för submissions och webhooks finns i den verifierade OSS-källan. Moln, embedding och utökad mallfunktionalitet har egna kommersiella villkor. Kontrollera vald utgåva, licens och driftmodell innan produktionen aktiveras.
+Ägaren har bekräftat godkännande för användning och portning utan separat licens. Vi använder den uttryckligen angivna källan `docusealco/docuseal` och portar endast Trafexas nödvändiga delar. Källversion och anpassningar dokumenteras i [DOCUSEAL_SELECTIVE_PORT](DOCUSEAL_SELECTIVE_PORT.md). Faktisk drift, autentisering och aktivering är separata tekniska steg.
