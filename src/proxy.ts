@@ -27,7 +27,7 @@ export async function proxy(request: NextRequest) {
     if (isWorkspacePath(pathname)) login.searchParams.set('next', pathname);
     if (isPlatformAdminPath(pathname)) login.searchParams.set('next', '/admin');
     if (isCompanyInvitationsPath(pathname)) login.searchParams.set('next', '/invitations');
-    if (isCustomerOffersPath(pathname)) login.searchParams.set('next', '/my-offers');
+    if (isCustomerOffersPath(pathname)) login.searchParams.set('next', pathname);
     const redirect = NextResponse.redirect(login);
     response.cookies.getAll().forEach(cookie => redirect.cookies.set(cookie));
     redirect.headers.set('Cache-Control', 'private, no-store');
