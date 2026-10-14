@@ -57,4 +57,3 @@ begin
  return v;
 end $$;
 revoke all on function private.normalize_organisation_number(text) from public,anon,authenticated,service_role;
-

@@ -73,4 +73,3 @@ create function public.set_platform_web_application_status(p_application_id uuid
  language sql security invoker set search_path='' as $$ select private.set_platform_web_application_status(p_application_id,p_expected_version,p_status,p_reason,p_request_id);$$;
 revoke all on function public.set_platform_web_application_status(uuid,integer,text,text,uuid) from public,anon,service_role;
 grant execute on function public.set_platform_web_application_status(uuid,integer,text,text,uuid) to authenticated;
-

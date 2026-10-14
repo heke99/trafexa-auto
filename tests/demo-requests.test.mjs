@@ -151,6 +151,7 @@ test('provider rejection, malformed confirmation, network and configuration erro
   const variants = [
     [async () => new Response(JSON.stringify({ message: sensitive, code: '42501' }), { status: 403 }), 503],
     [async () => new Response(JSON.stringify({ message: `Too many requests ${sensitive}`, code: 'P0001' }), { status: 400 }), 429],
+    [async () => new Response(JSON.stringify({message:sensitive,code:'40001'}),{status:400}),409],
     [async () => new Response('<html>unexpected</html>', { status: 200 }), 503],
     [async () => { throw new TypeError(sensitive); }, 503]
   ];
@@ -161,7 +162,7 @@ test('provider rejection, malformed confirmation, network and configuration erro
   }
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'not-a-url';
   await assertError(await request(), 503);
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 5);
 });
 
 test('the actual RPC fetch aborts after ten seconds and returns a safe timeout acknowledgement', async t => {

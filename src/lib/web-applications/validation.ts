@@ -14,6 +14,7 @@ export function normalizeApplicationOrganisationNumber(value: string): string {
   return digits;
 }
 export function validateWebApplication(value: Record<string, unknown>) {
+  if (typeof value.requestId !== 'string' || value.privacyVersion !== APPLICATION_PRIVACY_VERSION) throw new Error('Formuläret har uppdaterats. Läs in sidan igen innan du skickar ansökan.');
   const keys = ['requestId', 'name', 'email', 'company', 'phone', 'organisationNumber', 'seeking', 'message', 'privacyVersion', 'privacyAcknowledged', 'website'];
   if (Object.keys(value).some(key => !keys.includes(key))) throw new Error('Kontrollera formulärets uppgifter.');
   const text = (key: string, minimum: number, maximum: number, multiline = false) => {

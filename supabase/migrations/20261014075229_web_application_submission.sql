@@ -41,4 +41,3 @@ create function public.submit_web_application(p_request_id uuid,p_name text,p_em
  select private.submit_web_application(p_request_id,p_name,p_email,p_company,p_phone,p_organisation_number,p_seeking,p_message,p_privacy_version,p_privacy_acknowledged);$$;
 revoke all on function public.submit_web_application(uuid,text,text,text,text,text,text[],text,text,boolean) from public,service_role;
 grant execute on function public.submit_web_application(uuid,text,text,text,text,text,text[],text,text,boolean) to anon,authenticated;
-

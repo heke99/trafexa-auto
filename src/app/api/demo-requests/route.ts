@@ -36,7 +36,7 @@ export async function POST(request:NextRequest) {
   const db=createClient<WebApplicationDatabase>(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data:receipt,error}=await db.rpc('submit_web_application',{p_request_id:application.requestId,p_name:application.name,p_email:application.email,p_company:application.company,p_phone:application.phone,p_organisation_number:application.organisationNumber,p_seeking:application.seeking,p_message:application.message,p_privacy_version:application.privacyVersion,p_privacy_acknowledged:true}).abortSignal(controller.signal);
   if(controller.signal.aborted)return NextResponse.json({error:'Det tog för lång tid att spara förfrågan. Försök igen senare.'},{status:504});
-  if(error)return NextResponse.json({error:'Ansökan kunde inte sparas. Försök igen senare.'},{status:error.code==='P0001'?429:error.code==='40001'?409:error.code==='22023'?400:503});
+  if(error)return NextResponse.json({error:error.code==='40001'?'Begäran har ändrats eller avslutats. Läs in formuläret igen innan du skickar en ny ansökan.':'Ansökan kunde inte sparas. Försök igen senare.'},{status:error.code==='P0001'?429:error.code==='40001'?409:error.code==='22023'?400:503});
   if(!receipt||typeof receipt!=='object'||Array.isArray(receipt)||receipt.request_id!==application.requestId||receipt.accepted!==true)return NextResponse.json({error:'Ansökan kunde inte verifieras. Försök igen med samma uppgifter.'},{status:503});
   return NextResponse.json({success:true,receipt:{requestId:application.requestId,accepted:true}},{status:201});
  }catch {
