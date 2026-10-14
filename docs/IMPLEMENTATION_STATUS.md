@@ -1,5 +1,17 @@
 # Implementationsstatus
 
+## Granskat inbyte i offert, kundvy och PDF, 14 oktober 2026
+
+Fortsättning från main `d21baadf3f6c2c22ddc1cd15a38005fe86ff5c00` (PR #14). Handlaren kan välja den senaste privata inbytesversionen med känd skuld till en **ny** offertversion och granskar exakt kundsynligt innehåll före skrivning. Noll skuld är känd skuld; okänd skuld kan inte bifogas. Affärspris, senaste offertversion och inbytesversion kontrolleras mot servern. Befintliga offerter och deras oföränderliga bytes behålls.
+
+Kundvy och PDF läser samma sparade registrering/biluppgifter, värdering, skuld, netto och belopp att betala. Interna skick-/utrustningsanteckningar, kreditgivare och Auth-identiteter ingår inte i bilagan. Netto och mellanskillnad använder exakta heltalsören, även negativa belopp. Försäljningsbilens bruttopris är fortsatt momsunderlag; inbytesnettot minskar betalningsbeloppet utan att ändra momsberäkningen. Accepterad offert spärrar alla nya offertversioner via både gamla och nya API-vägar; behörigt exakt återförsök av tidigare sparad version bevaras.
+
+Färsk godkänd Auth och faktisk företagsroll krävs. Nekad åtkomst rensar offert-/inbytesdata och sena resultat efter byte eller avmontering ignoreras. Underlaget utför inget inbytesköp, lagerintag, skuldlösen, betalning eller signerat avtal. Full autentiserad produktionsbrowser och verklig samtidig låsväntan verifieras separat. Hosted Auth-mejlkonfiguration och gamla signing/archive-migrationer aktiveras inte av denna leverans.
+
+Verifiering: **447/447 apptester**, produktionsbygge/TypeScript och diffkontroll PASS. **55/55 berörda PostgreSQL/PGlite-grupper** för nya offertkopplingen (6), kontogodkännande (6), inbyte (6), offertgranskning (8), CRM (7), arkiv (1), kalkyler (7), avbrytning (7) och plattformsöversikt (7). Dessutom **4/4 oberoende fullkedjegrupper** för både gamla/nya publika/privata vägar, kundaccept, historiskt exakt återförsök och nekad behörighet. Totalt 59 verifierade databastestgrupper i denna leverans; tidigare 75 är en separat checkpoint och summeras inte till nya unika fall. PDF-sviten innehåller 11 verkliga render-/textgrupper utan skip, inom apptotalen.
+
+Hosted readback: `20261014160150_trade_in_offer_snapshot`, `20261014160206_trade_in_offer_creation` och `20261014160219_trade_in_offer_api`, totalt **39 migrationer**. Live rollback PASS för oföränderlig kundsäker bilaga, exakt retry och negativ mellanskillnad. Efterkontroll noll syntetiska Authkonton, företag, offerter, submissions, inbytesversioner och approvals. Ingen ny säkerhetsvarning; samma 25 avsiktliga privata RLS-notiser och tidigare lösenordsskyddsvarning. Se [TRADE_IN_OFFER_CONTRACT](TRADE_IN_OFFER_CONTRACT.md).
+
 ## Obligatoriskt kontogodkännande, superadmininloggning och inbytesunderlag, 14 oktober 2026
 
 Fortsättning från main `f44bd5e5495eabf9dd876060738d7528b0de444f`: aktiv verifierad plattformsadministratör i det privata UUID-registret går till `/admin` efter vanlig inloggning, callback och översikt, utan att skapa företagskonto. **Alla andra nya och befintliga konton utan privat godkännande väntar på superadminens beslut.** Inga verkliga konton godkänns automatiskt. Registrering, e-postverifiering, företagsroll och user_metadata räcker inte för systemåtkomst.

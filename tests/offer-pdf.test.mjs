@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 import fontkit from '@pdf-lib/fontkit';
 import { PDFDocument } from 'pdf-lib';
-import { formatOfferMoney, generateOfferPdf, parseOfferSnapshot, wrapOfferText } from '../src/lib/documents/offer-pdf.ts';
+import { formatOfferMoney, formatOfferSignedMoney, generateOfferPdf, parseOfferSnapshot, wrapOfferText } from '../src/lib/documents/offer-pdf.ts';
 
 const id = 'e1ab754a-7e92-401d-905f-8b86eb1a5ad1';
 function snapshot() {
@@ -20,6 +20,18 @@ function snapshot() {
     vehicle: { id, registration_number: 'ABC123', vin: 'TESTVIN12345', make: 'Volvo', model: 'V60 Öresund', model_year: 2022, mileage_km: 50123, fuel: 'hybrid', gearbox: 'automatic' },
     vat: { rate_percent: 25, amount_ore: '3980006', net_price_ore: '15920023' },
   };
+}
+
+function withTradeIn(overrides = {}) {
+  const source = snapshot();
+  source.trade_in = {
+    id: 'ed1a754a-7e92-401d-905f-8b86eb1a5ad2', version: 3,
+    registration: 'INB123', make: 'Škoda', model: 'Öresund Åäö', model_year: 2020, mileage_km: 12345,
+    value_ore: '10000029', debt_known: true, debt_ore: '2500001',
+    net_trade_in_ore: '7500028', amount_to_pay_ore: '12400001',
+    ...overrides,
+  };
+  return source;
 }
 
 async function extract(bytes, context) {
@@ -114,4 +126,77 @@ test('exact öre formatting, immutable-schema validation and VAT arithmetic reje
   ]) { const value = snapshot(); mutate(value); assert.throws(() => parseOfferSnapshot(value)); }
   const source = snapshot(); source.customer.name = '漢字';
   await assert.rejects(generateOfferPdf(source, id), /tecken.*inte stöder/);
+});
+
+test('customer-visible trade-in PDF preserves Swedish glyphs and exact value, debt, net and payment öre', async (context) => {
+  const source = withTradeIn();
+  const text = (await extract(await generateOfferPdf(source, id), context)).replace(/\s+/g, ' ');
+  if (!text) return;
+  for (const expected of ['Inbytesfordon', 'Škoda Öresund Åäö', 'INB123', 'Inbytesunderlag version 3', 'Inbytesvärde: 100 000,29 SEK', 'Bekräftad skuld: 25 000,01 SEK', 'Inbytets nettovärde efter skuld: 75 000,28 SEK', 'Belopp att betala: 124 000,01 SEK', 'Totalpris inklusive eventuell moms: 199 000,29 SEK', 'Moms: 39 800,06 SEK']) assert.ok(text.includes(expected), expected);
+  assert.ok(!text.includes(source.trade_in.id));
+});
+
+test('zero confirmed debt and signed negative payment or net value render without rounding or losing the sign', async (context) => {
+  for (const [trade,expected] of [
+    [{ value_ore: '19900030', debt_ore: '0', net_trade_in_ore: '19900030', amount_to_pay_ore: '-1' }, ['Bekräftad skuld: 0,00 SEK', 'Belopp att betala: -0,01 SEK', 'överskott till kunden']],
+    [{ value_ore: '1', debt_ore: '2', net_trade_in_ore: '-1', amount_to_pay_ore: '19900030' }, ['Inbytets nettovärde efter skuld: -0,01 SEK', 'Belopp att betala: 199 000,30 SEK']],
+    [{ value_ore: '19900029', debt_ore: '0', net_trade_in_ore: '19900029', amount_to_pay_ore: '0' }, ['Bekräftad skuld: 0,00 SEK', 'Belopp att betala: 0,00 SEK']],
+  ]) {
+    const text = (await extract(await generateOfferPdf(withTradeIn(trade), id), context)).replace(/\s+/g, ' ');
+    if (!text) return;
+    for (const value of expected) assert.ok(text.includes(value), value);
+  }
+  assert.equal(formatOfferSignedMoney('-1'), '-0,01 SEK');
+  assert.equal(formatOfferSignedMoney('-999999999999'), '-9 999 999 999,99 SEK');
+  assert.equal(formatOfferSignedMoney('1999999999998'), '19 999 999 999,98 SEK');
+  for (const amount of ['-0', '+1', '01', '-01', '1.09', '1e2', '1999999999999', '-1999999999999']) assert.throws(() => formatOfferSignedMoney(amount));
+});
+
+test('internal notes, lender and Auth identifiers never survive the parsed customer snapshot or appear in the PDF', async (context) => {
+  const authId = 'fea1754a-7e92-401d-905f-8b86eb1a5ad3';
+  const source = withTradeIn({
+    condition_notes: 'INTERNAL_CONDITION 漢字', equipment_notes: 'INTERNAL_EQUIPMENT', lender_name: 'PRIVATE_LENDER',
+    created_by: authId, createdBy: authId, customer_id: authId, company_id: authId,
+  });
+  const parsed = parseOfferSnapshot(source);
+  assert.deepEqual(Object.keys(parsed.trade_in).sort(), ['id','version','registration','make','model','model_year','mileage_km','value_ore','debt_known','debt_ore','net_trade_in_ore','amount_to_pay_ore'].sort());
+  const text = await extract(await generateOfferPdf(source, id), context);
+  if (!text) return;
+  for (const forbidden of ['INTERNAL_CONDITION', 'INTERNAL_EQUIPMENT', 'PRIVATE_LENDER', authId, source.trade_in.id]) assert.ok(!text.includes(forbidden), forbidden);
+});
+
+test('unknown or null attached debt and inconsistent arithmetic fail closed while old offers remain compatible', async () => {
+  assert.equal(parseOfferSnapshot(snapshot()).trade_in, undefined);
+  for (const mutate of [
+    (value) => { value.trade_in = null; },
+    (value) => { value.trade_in.debt_known = false; value.trade_in.debt_ore = null; value.trade_in.net_trade_in_ore = null; value.trade_in.amount_to_pay_ore = null; },
+    (value) => { value.trade_in.debt_ore = null; },
+    (value) => { delete value.trade_in.debt_ore; },
+    (value) => { value.trade_in.net_trade_in_ore = null; },
+    (value) => { value.trade_in.amount_to_pay_ore = null; },
+    (value) => { value.trade_in.value_ore = 10000029; },
+    (value) => { value.trade_in.value_ore = '0'; },
+    (value) => { value.trade_in.debt_ore = '-1'; },
+    (value) => { value.trade_in.debt_ore = '1000000000000'; },
+    (value) => { value.trade_in.net_trade_in_ore = '7500029'; },
+    (value) => { value.trade_in.amount_to_pay_ore = '12400002'; },
+    (value) => { value.sale_price_ore = '19900030'; value.vat.net_price_ore = '15920024'; },
+    (value) => { value.trade_in.registration = 'inb123'; },
+    (value) => { value.trade_in.make = 'Internal\nField'; },
+    (value) => { value.trade_in.model_year = 9999; },
+  ]) { const value = withTradeIn(); mutate(value); await assert.rejects(generateOfferPdf(value, id)); }
+});
+
+test('large exact trade-in arithmetic and immutable stored PDF ignore later proposal changes', async (context) => {
+  const extreme = withTradeIn({value_ore:'1',debt_ore:'999999999999',net_trade_in_ore:'-999999999998',amount_to_pay_ore:'1999999999997'});
+  extreme.sale_price_ore = '999999999999'; extreme.vat = {rate_percent:25,amount_ore:'200000000000',net_price_ore:'799999999999'};
+  assert.equal(parseOfferSnapshot(extreme).trade_in.amount_to_pay_ore, '1999999999997');
+  const text = (await extract(await generateOfferPdf(extreme, id), context)).replace(/\s+/g, ' ');
+  if (text) { assert.ok(text.includes('-9 999 999 999,98 SEK')); assert.ok(text.includes('19 999 999 999,97 SEK')); }
+  const stored = withTradeIn();
+  const before = await generateOfferPdf(stored, id);
+  const current = structuredClone(stored);
+  current.trade_in.value_ore = '9'; current.trade_in.model = 'Senare ändrad bil'; current.trade_in.debt_ore = '0';
+  const after = await generateOfferPdf(stored, id);
+  assert.deepEqual(after, before);
 });
