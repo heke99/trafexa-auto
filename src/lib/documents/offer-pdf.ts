@@ -10,6 +10,20 @@ const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value && !value.startsWith('0000');
 });
 const ore = z.string().regex(/^(0|[1-9]\d{0,11})$/);
+const signedOre = z.string().regex(/^(0|-?[1-9]\d{0,12})$/).refine((value) => {
+  const amount = BigInt(value);
+  return amount >= -BigInt('1999999999998') && amount <= BigInt('1999999999998');
+});
+const tradeInName = z.string().min(2).max(160).refine((value) => value === value.trim() && !/[\u0000-\u001f\u007f]/.test(value));
+const tradeInSchema = z.object({
+  id: uuid, version: z.number().int().min(1).max(2147483647),
+  registration: z.string().min(2).max(15).refine((value) => value === value.trim().toUpperCase() && !/[\u0000-\u001f\u007f]/.test(value)),
+  make: tradeInName, model: tradeInName,
+  model_year: z.number().int().min(1900).max(2100), mileage_km: z.number().int().min(0).max(2000000),
+  value_ore: ore.refine((value) => BigInt(value) > BigInt(0)),
+  debt_known: z.literal(true), debt_ore: ore,
+  net_trade_in_ore: signedOre, amount_to_pay_ore: signedOre,
+});
 const snapshotSchema = z.object({
   schema_version: z.literal(1), document_type: z.literal('offer'), version: z.number().int().positive(),
   deal_id: uuid, issued_at: z.string().datetime({ offset: true }), valid_until: date,
@@ -19,6 +33,9 @@ const snapshotSchema = z.object({
   stock: z.object({ id: uuid, vat_scheme: z.enum(['standard', 'vmb', 'unknown']) }),
   vehicle: z.object({ id: uuid, registration_number: z.string().min(2).max(15), vin: z.string().max(100).nullable(), make: z.string().min(1).max(160), model: z.string().min(1).max(160), model_year: z.number().int().min(1900).max(2100), mileage_km: z.number().int().nonnegative(), fuel: z.enum(['petrol', 'diesel', 'electric', 'hybrid', 'other']), gearbox: z.enum(['automatic', 'manual']) }),
   vat: z.object({ rate_percent: z.literal(25).nullable(), amount_ore: ore.nullable(), net_price_ore: ore.nullable() }),
+  // Only customer-visible, immutable fields survive parsing. Internal proposal
+  // notes, lender details and Auth identifiers never reach PDF rendering.
+  trade_in: tradeInSchema.optional(),
 }).superRefine((snapshot, context) => {
   const gross = BigInt(snapshot.sale_price_ore);
   const vat = (gross + BigInt(2)) / BigInt(5);
@@ -27,8 +44,16 @@ const snapshotSchema = z.object({
   } else if (snapshot.vat.rate_percent !== null || snapshot.vat.amount_ore !== null || snapshot.vat.net_price_ore !== null) {
     context.addIssue({ code: 'custom', message: 'VAT may not be separated for this VAT scheme' });
   }
+  if (snapshot.trade_in) {
+    const trade = snapshot.trade_in;
+    const net = BigInt(trade.value_ore) - BigInt(trade.debt_ore);
+    if (trade.net_trade_in_ore !== net.toString() || trade.amount_to_pay_ore !== (gross - net).toString()) {
+      context.addIssue({ code: 'custom', path: ['trade_in'], message: 'Invalid trade-in payment arithmetic' });
+    }
+  }
 });
 
+export type OfferTradeInSnapshot = z.infer<typeof tradeInSchema>;
 export type OfferSnapshot = z.infer<typeof snapshotSchema>;
 export function parseOfferSnapshot(snapshot: unknown): OfferSnapshot { return snapshotSchema.parse(snapshot); }
 
@@ -37,6 +62,15 @@ export function formatOfferMoney(value: string): string {
   const amount = BigInt(value);
   const whole = (amount / BigInt(100)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   return `${whole},${(amount % BigInt(100)).toString().padStart(2, '0')} SEK`;
+}
+
+/** Trade-in net value and payment may be negative; keep their sign and exact öre. */
+export function formatOfferSignedMoney(value: string): string {
+  signedOre.parse(value);
+  const amount = BigInt(value);
+  const magnitude = amount < BigInt(0) ? -amount : amount;
+  const whole = (magnitude / BigInt(100)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return `${amount < BigInt(0) ? '-' : ''}${whole},${(magnitude % BigInt(100)).toString().padStart(2, '0')} SEK`;
 }
 
 /** Wrap by actual font width, including a single token longer than one line. */
@@ -124,6 +158,20 @@ export async function generateOfferPdf(rawSnapshot: unknown, offerId: string): P
     text('Vinstmarginalbeskattning (VMB). Moms redovisas inte separat.');
   } else {
     text('Momsmodellen är inte klassificerad och behöver bekräftas före avtal. Moms redovisas inte separat.');
+  }
+  if (snapshot.trade_in) {
+    const trade = snapshot.trade_in;
+    section('Inbytesfordon');
+    text(`${trade.make} ${trade.model} · ${trade.model_year}`, 12);
+    text(`Registreringsnummer: ${trade.registration}`);
+    text(`Mätarställning: ${trade.mileage_km.toLocaleString('sv-SE')} km`);
+    text(`Inbytesunderlag version ${trade.version}. Uppgifterna låstes när offertversionen skapades.`, 9, muted);
+    text(`Inbytesvärde: ${formatOfferMoney(trade.value_ore)}`);
+    text(`Bekräftad skuld: ${formatOfferMoney(trade.debt_ore)}`);
+    text(`Inbytets nettovärde efter skuld: ${formatOfferSignedMoney(trade.net_trade_in_ore)}`);
+    text(`Belopp att betala: ${formatOfferSignedMoney(trade.amount_to_pay_ore)}`, 13, accent, 10);
+    if (BigInt(trade.amount_to_pay_ore) < BigInt(0)) text('Det negativa beloppet innebär ett överskott till kunden enligt detta offertunderlag.', 9, muted);
+    text('Beloppet att betala är fordonets totalpris minus inbytets nettovärde. Inbytesuppgifterna ändrar inte offertens redovisning av moms.', 9, muted);
   }
   section('Villkor');
   text(snapshot.terms || 'Inga ytterligare villkor angivna.');

@@ -123,6 +123,8 @@ do $$ declare source record; blocked boolean; company uuid; deal uuid; before_co
   begin
    execute format('update public.%I set %I=$1 where id=$2',source.table_name,source.column_name)
    using source.invalid_value,(select id from offer_fixtures where key=source.fixture_key);
+   -- The malformed fixture update is privileged; the business RPC still uses real authenticated identity.
+   execute 'set local role authenticated';
    perform public.create_offer_version(company,deal,gen_random_uuid(),'Malformed source',(now() at time zone 'Europe/Stockholm')::date,true);
   exception when invalid_parameter_value then blocked:=true;
   end;
