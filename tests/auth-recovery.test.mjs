@@ -32,8 +32,8 @@ async function harness({ sdkError = null, networkError = false, clientError = fa
   const { forgotPasswordAction } = loader.load('src/lib/data/actions.ts');
   return {
     calls, clients: () => clients,
-    async submit(email = 'buyer@example.invalid') {
-      const form = new FormData(); form.set('email', email);
+    async submit(email = 'buyer@example.invalid', next) {
+      const form = new FormData(); form.set('email', email);if(next!==undefined)form.set('next',next);
       try { await forgotPasswordAction(form); assert.fail('Recovery should redirect.'); }
       catch (error) { assert.match(error.digest ?? '', /^NEXT_REDIRECT;/); return new URL(error.url, 'https://app.example.invalid'); }
     },
@@ -86,4 +86,54 @@ test('invalid email is rejected before creating a client or calling the provider
     assert.equal(result.searchParams.get('error'), 'Ange en giltig e-postadress.');
   }
   assert.equal(h.clients(), 0); assert.deepEqual(h.calls, []);
+});
+
+
+test('customer recovery preserves its destination through callback and account-safe messages', async () => {
+ const h=await harness();const result=await h.submit('buyer@example.invalid','/my-offers');
+ assert.equal(result.searchParams.get('next'),'/my-offers');
+ const callback=new URL(h.calls[0].options.redirectTo);
+ assert.equal(callback.pathname,'/auth/callback');
+ const reset=new URL(callback.searchParams.get('next'),'https://app.example.invalid');
+ assert.equal(reset.pathname,'/reset-password');assert.equal(reset.searchParams.get('next'),'/my-offers');
+ const invalid=await h.submit('invalid','/my-offers');assert.equal(invalid.searchParams.get('next'),'/my-offers');assert.equal(h.calls.length,1);
+});
+
+test('recovery rejects an external destination before constructing its callback', async () => {
+ const h=await harness();await h.submit('buyer@example.invalid','//attacker.invalid');
+ assert.equal(new URL(h.calls[0].options.redirectTo).searchParams.get('next'),'/reset-password');
+});
+
+test('password update uses fresh Auth and keeps the customer destination after global signout', async () => {
+ const events=[];const loader=await createSourceLoader({
+  'next/navigation':{redirect},'next/headers':{cookies:async()=>({delete:name=>events.push(['cookie',name])})},
+  'next/cache':{revalidatePath:()=>assert.fail('No business mutation')},
+  './company-context':{getCompanySession:()=>assert.fail('No company membership needed')},
+  '@/lib/supabase/server':{createServerSupabaseClient:async()=>({auth:{
+   getUser:async()=>{events.push('fresh-user');return {data:{user:{id:'buyer'}},error:null};},
+   getClaims:()=>assert.fail('Claims do not authorize password changes'),
+   updateUser:async payload=>{events.push(['password',payload.password]);return {error:null};},
+   signOut:async options=>events.push(['signout',options.scope]),
+  }})},
+ });
+ const form=new FormData();form.set('next','/my-offers');form.set('password','new-password-long');
+ try{await loader.load('src/lib/data/actions.ts').updatePasswordAction(form);assert.fail('Expected redirect');}
+ catch(error){const url=new URL(error.url,'https://app.example.invalid');assert.equal(url.pathname,'/login');assert.equal(url.searchParams.get('next'),'/my-offers');}
+ assert.deepEqual(events,['fresh-user',['password','new-password-long'],['signout','global'],['cookie','trafexa-company']]);
+});
+
+test('customer logout preserves safe next while default and external destinations keep ordinary login',async()=>{
+ for(const next of ['/my-offers',undefined,'https://attacker.invalid','//attacker.invalid']){
+  const calls=[];
+  const loader=await createSourceLoader({
+   'next/navigation':{redirect},'next/headers':{cookies:async()=>({delete:name=>calls.push(['delete',name])})},
+   'next/cache':{revalidatePath:()=>assert.fail('No business mutations')},
+   './company-context':{getCompanySession:()=>assert.fail('No membership lookup')},
+   '@/lib/supabase/server':{createServerSupabaseClient:async()=>({auth:{signOut:async()=>calls.push('signout')}})},
+  });
+  const form=new FormData();if(next!==undefined)form.set('next',next);
+  try{await loader.load('src/lib/data/actions.ts').signOutAction(next===undefined?undefined:form);assert.fail('Expected redirect');}
+  catch(error){assert.equal(error.url,next==='/my-offers'?'/login?next=%2Fmy-offers':'/login');}
+  assert.deepEqual(calls,['signout',['delete','trafexa-company']]);
+ }
 });

@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
+import dynamic from 'next/dynamic';
 import { createOfferVersionAction, listDealOffersAction, type OfferSummary } from '@/lib/data/offer-actions';
 import { archiveOfferAction } from '@/lib/data/offer-archive-actions';
+
+const DealerOfferReviews = dynamic(() => import('./dealer-offer-reviews').then(module => module.DealerOfferReviews), { loading: () => <p role="status">Hämtar kundgranskningen…</p> });
 
 export type DealOffersProps = { dealId: string; canCreate: boolean; canArchive?: boolean; companyId?: string; demo?: boolean; demoOffers?: OfferSummary[] };
 const emptyDemoOffers: OfferSummary[] = [];
@@ -146,6 +149,7 @@ export function DealOffers({ dealId, canCreate, canArchive = false, companyId, d
     {!demo && canArchive && <p className="muted">Arkiveringen sparar den här offertversionen i företagets privata dokumentarkiv. Offerten är inte signerad.</p>}
     {message && <p role="status">{message}{lastOffer && !offers.some((offer) => offer.id === lastOffer) && <> <a href={`/api/offers/${lastOffer}/pdf`} download>Hämta den sparade offerten</a></>}</p>}
     {error && <p role="alert">{error}</p>}
+    {resolvedCompany && <DealerOfferReviews key={`${resolvedCompany}:${dealId}:${canCreate}:${lastOffer ?? ''}`} companyId={resolvedCompany} dealId={dealId} canEdit={canCreate} demo={demo}/>}
     </section>}
   </details>;
 }

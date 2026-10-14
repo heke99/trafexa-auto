@@ -37,6 +37,7 @@ before(async () => {
       [resolve(repo, 'src/components/stock-import')]: unrelated,
       [resolve(repo, 'src/components/customer-leads')]: unrelated,
       [resolve(repo, 'src/components/customer-contact-log')]: unrelated,
+      [resolve(repo, 'src/components/dealer-offer-reviews')]: unrelated,
       [resolve(repo, 'src/components/company-team')]: unrelated,
       [resolve(repo, 'src/components/vehicle-calculation')]: unrelated,
       [resolve(repo, 'src/components/vehicle-photo-gallery')]: unrelated,
@@ -175,11 +176,16 @@ for (const outcome of ['resolve', 'reject']) test(`late archive ${outcome} from 
     await expect.poll(() => page.evaluate(() => window.fixture.deferred.length)).toBe(1);
     await expect(page.getByRole('button', { name: archiveLabel }).first()).toBeDisabled();
     await page.evaluate((snapshot) => window.mountArchiveFixture({ workspace: true, snapshot }), workspace('owner', otherCompany));
-    await expect.poll(() => page.evaluate(() => window.fixture.listCalls.at(-1)?.companyId)).toBe(otherCompany);
+    // A real scope change closes and clears the whole offer panel immediately.
+    await expect(page.getByRole('region')).toHaveCount(0);
     await page.evaluate((outcome) => {
       if (outcome === 'resolve') window.fixture.deferred[0].resolve(window.fixture.proof(window.fixture.archiveCalls[0]));
       else window.fixture.deferred[0].reject(new Error('Old-company transport failure'));
     }, outcome);
+    await expect(page.getByRole('status')).toHaveCount(0);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await page.locator('summary').click();
+    await expect.poll(() => page.evaluate(() => window.fixture.listCalls.at(-1)?.companyId)).toBe(otherCompany);
     await expect(page.getByRole('button', { name: archiveLabel }).first()).toBeEnabled();
     await expect(page.getByRole('link', { name: 'Hämta arkiverad PDF' })).toHaveCount(0);
     await expect(page.getByRole('status')).toHaveCount(0);

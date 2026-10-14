@@ -1,5 +1,7 @@
 # Trafexa Dealer
 
+Handlaren kan nu uttryckligen tillgängliggöra en sparad offertversion för kundens verifierade konto. Kunden granskar pris, moms, giltighet och villkor på `/my-offers` och accepterar eller avböjer efter namn, bekräftelse och granskning. Företagsmedlemskap krävs inte för kunden; intern kostnads- och kontaktdata delas inte. Svar och återförsök har privata oföränderliga kvitton. Se [offertkontraktet](docs/OFFER_REVIEW_CONTRACT.md). Startsidan visar tydligare lager/bilder, kalkyl/moms och CRM/affärer med ansökan och demo.
+
 Kundvyn har kontaktlogg för samtal, e-post, möten och anteckningar. Översikten och kundvyn visar planerade uppföljningar över hela företaget, med granskad färdigmarkering/avbrytning och behörighetskontroller. Företagsbyte och nekad åtkomst rensar den öppnade kontaktvyn. Detta är uppföljningar i arbetsytan; externa meddelanden eller schemalagda utskick aktiveras inte.
 
 Webbansökan kräver namn, e-post, telefon, företagsnamn, organisationsnummer och vad företaget söker. Superadminens **Inkomna ansökningar** har detaljvy, granskade statusändringar och uttrycklig radering. Cookie- och integritetspolicy med nödvändig-cookieinformation finns på `/cookies` och `/privacy`; ingen valfri spårning är aktiverad. Se [aktuella bevis](docs/IMPLEMENTATION_STATUS.md) och [dataskyddsrutiner](docs/WEB_PRIVACY_OPERATIONS.md).

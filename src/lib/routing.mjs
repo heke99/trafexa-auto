@@ -8,12 +8,15 @@ export function isPlatformAdminPath(path) {
 export function isCompanyInvitationsPath(path) {
   return path === '/invitations';
 }
+export function isCustomerOffersPath(path) {
+  return path === '/my-offers';
+}
 export function isAuthPath(path) {
   return ['/login', '/register', '/onboarding', '/forgot-password', '/reset-password', '/auth/callback'].includes(path);
 }
 export function domainRedirect(host, path, search = '') {
   if (host === 'app.trafexa.com' && path === '/') return `https://app.trafexa.com/dashboard${search}`;
-  if (['trafexa.com', 'www.trafexa.com'].includes(host) && (isWorkspacePath(path) || isPlatformAdminPath(path) || isCompanyInvitationsPath(path) || isAuthPath(path))) return `https://app.trafexa.com${path}${search}`;
+  if (['trafexa.com', 'www.trafexa.com'].includes(host) && (isWorkspacePath(path) || isPlatformAdminPath(path) || isCompanyInvitationsPath(path) || isCustomerOffersPath(path) || isAuthPath(path))) return `https://app.trafexa.com${path}${search}`;
   return null;
 }
 export function safeNextPath(path) {

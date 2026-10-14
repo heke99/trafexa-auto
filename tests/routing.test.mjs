@@ -53,3 +53,9 @@ test('application homepage redirects to dashboard and local or unrecognized host
     assert.equal(domainRedirect(host, '/inventory'), null);
   }
 });
+
+test('customer offer account route redirects to app without becoming a dealer workspace route', () => {
+  assert.equal(isWorkspacePath('/my-offers'), false);
+  for (const host of ['trafexa.com','www.trafexa.com']) assert.equal(domainRedirect(host,'/my-offers'), 'https://app.trafexa.com/my-offers');
+  assert.equal(domainRedirect('www.trafexa.com','/my-offers-public'), null);
+});
