@@ -1,3 +1,4 @@
+import { installEstablishedAccountFixtures } from '../helpers/established-account-fixtures.mjs';
 import { PGlite } from '@electric-sql/pglite';
 import { readFile, readdir } from 'node:fs/promises';
 
@@ -8,7 +9,7 @@ export async function createDatabase({ includeSigningArchive=true }={}) {
   create role authenticated nologin;
   create role service_role nologin bypassrls;
   create schema auth;
-  create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,
+  create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,created_at timestamptz not null default now(),
     is_anonymous boolean not null default false,is_sso_user boolean not null default false,banned_until timestamptz,raw_user_meta_data jsonb default '{}');
   create function auth.uid() returns uuid language sql stable as $$
    select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid
@@ -36,6 +37,7 @@ export async function createDatabase({ includeSigningArchive=true }={}) {
  // Preserve the existing privileged worker contract without granting the archive
  // table or private storage catalogs to ordinary authenticated users.
  await db.exec('grant select,insert,update,delete on public.documents to service_role');
+ await installEstablishedAccountFixtures(db);
  return db;
 }
 export async function asRole(db,role,userId,callback) {

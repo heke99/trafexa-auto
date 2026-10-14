@@ -14,3 +14,5 @@ export function DealerOfferReviews() { return null; }
 
 export function useRouter() { return {refresh(){window.fixture.refreshCalls=(window.fixture.refreshCalls??0)+1;}}; }
 export function DealCancellation(props) { return React.createElement('span',{'data-cancellation':props.dealId,'data-company':props.companyId,'data-edit':String(props.canEdit),'data-demo':String(!!props.demo)},props.status); }
+
+export function DealTradeIns(props) { return React.createElement('span',{'data-trade-in':props.dealId,'data-company':props.companyId,'data-edit':String(props.canEdit),'data-demo':String(!!props.demo)},'Inbytesfixture'); }

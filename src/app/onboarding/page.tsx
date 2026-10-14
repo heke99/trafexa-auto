@@ -3,8 +3,13 @@ import {redirect} from 'next/navigation';
 import {getWorkspaceSnapshot} from '@/lib/data/workspace';
 import {createCompanyAction,signOutAction} from '@/lib/data/actions';
 import {AuthShell} from '@/components/auth-shell';
+import {getAccountAccessContext} from '@/lib/account-access/context';
+import {getPlatformAdminContext} from '@/lib/platform-admin/context';
 export const metadata={title:'Ditt företag',robots:{index:false,follow:false}};
 export default async function OnboardingPage({searchParams}:{searchParams:Promise<{error?:string}>}) {
+ if(await getPlatformAdminContext())redirect('/admin');
+ let access;try{access=await getAccountAccessContext();}catch{redirect('/account-pending');}
+ if(!access)redirect('/login');if(!access.emailVerified||access.status!=='approved')redirect('/account-pending');
  const [snapshot,query]=await Promise.all([getWorkspaceSnapshot(),searchParams]);if(!snapshot)redirect('/login');
  return <AuthShell title="Samla din bilaffär." subtitle={`Du är inloggad som ${snapshot.user.email}. Lägg upp företaget som du ska arbeta med.`}>
  {query.error?<p role="alert" className="notice error">{query.error}</p>:null}

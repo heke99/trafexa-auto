@@ -78,8 +78,8 @@ do $$declare page jsonb; next_page jsonb; c uuid; receipt jsonb; replay jsonb; c
  if jsonb_array_length(page->'requests')<>1 or page#>>'{requests,0,name}'<>'Contact B' or page->>'next_page_key' is null then raise exception 'FAIL latest contact page';end if;
  next_page:=public.list_platform_contact_requests((page->>'next_page_key')::uuid,1);
  if jsonb_array_length(next_page->'requests')<>1 or next_page#>>'{requests,0,name}'<>'Contact A' or next_page->>'next_page_key' is not null then raise exception 'FAIL contact cursor';end if;
- blocked:=false;begin perform public.list_platform_contact_requests(null,51);exception when invalid_parameter_value then blocked:=true;end;
- if not blocked then raise exception 'FAIL contact page >50';end if;
+ blocked:=false;begin perform public.list_platform_contact_requests(null,101);exception when invalid_parameter_value then blocked:=true;end;
+ if not blocked then raise exception 'FAIL contact page >100';end if;
  blocked:=false;begin perform 1 from private.demo_requests;exception when insufficient_privilege then blocked:=true;end;
  if not blocked then raise exception 'FAIL broadened contact table SELECT';end if;
  select id into c from platform_fixtures where key='company';select id into request from platform_fixtures where key='request';

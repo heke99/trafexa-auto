@@ -7,7 +7,8 @@ test('actual workspace page preserves advertising destination when fresh Auth is
     'next/navigation': { notFound() { throw new Error('Unexpected missing route'); }, redirect(location) { throw Object.assign(new Error('redirect'), { location }); } },
     '@/lib/data/workspace': { getWorkspaceSnapshot: async () => null },
     '@/components/dealer-workspace': {},
-    '@/lib/platform-admin/context': { getPlatformAdminContext() { throw new Error('No admin lookup without Auth'); } },
+    '@/lib/account-access/context': { getAccountAccessContext: async () => null },
+    '@/lib/platform-admin/context': { getPlatformAdminContext: async () => null },
   });
   await assert.rejects(loader.load('src/app/(dealer)/[section]/page.tsx').default({ params: Promise.resolve({ section: 'advertising' }), searchParams: Promise.resolve({}) }), error => error.location === '/login?next=%2Fadvertising');
 });

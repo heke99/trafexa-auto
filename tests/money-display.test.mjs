@@ -25,6 +25,7 @@ async function render(section) {
     './stock-import': { StockImport: () => null },
     './deal-offers': { DealOffers: () => null },
     './deal-cancellation': { DealCancellation: () => null },
+    './deal-trade-ins': { DealTradeIns: () => null },
     'next/navigation': { useRouter: () => ({refresh(){}}) },
     './customer-leads': { CustomerLeads: () => null },
   });

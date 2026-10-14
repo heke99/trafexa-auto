@@ -28,7 +28,7 @@ async function fixture(options = {}) {
       throw new Error('Unexpected RPC');
     },
   };
-  const loader = await createSourceLoader({ '@/lib/supabase/server': { createServerSupabaseClient: async () => db }, 'next/cache': { revalidatePath: path => invalidations.push(path) },
+  const loader = await createSourceLoader({ '@/lib/account-access/context': { getAccountAccessContext: async () => ({status:'approved',emailVerified:true}) }, '@/lib/supabase/server': { createServerSupabaseClient: async () => db }, 'next/cache': { revalidatePath: path => invalidations.push(path) },
     'next/navigation': { redirect: path => { throw new Error(`REDIRECT:${path}`); }, notFound: () => { throw new Error('NOT_FOUND'); } },
     '@/components/platform-admin-workspace': { PlatformAdminWorkspace: () => null, PlatformAdminActivation: () => null }, '@/components/brand': { Brand: () => null },
     '@/lib/data/actions': { signOutAction: async () => {} },
@@ -208,7 +208,7 @@ test('admin layout and page redirect missing users to the dedicated admin login 
   }
 });
 
-test('verified ordinary users see only the neutral activation view; no GET claims or global reads', async () => {
+test('approved verified ordinary users see only the neutral activation view; no GET claims or global reads', async () => {
   for (const path of ['./src/app/admin/layout.tsx', './src/app/admin/page.tsx']) {
     const { loader, calls } = await fixture({ admin: false });
     const element = await loader.load(path).default({ children: 'PRIVATE CHILD' });

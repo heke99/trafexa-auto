@@ -1,0 +1,3 @@
+import type {Database,Json} from '@/lib/supabase/database.types';
+type Functions={list_deal_trade_ins:{Args:{p_company_id:string;p_deal_id:string;p_before_version:number|null;p_limit:number};Returns:Json};create_trade_in_version:{Args:{p_company_id:string;p_deal_id:string;p_expected_version:number;p_expected_sale_price_ore:string;p_registration:string;p_make:string;p_model:string;p_model_year:number;p_mileage_km:number;p_condition_notes:string;p_equipment_notes:string;p_value_ore:string;p_debt_known:boolean;p_debt_ore:string|null;p_lender_name:string|null;p_request_id:string};Returns:Json}};
+export type TradeInDatabase=Omit<Database,'public'>&{public:Omit<Database['public'],'Functions'>&{Functions:Database['public']['Functions']&Functions}};

@@ -26,7 +26,7 @@ before(async () => {
   const config = {
     mode: 'development', target: 'web', devtool: false, context: repo,
     entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js' },
-    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/platform-admin/actions': resolve(helpers, 'actions.js'), 'next/navigation': resolve(helpers, 'navigation.js'), '@/lib/platform-admin/overview-actions': resolve(helpers, 'overview-actions.js') } },
+    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/platform-admin/actions': resolve(helpers, 'actions.js'), 'next/navigation': resolve(helpers, 'navigation.js'), '@/lib/platform-admin/overview-actions': resolve(helpers, 'overview-actions.js'), '@/lib/platform-admin/account-actions': resolve(helpers, 'account-actions.js') } },
     module: { rules: [{ test: /\.tsx?$/, use: resolve(helpers, 'swc-loader.cjs') }] },
   };
   await new Promise((resolveBuild, reject) => {
@@ -40,17 +40,17 @@ before(async () => {
 });
 after(async () => { await browser?.close(); if (directory) await rm(directory, { recursive: true, force: true }); });
 
-async function setup({ activation = false, initialCompanies = [makeCompany()], nextPageKey = null, statusResponses = [], listResponses = [], contactResponses = [], application = null, detailResponses = [], applicationStatusResponses = [], eraseResponses = [], overviewResponses = [], overviewTab = false } = {}) {
+async function setup({ activation = false, initialCompanies = [makeCompany()], nextPageKey = null, statusResponses = [], listResponses = [], contactResponses = [], application = null, detailResponses = [], applicationStatusResponses = [], eraseResponses = [], overviewResponses = [], overviewTab = false, accountRows = [], accountResponses = [], accountStatusResponses = [] } = {}) {
   const page = await browser.newPage();
   await page.route('**/*', route => route.abort());
   await page.setContent(`<style>${styles}</style><div class="wrap" id="root"></div>`);
-  await page.evaluate(({ companies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses }) => {
+  await page.evaluate(({ companies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses, accountRows, accountResponses, accountStatusResponses }) => {
     let ids = 0;
     Object.defineProperty(crypto, 'randomUUID', { configurable: true, value: () => `20000000-0000-4000-8000-${String(++ids).padStart(12, '0')}` });
-    window.fixture = { companies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses, overviewCalls: [], eraseCalls: [], detailCalls: [], applicationStatusCalls: [], statusCalls: [], listCalls: [], contactCalls: [], activationCalls: [], refreshes: 0 };
-  }, { companies: initialCompanies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses });
+    window.fixture = { accounts: accountRows, accountResponses, accountStatusResponses, accountListCalls: [], accountStatusCalls: [], companies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses, overviewCalls: [], eraseCalls: [], detailCalls: [], applicationStatusCalls: [], statusCalls: [], listCalls: [], contactCalls: [], activationCalls: [], refreshes: 0 };
+  }, { companies: initialCompanies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses, accountRows, accountResponses, accountStatusResponses });
   await page.addScriptTag({ path: bundle });
-  await page.evaluate(props => window.mountAdminFixture(props), { activation, initialPage: { companies: initialCompanies, nextPageKey }, initialError: null });
+  await page.evaluate(props => window.mountAdminFixture(props), { actorUserId: '30000000-0000-4000-8000-000000000001', activation, initialPage: { companies: initialCompanies, nextPageKey }, initialError: null });
   if (!activation && !overviewTab) await page.getByRole('button', { name: 'Företag', exact: true }).click();
   return page;
 }
@@ -89,6 +89,7 @@ test('ordinary verified dealer is denied by actual server page and browser activ
       async rpc(name) { serverCalls.push(name); assert.equal(name, 'get_platform_admin_session'); return { data: { is_platform_admin: false, user_id: userId }, error: null }; },
     }; } },
     '@/components/platform-admin-workspace': { PlatformAdminActivation, PlatformAdminWorkspace() { throw new Error('Dealer cannot receive admin data'); } },
+    '@/lib/account-access/context': { async getAccountAccessContext() { return {emailVerified:true,status:'approved'}; } },
     'next/cache': { revalidatePath() { throw new Error('GET cannot write'); } },
     'next/navigation': { notFound() { throw new Error('Unexpected notFound'); }, redirect() { throw new Error('Unexpected redirect'); } },
   });
@@ -218,5 +219,47 @@ test('overview refresh clears stale metrics on errors, retries and revocation cl
   await expect(page.getByText('90 071 992 547 409,93 kr')).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeDisabled();
   await expect(page.getByText('Fixture AB')).toHaveCount(0);
+ }finally{await page.close();}
+});
+
+const makeAccount=(options={})=>({userId:'40000000-0000-4000-8000-000000000001',name:null,email:'new@example.invalid',emailVerified:true,createdAt:'2026-10-14T08:00:00Z',status:'pending',version:1,isPlatformAdmin:false,...options});
+test('account approval requires review, keeps nonce for unknown outcome and refreshes the actual list after receipt',async()=>{
+ const page=await setup({accountRows:[makeAccount()],accountStatusResponses:[{throw:true}]});
+ try{
+  await page.getByRole('button',{name:'Konton',exact:true}).click();
+  await page.getByRole('button',{name:/Granska konto new/}).click();
+  await page.getByLabel('Motivering för kontobeslut').fill('Identiteten och ansökan är granskade');
+  await page.getByRole('button',{name:'Granska beslut',exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.fixture.accountStatusCalls.length),0);
+  await expect(page.getByRole('heading',{name:'Bekräfta kontobeslut'})).toBeFocused();
+  await page.getByRole('button',{name:'Bekräfta kontobeslut',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('samma uppgifter');
+  await page.getByRole('button',{name:'Bekräfta kontobeslut',exact:true}).click();
+  await expect(page.getByText('Kontobeslutet har registrerats. Listan visar aktuell åtkomst.')).toBeVisible();
+  const calls=await page.evaluate(()=>window.fixture.accountStatusCalls);assert.deepEqual(calls[0],calls[1]);assert.equal(calls[0].expectedVersion,1);assert.equal(calls[0].status,'approved');assert.equal(calls[0].reason,'Identiteten och ansökan är granskade');
+  await expect(page.getByRole('cell',{name:'new@example.invalid',exact:true})).toHaveCount(0);
+  await page.getByLabel('Visa konton').selectOption('approved');await expect(page.getByRole('cell',{name:'Godkänt',exact:true})).toBeVisible();
+ }finally{await page.close();}
+});
+test('unverified accounts cannot be approved and active platform administrators have protected access',async()=>{
+ const page=await setup({accountRows:[makeAccount({emailVerified:false}),makeAccount({userId:'40000000-0000-4000-8000-000000000002',email:'admin@example.invalid',isPlatformAdmin:true})]});
+ try{
+  await page.getByRole('button',{name:'Konton',exact:true}).click();await page.getByRole('button',{name:/Granska konto new/}).click();await page.getByLabel('Motivering för kontobeslut').fill('Verifiering saknas');await expect(page.getByRole('button',{name:'Granska beslut',exact:true})).toBeDisabled();
+  await page.getByLabel('Beslut',{exact:true}).selectOption('rejected');await expect(page.getByRole('button',{name:'Granska beslut',exact:true})).toBeEnabled();
+  await expect(page.getByText('Skyddad administratörsåtkomst')).toBeVisible();await expect(page.getByRole('button',{name:/Granska konto admin/})).toHaveCount(0);
+ }finally{await page.close();}
+});
+test('account access denial purges personal data and ignores a late account list after leaving the tab',async()=>{
+ const page=await setup({accountRows:[makeAccount()],accountResponses:[{wait:true,result:{ok:true,accounts:[makeAccount()],nextPageKey:null}}]});
+ try{
+  await page.getByRole('button',{name:'Konton',exact:true}).click();await page.getByRole('button',{name:'Företag',exact:true}).click();await page.evaluate(()=>window.resolveAccountList());await expect(page.getByText('new@example.invalid',{exact:true})).toHaveCount(0);
+  await page.evaluate(()=>window.fixture.accountResponses.push({ok:false,code:'access_denied',message:'Åtkomsten har dragits tillbaka'}));
+  await page.getByRole('button',{name:'Konton',exact:true}).click();await expect(page.getByRole('alert')).toContainText('inte längre');await expect(page.getByRole('button',{name:'Konton',exact:true})).toBeDisabled();await expect(page.getByRole('table')).toHaveCount(0);
+ }finally{await page.close();}
+});
+test('account navigation is accessible from overview and fits a narrow mobile viewport',async()=>{
+ const page=await setup({overviewTab:true,accountRows:[makeAccount()]});
+ try{
+  await page.setViewportSize({width:320,height:850});await page.getByRole('button',{name:'Konton',exact:true}).click();await expect(page.getByRole('heading',{name:'Konton och åtkomst'})).toBeVisible();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  }finally{await page.close();}
 });

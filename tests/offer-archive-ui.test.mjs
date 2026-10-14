@@ -35,6 +35,7 @@ before(async () => {
       '@/lib/calculations/vehicle-calculation': resolve(repo, 'src/lib/calculations/vehicle-calculation.ts'),
       'next/link': unrelated, 'next/navigation': unrelated,
       [resolve(repo, 'src/components/deal-cancellation')]: unrelated,
+      [resolve(repo, 'src/components/deal-trade-ins')]: unrelated,
       [resolve(repo, 'src/components/stock-import')]: unrelated,
       [resolve(repo, 'src/components/customer-leads')]: unrelated,
       [resolve(repo, 'src/components/customer-contact-log')]: unrelated,
@@ -84,7 +85,7 @@ async function setup(props = {}, responses = []) {
   await page.addScriptTag({ path: bundle });
   await page.evaluate((props) => window.mountArchiveFixture(props), { dealId: deal, companyId: company, canCreate: false, canArchive: true, ...props });
   await expect(page.getByRole('region')).toHaveCount(0);
-  await page.locator('summary').click();
+  await page.locator('summary').first().click();
   await expect(page.getByRole('region')).toBeVisible();
   if (!props.demo) await expect(page.getByText('Version 1', { exact: true })).toBeVisible();
   return page;
@@ -104,6 +105,23 @@ test('actual DealerWorkspace maps owner/admin/finance archive rights and hides a
     await expect(page.getByText(/Demoläge · läsvisning/)).toBeVisible();
     assert.equal(await page.evaluate(() => window.fixture.listCalls.length + window.fixture.archiveCalls.length), 0);
   } finally { await page.close(); }
+});
+
+test('actual dealer trade-in panels load only when opened and scope company roles and demo',async()=>{
+ const page=await browser.newPage();
+ try {
+  await page.route('**/*',route=>route.abort());await page.setContent('<div id="root"></div>');await page.evaluate(()=>{window.fixture={offers:[],listCalls:[],archiveCalls:[]};});await page.addScriptTag({path:bundle});
+  for(const role of ['owner','admin','sales','finance','viewer']){
+   const snapshot=workspace(role);snapshot.user.id=`user-${role}`;
+   await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot}),snapshot);
+   await expect(page.locator('[data-trade-in]')).toHaveCount(0);
+   await page.getByText('Inbytesunderlag',{exact:true}).click();
+   await expect(page.locator('[data-trade-in]')).toHaveAttribute('data-edit',String(['owner','admin','sales'].includes(role)));
+  }
+  await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot,demo:true}),workspace('owner',otherCompany));
+  await expect(page.locator('[data-trade-in]')).toHaveCount(0);await page.getByText('Inbytesunderlag',{exact:true}).click();
+  await expect(page.locator('[data-trade-in]')).toHaveAttribute('data-company',otherCompany);await expect(page.locator('[data-trade-in]')).toHaveAttribute('data-edit','false');await expect(page.locator('[data-trade-in]')).toHaveAttribute('data-demo','true');
+ }finally{await page.close();}
 });
 
 test('actual dealer cancellation scopes roles, company and supported deal statuses',async()=>{
@@ -201,7 +219,7 @@ for (const outcome of ['resolve', 'reject']) test(`late archive ${outcome} from 
     }, outcome);
     await expect(page.getByRole('status')).toHaveCount(0);
     await expect(page.getByRole('alert')).toHaveCount(0);
-    await page.locator('summary').click();
+    await page.locator('summary').first().click();
     await expect.poll(() => page.evaluate(() => window.fixture.listCalls.at(-1)?.companyId)).toBe(otherCompany);
     await expect(page.getByRole('button', { name: archiveLabel }).first()).toBeEnabled();
     await expect(page.getByRole('link', { name: 'Hämta arkiverad PDF' })).toHaveCount(0);
