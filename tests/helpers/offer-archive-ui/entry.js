@@ -7,7 +7,7 @@ import { DealerWorkspace } from '../../../src/components/dealer-workspace';
 const root = createRoot(document.getElementById('root'));
 window.mountArchiveFixture = (props) => {
   const element = props.workspace
-    ? React.createElement(DealerWorkspace, { snapshot: props.snapshot, section: 'deals', demo: props.demo })
+    ? React.createElement(DealerWorkspace, { snapshot: props.snapshot, section: props.section ?? 'deals', demo: props.demo })
     : React.createElement(DealOffers, props);
   flushSync(() => root.render(element));
 };

@@ -36,6 +36,7 @@ before(async () => {
       'next/link': unrelated,
       [resolve(repo, 'src/components/stock-import')]: unrelated,
       [resolve(repo, 'src/components/customer-leads')]: unrelated,
+      [resolve(repo, 'src/components/customer-contact-log')]: unrelated,
       [resolve(repo, 'src/components/company-team')]: unrelated,
       [resolve(repo, 'src/components/vehicle-calculation')]: unrelated,
       [resolve(repo, 'src/components/vehicle-photo-gallery')]: unrelated,
@@ -101,6 +102,23 @@ test('actual DealerWorkspace maps owner/admin/finance archive rights and hides a
     await expect(page.getByText(/Demoläge · läsvisning/)).toBeVisible();
     assert.equal(await page.evaluate(() => window.fixture.listCalls.length + window.fixture.archiveCalls.length), 0);
   } finally { await page.close(); }
+});
+
+test('actual dealer followups open a customer outside the table sample, clear on denial and cannot carry a modal across companies',async()=>{
+ const page=await browser.newPage();
+ try {
+  await page.route('**/*',route=>route.abort());await page.setContent('<div id="root"></div>');
+  const outside={id:'70000000-0000-4000-8000-000000000001',name:'Kund utanför urvalet'};
+  await page.evaluate(outside=>{window.fixture={crmOutside:outside};},outside);await page.addScriptTag({path:bundle});
+  await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot,section:'customers'}),workspace('owner'));
+  await page.getByRole('button',{name:'Öppna kund utanför tabellurvalet'}).click();
+  const log=page.getByRole('region',{name:'Kontaktfixture'});await expect(log).toHaveAttribute('data-customer',outside.id);await expect(log).toHaveAttribute('data-company',company);await expect(log).toHaveAttribute('data-can-edit','true');
+  await page.getByRole('button',{name:'Neka kontaktåtkomst'}).click();await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button',{name:'Öppna kund utanför tabellurvalet'}).click();
+  await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot,section:'customers'}),workspace('viewer',otherCompany));
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button',{name:'Öppna kund utanför tabellurvalet'}).click();await expect(log).toHaveAttribute('data-company',otherCompany);await expect(log).toHaveAttribute('data-can-edit','false');
+ }finally{await page.close();}
 });
 
 test('failed archive retry keeps the same UUID for the same offer and renders only a verified document link', async () => {

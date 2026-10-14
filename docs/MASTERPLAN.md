@@ -2,6 +2,8 @@
 
 Återhämtad och rekonstruerad arbetsplan • 13 oktober 2026
 
+CRM-fortsättning 14 oktober: kontaktlogg och företagsgemensamma uppföljningar är implementerade med datumordning, privata anteckningar och granskad statusändring. Nästa affärsdelar är kundaccept av offert och inbyte; kontaktlogg är inte ett avtal, kreditbeslut eller automatiskt meddelande. Se [aktuella verifieringsresultat](IMPLEMENTATION_STATUS.md).
+
 Fortsättning 14 oktober: obligatorisk webbansökan, superadminens privata ärendehandläggning med status/radering samt integritets- och cookieinformation är implementerade. Ansökan är ett intag till Trafexa och medför inget automatiskt konto, kreditbeslut eller partnerutskick. Företagets dataskyddsrutiner och leverantörsavtal följs separat enligt [WEB_PRIVACY_OPERATIONS](WEB_PRIVACY_OPERATIONS.md); faktisk kod-, databas- och releaseverifiering finns i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
 
 ## Underlag och läsning
@@ -123,7 +125,7 @@ Fasordningen nedan kommer från återhämtad originaltext. Varje fas avslutas me
 | 0 – Produkt och partnerbeslut | Bekräfta pilotens arbetsflöden, MVP, första dokumentupplägg, ekonomi-export och faktiskt partnerunderlag. Bevara beslutet att ersätta gamla sajten i befintliga resurser. | Kända integrationsberoenden och ansvar; systemkonto, nätverk och finansgodkännande åtskilda. |
 | 1 – Konton, grund och företagsisolering | Omverifiera återhämtad auth, företagskontext, RLS, lagring och audit. Inbjudningar och medlemsadministration är implementerade med separat verifiering; fortsätt filialer och ägaröverlåtelse. Återställ regressionstester och byggkontroller. | Två handlare kan arbeta isolerat; främmande ID och avstängd personal nekas; korrekta domän- och sessionsflöden. |
 | 2 – Lager och import | Lagerkort, kostnader, privata bilder och exakt moms-/VMB-kalkyl är implementerade tillsammans med CSV-import. Fortsätt inköpsunderlag och full skickbedömning. | Pilotlager importeras och rättas utan dubbletter vid omkörning; belopp och underlag kan följas. |
-| 3 – CRM, affär och reservation | Kontaktlogg, leads, offertversion/accept, inbyte, kontrollerad avbrytning och reservationsutgång. | Två samtidiga säljare får högst en giltig reservation; utgång och frigivning bevarar korrekt affärshistorik. |
+| 3 – CRM, affär och reservation | Kontaktlogg, kunduppföljningar, leads och offertversion är implementerade. Fortsätt kundaccept, inbyte och kontrollerad avbrytning; reservation/utgång omverifieras tillsammans med affärsflödet. | Två samtidiga säljare får högst en giltig reservation; utgång och frigivning bevarar korrekt affärshistorik. |
 | 4 – Avtal och signering | Mallversion, fältkoppling, PDF, privat filhämtning, vald signeringsadapter och återhämtning efter avbrott. | Exakt kund/bil/pris i rätt version; signerad fil och evidens bevaras; dubbla events ger inget dubbelt dokument. |
 | 5 – Första köpfinanspartnern | Produktgodkännande, partneradapter, ansökan, komplettering, erbjudande och utbetalningsstatus. | Komplett partner-testärende samt avslag, timeout och utgånget erbjudande; kreditbeslut räknas inte som utbetalning. |
 | 6 – Ekonomi och leverans | Fakturaunderlag, betalningsregistrering, avstämning, vald export, leveransprotokoll och ägarbytesuppgift. | Affär kan avslutas med spårbara dokument/belopp och uppfyllda leveransvillkor; omkörning skapar ingen oavsiktlig dubbelexport. |
@@ -141,7 +143,7 @@ Fas 7 kan tidigareläggas när den första avtalade produkten är lagerfinansier
 3. Omverifiera ännu ej bevisat autentiserat browserflöde med två syntetiska företag: konto → företag → lagerimport/kostnad → kund/CRM → affär → reservation/utgång/frigivning → offertversion → PDF. UI-mockarna ersätter inte denna kontroll eller två samtidiga databasanslutningar.
 4. Följ upp security-advisory om avstängt skydd mot läckta lösenord samt kvarstående finans-/dokument-/sessionsgränser i den avsedda driftsmiljön.
 5. Följ upp den verifierade produktionscheckpointen på den publika sidan och appen. Dokumentera efterföljande faktiska deploymentresultat separat; kvarstående auth-/CRUD-gränser ligger kvar i statusprotokollet.
-6. Fortsätt nästa ofärdiga beroende i fas 1–3: filialer/ägaröverlåtelse, inköps- och bildunderlag, kontaktlogg, kundaccept och inbyte. Därefter dokumentfasens mallar/signering. Externa partnerbeslut får inte ersättas med simulerade aktiva integrationer.
+6. Kontaktlogg och kunduppföljningar är levererade. Fortsätt nästa ofärdiga beroende i fas 1–3: filialer/ägaröverlåtelse, inköpsunderlag, kundaccept och inbyte. Därefter dokumentfasens mallar/signering. Externa partnerbeslut får inte ersättas med simulerade aktiva integrationer.
 
 ## 19. Verifiering och kvalitet
 

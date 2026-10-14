@@ -1,5 +1,7 @@
 # Trafexa Dealer
 
+Kundvyn har kontaktlogg för samtal, e-post, möten och anteckningar. Översikten och kundvyn visar planerade uppföljningar över hela företaget, med granskad färdigmarkering/avbrytning och behörighetskontroller. Företagsbyte och nekad åtkomst rensar den öppnade kontaktvyn. Detta är uppföljningar i arbetsytan; externa meddelanden eller schemalagda utskick aktiveras inte.
+
 Webbansökan kräver namn, e-post, telefon, företagsnamn, organisationsnummer och vad företaget söker. Superadminens **Inkomna ansökningar** har detaljvy, granskade statusändringar och uttrycklig radering. Cookie- och integritetspolicy med nödvändig-cookieinformation finns på `/cookies` och `/privacy`; ingen valfri spårning är aktiverad. Se [aktuella bevis](docs/IMPLEMENTATION_STATUS.md) och [dataskyddsrutiner](docs/WEB_PRIVACY_OPERATIONS.md).
 
 Trafexa är ett arbetsverktyg för bilhandlare med fordonslager, fordonskalkyler, kunder, affärer, dokument och annonsutkast. Den publika webbplatsen finns på `www.trafexa.com`, med omdirigering från `trafexa.com`; handlarappen finns på `app.trafexa.com`. Projektet använder Next.js App Router, React, TypeScript och Supabase för autentisering, Postgres och privata dokument.

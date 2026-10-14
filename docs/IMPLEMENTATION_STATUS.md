@@ -1,5 +1,17 @@
 # Implementationsstatus
 
+## Kontaktlogg och kunduppföljningar, 14 oktober 2026
+
+Fortsättning från main `b05ec029c6d6bb608985dc8a58781e87ea52fc8a`: kunder kan öppnas från kundtabellen eller företagets uppföljningar. Kontaktloggen registrerar telefon, e-post, möte eller anteckning med kontaktdatum, sammanfattning och valfritt uppföljningsdatum. Fler­radsanteckningar stöds; historiken sorteras på kontaktdatum även när äldre kontakter läggs in senare. Författare visas som Du/Kollega utan andra användares Auth-e-post.
+
+Översikten och kundvyn hämtar företagets väntande uppföljningar med dagens datum i Europe/Stockholm och filter för förfallna/dagens, kommande och alla väntande. Databasfrågan omfattar hela företaget, inte arbetsytans 500 kundrader. Datum-/ID-baserad paginering och klick till en kund utanför tabellurvalet är verifierade. Granskad klar-/avbrottsmarkering kräver motivering och versionskontroll; orsaken och oföränderligt kvitto lagras i privat audit. Ett kvitto ersätter inte en färsk läsning av aktuell status.
+
+Färsk Auth, faktisk företagsstatus och aktivt medlemskap kontrolleras före och efter serveråtkomst. Ägare/admin/säljare skriver, ekonomi/läsroller läser. Företags-/kundbyte, återkallad åtkomst och versionskonflikt hanteras utan att gammal kontaktdata används för en ny ändring. Inga e-post-, SMS-, partner- eller schedulerutskick aktiveras.
+
+Verifiering: **340/340 apptester**, inklusive tio nya actiontester, fyra faktiska CRM-browsergrupper och dealer-integrationens kundval/nekad åtkomst/företagsbyte. Produktionsbygge och TypeScript passerar. **7/7 PostgreSQL/PGlite-grupper** kontrollerar faktisk migrationskedja, två företag/roller, datum, flerradssammanfattning, privata tabeller, återförsök, CAS och kronologisk paginering över 503 poster.
+
+Hosted applicerat: `20261014094251_crm_contact_storage`, `20261014094301_crm_contact_reads`, `20261014094310_crm_contact_mutations`. Hosted rollbacktest PASS för kontakt, exakt återförsök, företagsgemensam förfallen uppföljning och auditerad färdigmarkering. Efterkontroll: noll kvarvarande testidentiteter/företag/kunder/kontakter/auditposter. Advisors har inga nya säkerhetsvarningar; avsiktliga privata RLS-listor och tidigare lösenordsskyddsvarning skiljs från denna leverans. Inloggad produktionsbrowser och verklig multi-connection-låsväntan är fortsatt separata verifieringsgränser.
+
 ## Webbansökningar och integritet, 14 oktober 2026
 
 Fortsättning från main `74b0e9b7df559ced10229775025c1008107b6abb`: webbansökan kräver kontaktens namn, e-post, telefon, företagsnamn, svenskt organisationsnummer med kontrollsiffra, sökta tjänster och beskrivning. En omarkerad bekräftelse av läst integritetsinformation sparar policyversion och serverns mottagningstid. Den är inte ett generellt dataskydds- eller marknadsföringssamtycke. Stabilt begärans-ID och exakt kvitto förhindrar dubbletter och falsk framgång vid återförsök.
