@@ -1,11 +1,11 @@
 # Planläge 14 oktober 2026
 
-Referens: publicerad main `3042d900ecc04dec5c3924011e9740b909d9fb36`, PR #11. Status avser faktisk funktion och verifiering, inte antal menyval eller kodrader. Ingen procentandel eller leveranstid är fastställd; faserna är olika stora och flera kräver externa avtal.
+Referens: senaste publicerade main `f462531aa39237cb4326de1364e81801d151c451`, PR #12. Status avser faktisk funktion och verifiering, inte antal menyval eller kodrader. Ingen procentandel eller leveranstid är fastställd; faserna är olika stora och flera kräver externa avtal.
 
 | Fas | Byggt eller förberett | Återstår |
 |---|---|---|
 | 0 Produkt/partnerbeslut | Trafexas mål, resurser, roller och integrationernas gränser | Partneravtal, konkreta kanal-/signerings-/ekonomikontrakt och driftansvar |
-| 1 Konton/företag | Konto, e-postverifiering, lösenordsåterställning, företagsväxling, roller, personalinbjudningar, superadmin, webbansökningar | Filialer, ägaröverlåtelse, organisationens godkännande och full verifiering av inloggade produktionsflöden |
+| 1 Konton/företag | Konto, e-postverifiering, lösenordsåterställning, företagsväxling, roller, personalinbjudningar, superadmin med plattformsöversikt, webbansökningar och versionshanterade kontomejlmallar | Hosted Auth-adresser/mejlmallar behöver sparas och verifieras i Supabase. Filialer, ägaröverlåtelse, organisationens godkännande och full verifiering av inloggade produktionsflöden |
 | 2 Lager/inköp | Lagerkort, CSV-import, kostnader, privata bilder, exakt fordonskalkyl och moms/VMB-underlag | Inköpsunderlag, skickbedömning och avstämning |
 | 3 CRM/affär | Kunder, leads, kontaktlogg, uppföljningar, reservationer, offertversion/PDF, kundens offertgranskning/accept/avböjande och kontrollerad avbrytning | Inbyte samt verklig samtidig reservationsverifiering |
 | 4 Avtal/dokument | Offert-PDF och avstängd signeringsgrund | Avtalsmallar, elektronisk underskrift, signerade filer/evidens och aktivt dokumentarkiv |

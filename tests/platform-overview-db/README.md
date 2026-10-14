@@ -1,0 +1,3 @@
+Run `npm ci --prefix tests/platform-overview-db` then `npm test --prefix tests/platform-overview-db`.
+
+The seven PostgreSQL/PGlite groups load the actual applied migration chain, excluding the pending signing/archive migrations. They verify fresh verified Auth and UUID registry authorization, denied ordinary owners and forged metadata, revoked admin/Auth access, globally aggregated counts beyond 500 companies, exact money beyond JavaScript safe integers, zero-filled Stockholm calendar days, actual deal/offer/advertising/finance statuses, and a rollback-only hosted proof. These tests do not prove real multi-connection lock waiting or authenticated browser-to-production CRUD.

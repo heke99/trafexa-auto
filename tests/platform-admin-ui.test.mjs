@@ -26,7 +26,7 @@ before(async () => {
   const config = {
     mode: 'development', target: 'web', devtool: false, context: repo,
     entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js' },
-    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/platform-admin/actions': resolve(helpers, 'actions.js'), 'next/navigation': resolve(helpers, 'navigation.js') } },
+    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/platform-admin/actions': resolve(helpers, 'actions.js'), 'next/navigation': resolve(helpers, 'navigation.js'), '@/lib/platform-admin/overview-actions': resolve(helpers, 'overview-actions.js') } },
     module: { rules: [{ test: /\.tsx?$/, use: resolve(helpers, 'swc-loader.cjs') }] },
   };
   await new Promise((resolveBuild, reject) => {
@@ -40,17 +40,18 @@ before(async () => {
 });
 after(async () => { await browser?.close(); if (directory) await rm(directory, { recursive: true, force: true }); });
 
-async function setup({ activation = false, initialCompanies = [makeCompany()], nextPageKey = null, statusResponses = [], listResponses = [], contactResponses = [], application = null, detailResponses = [], applicationStatusResponses = [], eraseResponses = [] } = {}) {
+async function setup({ activation = false, initialCompanies = [makeCompany()], nextPageKey = null, statusResponses = [], listResponses = [], contactResponses = [], application = null, detailResponses = [], applicationStatusResponses = [], eraseResponses = [], overviewResponses = [], overviewTab = false } = {}) {
   const page = await browser.newPage();
   await page.route('**/*', route => route.abort());
   await page.setContent(`<style>${styles}</style><div class="wrap" id="root"></div>`);
-  await page.evaluate(({ companies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses }) => {
+  await page.evaluate(({ companies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses }) => {
     let ids = 0;
     Object.defineProperty(crypto, 'randomUUID', { configurable: true, value: () => `20000000-0000-4000-8000-${String(++ids).padStart(12, '0')}` });
-    window.fixture = { companies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, eraseCalls: [], detailCalls: [], applicationStatusCalls: [], statusCalls: [], listCalls: [], contactCalls: [], activationCalls: [], refreshes: 0 };
-  }, { companies: initialCompanies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses });
+    window.fixture = { companies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses, overviewCalls: [], eraseCalls: [], detailCalls: [], applicationStatusCalls: [], statusCalls: [], listCalls: [], contactCalls: [], activationCalls: [], refreshes: 0 };
+  }, { companies: initialCompanies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses });
   await page.addScriptTag({ path: bundle });
   await page.evaluate(props => window.mountAdminFixture(props), { activation, initialPage: { companies: initialCompanies, nextPageKey }, initialError: null });
+  if (!activation && !overviewTab) await page.getByRole('button', { name: 'Företag', exact: true }).click();
   return page;
 }
 
@@ -178,5 +179,44 @@ test('erasure CAS conflict removes stale personal data and refetches before anot
  const page=await setup({application,contactResponses:[{ok:true,requests:[application],nextPageKey:null}],detailResponses:[{ok:true,application,audit:[]},{ok:true,application:current,audit:[]}],eraseResponses:[{ok:false,code:'conflict',message:'Ansökan har ändrats. Granska aktuell version.'}]});
  try{
  await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();await page.getByRole('button',{name:/Visa ansökan/}).click();await page.getByRole('button',{name:'Radera personuppgifter',exact:true}).click();await page.getByRole('button',{name:'Granska radering',exact:true}).click();await page.getByRole('button',{name:'Bekräfta permanent radering'}).click();await expect(page.getByRole('alert')).toHaveText('Ansökan har ändrats. Granska aktuell version.');await expect(page.getByRole('heading',{name:'Ansökan från Current Person'})).toBeVisible();await expect(page.getByText('old@example.test',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Bekräfta permanent radering'})).toHaveCount(0);assert.equal(await page.evaluate(()=>window.fixture.detailCalls.length),2);assert.equal(await page.evaluate(()=>window.fixture.eraseCalls.length),1);
+ }finally{await page.close();}
+});
+
+
+test('overview displays actual aggregate metrics, exact large money, seven-day activity and actionable navigation across mobile widths', async () => {
+ const page = await setup({ overviewTab: true });
+ try {
+  await expect(page.getByRole('heading', {name:'Översikt över Trafexa'})).toBeVisible();
+  await expect(page.getByText('90 071 992 547 409,93 kr')).toBeVisible();
+  await expect(page.getByRole('listitem')).toHaveCount(7);
+  for (const width of [320,375,768,1440]) {
+   await page.setViewportSize({width,height:900});
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+   await expect(page.getByRole('button',{name:'Uppdatera statistik',exact:true})).toBeVisible();
+  }
+  await page.screenshot({path:'/tmp/trafexa-admin-overview-desktop.png',fullPage:true});
+  await page.setViewportSize({width:375,height:900});
+  await page.screenshot({path:'/tmp/trafexa-admin-overview-mobile.png',fullPage:true});
+  await page.getByRole('button',{name:'Hantera företag →'}).click();
+  await expect(page.getByText('Fixture AB',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Översikt',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Översikt över Trafexa'})).toBeVisible();
+ }finally{await page.close();}
+});
+
+test('overview refresh clears stale metrics on errors, retries and revocation clears all cached admin data',async()=>{
+ const page=await setup({overviewTab:true,overviewResponses:[null,{throw:true},null,{ok:false,code:'access_denied',message:'Ingen administratörsåtkomst.'}]});
+ try{
+  await expect(page.getByText('90 071 992 547 409,93 kr')).toBeVisible();
+  await page.getByRole('button',{name:'Uppdatera statistik',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('Statistiken kunde inte läsas in');
+  await expect(page.getByText('90 071 992 547 409,93 kr')).toHaveCount(0);
+  await page.getByRole('button',{name:'Uppdatera statistik',exact:true}).click();
+  await expect(page.getByText('90 071 992 547 409,93 kr')).toBeVisible();
+  await page.getByRole('button',{name:'Uppdatera statistik',exact:true}).click();
+  await expect(page.getByRole('alert')).toHaveText('Ingen administratörsåtkomst.');
+  await expect(page.getByText('90 071 992 547 409,93 kr')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeDisabled();
+  await expect(page.getByText('Fixture AB')).toHaveCount(0);
  }finally{await page.close();}
 });

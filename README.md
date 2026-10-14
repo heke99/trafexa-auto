@@ -1,5 +1,7 @@
 # Trafexa Dealer
 
+Superadminens Översikt visar faktiska, behörighetskontrollerade totalsiffror och sju dagars aktivitet över hela Trafexa. Företag och inkomna ansökningar hanteras från samma vy. Kontomejl använder produktionsadressen `https://app.trafexa.com` i appens redirectbegäran. Sex svenska Trafexa-mallar är versionshanterade; [Supabases hosted URL-inställningar och mallar](docs/AUTH_EMAIL_SETUP.md) måste sparas separat för att ändra skickade mejl.
+
 Ägare, administratör och säljare kan granska och avbryta utkast eller reservationer med motivering. Bara affärens aktiva reservationer avslutas; offerthistoriken bevaras och accepterade offerter kräver separat överenskommelse. Se [planläget](docs/PLAN_PROGRESS.md) och [avbrytningskontraktet](docs/DEAL_CANCELLATION_CONTRACT.md).
 
 Handlaren kan nu uttryckligen tillgängliggöra en sparad offertversion för kundens verifierade konto. Kunden granskar pris, moms, giltighet och villkor på `/my-offers` och accepterar eller avböjer efter namn, bekräftelse och granskning. Företagsmedlemskap krävs inte för kunden; intern kostnads- och kontaktdata delas inte. Svar och återförsök har privata oföränderliga kvitton. Se [offertkontraktet](docs/OFFER_REVIEW_CONTRACT.md). Startsidan visar tydligare lager/bilder, kalkyl/moms och CRM/affärer med ansökan och demo.

@@ -1,0 +1,8 @@
+{
+  "confirmation": "Bekräfta din e-postadress hos Trafexa",
+  "recovery": "Återställ ditt lösenord hos Trafexa",
+  "email_change": "Bekräfta byte av e-postadress hos Trafexa",
+  "invite": "Du har bjudits in till Trafexa",
+  "magic_link": "Din inloggningslänk till Trafexa",
+  "reauthentication": "Din verifieringskod för Trafexa"
+}

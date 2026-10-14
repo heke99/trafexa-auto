@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { activatePlatformAdminAction, erasePlatformWebApplicationAction, getPlatformWebApplicationAction, setPlatformWebApplicationStatusAction, listPlatformCompaniesAction, listPlatformContactRequestsAction, setPlatformCompanyStatusAction } from '@/lib/platform-admin/actions';
+import { PlatformAdminOverview } from './platform-admin-overview';
+import { getPlatformOverviewAction } from '@/lib/platform-admin/overview-actions';
+import type { PlatformOverview } from '@/lib/platform-admin/overview-types';
 import type { CompanyPage, CompanyStatus, PlatformCompany, PlatformContact } from '@/lib/platform-admin/database.types';
 
 type Review = { company: PlatformCompany; status: CompanyStatus; reason: string; confirmed: boolean };
@@ -22,7 +25,11 @@ export function PlatformAdminActivation() {
 }
 
 export function PlatformAdminWorkspace({ initialPage, initialError }: { initialPage: CompanyPage; initialError: string | null }) {
-  const [tab, setTab] = useState<'companies' | 'contacts'>('companies');
+  const [tab, setTab] = useState<'overview' | 'companies' | 'contacts'>('overview');
+  const [overview, setOverview] = useState<PlatformOverview | null>(null);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const overviewGeneration = useRef(0);
   const [companies, setCompanies] = useState(initialPage.companies);
   const [nextPageKey, setNextPageKey] = useState(initialPage.nextPageKey);
   const [contacts, setContacts] = useState<PlatformContact[]>([]);
@@ -51,8 +58,32 @@ export function PlatformAdminWorkspace({ initialPage, initialError }: { initialP
   function handleFailure(result: { code: string; message: string }) {
     setError(result.message);
     if (result.code === 'access_denied') {
-      setDenied(true); setCompanies([]); setContacts([]); setNextPageKey(null); setContactCursor(null); setReview(null); setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null);
+      ++generation.current; ++overviewGeneration.current; setOverview(null); setOverviewError(null); setOverviewLoading(false); setDenied(true); setCompanies([]); setContacts([]); setNextPageKey(null); setContactCursor(null); setReview(null); setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null);
     }
+  }
+  function loadOverview() {
+    const requestGeneration = ++overviewGeneration.current;
+    setOverview(null); setOverviewError(null); setOverviewLoading(true);
+    void (async () => {
+      try {
+        const result = await getPlatformOverviewAction({});
+        if (overviewGeneration.current !== requestGeneration) return;
+        if (!result.ok) {
+          if (result.code === 'access_denied') handleFailure(result);
+          else setOverviewError(result.message);
+          return;
+        }
+        setOverview(result.overview);
+      } catch { if (overviewGeneration.current === requestGeneration) setOverviewError('Statistiken kunde inte läsas in. Försök igen.'); }
+      finally { if (overviewGeneration.current === requestGeneration) setOverviewLoading(false); }
+    })();
+  }
+  useEffect(() => { loadOverview(); return () => { ++overviewGeneration.current; ++generation.current; }; }, []);
+  function navigate(nextTab: 'overview' | 'companies' | 'contacts') {
+    if (pending || denied) return;
+    ++generation.current;
+    setTab(nextTab); setReview(null); setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null); setError(null); setNotice(null);
+    if (nextTab === 'contacts' && !contactsLoaded) loadContacts();
   }
   function loadCompanies(append = false) {
     const requestGeneration = ++generation.current;
@@ -179,12 +210,14 @@ export function PlatformAdminWorkspace({ initialPage, initialError }: { initialP
     });
   }
 
-  return <main className="workspace-main" style={{ paddingInline: 0 }}>
-    <div className="workspace-heading"><div><p className="eyebrow">Trafexa · Administration</p><h1>Plattformsadministration</h1><p>Hantera företagens tillgång och inkomna ansökningar.</p></div></div>
-    <div className="table-toolbar"><div className="table-controls" aria-label="Administrationsvyer"><button className="button button-outline" type="button" aria-pressed={tab === 'companies'} disabled={pending || denied} onClick={() => { ++generation.current; setTab('companies'); setReview(null); setApplication(null); setApplicationReview(null); setError(null); }}>Företag</button><button className="button button-outline" type="button" aria-pressed={tab === 'contacts'} disabled={pending || denied} onClick={() => { setTab('contacts'); setReview(null); if (!contactsLoaded) loadContacts(); }}>Inkomna ansökningar</button></div></div>
+  return <main className="workspace-main platform-admin-workspace" style={{ paddingInline: 0 }}>
+    <style>{`.platform-admin-workspace nav .table-controls{flex-wrap:wrap;gap:8px;justify-content:flex-start}.platform-admin-workspace nav .button{white-space:normal}.platform-admin-workspace .workspace-heading{min-width:0}.platform-admin-workspace .workspace-heading h1{overflow-wrap:anywhere}`}</style>
+    <div className="workspace-heading"><div><p className="eyebrow">Trafexa · Administration</p><h1>Plattformsadministration</h1><p>Följ plattformens aktivitet, hantera företagens åtkomst och handlägg ansökningar.</p></div></div>
+    <nav className="table-toolbar" aria-label="Administrationsvyer"><div className="table-controls">{([['overview', 'Översikt'], ['companies', 'Företag'], ['contacts', 'Inkomna ansökningar']] as const).map(([view, label]) => <button key={view} className={`button ${tab === view ? 'button-green' : 'button-outline'}`} type="button" aria-pressed={tab === view} disabled={pending || denied} onClick={() => navigate(view)}>{label}</button>)}</div></nav>
     {error && <p role="alert" className="form-error">{error}</p>}
     {notice && <p role="status" className="notice">{notice}</p>}
     {pending && <p role="status">Läser in och verifierar…</p>}
+    {!denied && tab === 'overview' && <PlatformAdminOverview overview={overview} loading={overviewLoading} error={overviewError} onRefresh={loadOverview} onNavigate={navigate}/> }
     {!denied && tab === 'companies' && <>
       <section className="surface" aria-label="Företag">
         <form className="table-toolbar" onSubmit={event => { event.preventDefault(); loadCompanies(); }}><div className="table-controls"><label className="search-field"><span className="sr-only">Sök företag eller organisationsnummer</span><input placeholder="Namn eller organisationsnummer" value={search} onChange={event => setSearch(event.target.value)} maxLength={160} disabled={pending}/></label><button type="submit" className="button button-outline" disabled={pending}>Sök</button></div></form>
