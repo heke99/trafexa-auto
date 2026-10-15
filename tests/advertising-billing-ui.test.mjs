@@ -24,7 +24,7 @@ before(async () => {
   styles = await readFile(resolve(repo, 'src/app/globals.css'), 'utf8');
   const config = { mode: 'development', target: 'web', devtool: false, context: repo,
     entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js', publicPath: '' },
-    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/advertising/correction-actions': resolve(repo, 'tests/helpers/advertising-corrections-ui/actions.js'), '@/lib/advertising/billing-actions': resolve(helpers,'actions.js'), '@': resolve(repo,'src') } },
+    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/advertising/invoice-actions': resolve(repo, 'tests/helpers/advertising-invoice-ui/actions.js'), '@/lib/advertising/correction-actions': resolve(repo, 'tests/helpers/advertising-corrections-ui/actions.js'), '@/lib/advertising/billing-actions': resolve(helpers,'actions.js'), '@': resolve(repo,'src') } },
     plugins: [new webpack.optimize.LimitChunkCountPlugin({ maxChunks: 1 })],
     module: { rules: [{ test: /\.tsx?$/, use: resolve(repo, 'tests/helpers/advertising-usage-ui/swc-loader.cjs') }] } };
   await new Promise((resolveBuild, reject) => { const compiler = webpack(config); compiler.run((error, stats) => compiler.close(() => { if (error || stats.hasErrors()) reject(error ?? new Error(stats.toString({ all: false, errors: true }))); else resolveBuild(); })); });
@@ -101,5 +101,28 @@ test('locked billing opens actual lazy corrections only on request and child den
   await expect(page.getByRole('alert')).toHaveText('Återkallad rättelseåtkomst');
   await expect(page.getByRole('heading',{name:'Gällande kanalpriser'})).toHaveCount(0);
   await expect(page.getByRole('heading',{name:'Rättelser av låst månadsunderlag'})).toHaveCount(0);
+ }finally{await page.close();}
+});
+
+test('billing opens invoice profiles before month locking only after explicit request and child denial clears all financial views',async()=>{
+ const page=await setup();
+ try{
+  await page.evaluate(()=>{
+   const fields={legalName:'Exempelbil AB',organisationNumber:'5561112222',invoiceEmail:null,addressLine1:null,addressLine2:null,postalCode:null,city:null,countryCode:null,reference:null};
+   const buyerProfile={kind:'buyer',companyId:window.billing.companyId,version:0,fields,missingFields:['invoiceEmail','addressLine1','postalCode','city','countryCode'],updatedAt:null};
+   const sellerProfile={kind:'seller',companyId:null,version:0,fields:{...fields,legalName:null,organisationNumber:null},missingFields:['legalName','organisationNumber','invoiceEmail','addressLine1','postalCode','city','countryCode'],updatedAt:null};
+   window.invoiceCalls=[];window.invoicePage={companyId:window.billing.companyId,actorUserId:window.billing.actorUserId,actorRole:'platform_admin',month:window.billing.month,buyerProfile,sellerProfile,canEditBuyer:true,canEditSeller:true,basis:{original:null,adjustments:[],reductionTotalOre:'0',netTotalOre:null},drafts:[],nextBeforeVersion:null,reviewToken:'a'.repeat(64),canonicalSnapshot:'{}'};
+  });
+  assert.equal(await page.evaluate(()=>window.invoiceCalls.length),0);
+  await page.getByRole('button',{name:'Visa faktureringsuppgifter och utkast'}).click();
+  await expect(page.getByRole('heading',{name:'Köparens faktureringsuppgifter',exact:true})).toBeVisible();
+  assert.deepEqual(await page.evaluate(()=>window.invoiceCalls[0]),{kind:'read',companyId:COMPANY,month:'2026-09',beforeVersion:null,platform:true});
+  await expect(page.getByRole('button',{name:'Ändra köparens faktureringsuppgifter'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Granska nytt fakturautkast'})).toHaveCount(0);
+  await page.evaluate(()=>{window.invoiceResponses=[{ok:false,code:'access_denied',message:'Återkallad fakturaåtkomst'}];});
+  await page.getByRole('button',{name:'Uppdatera faktureringsuppgifter'}).click();
+  await expect(page.getByRole('alert')).toHaveText('Återkallad fakturaåtkomst');
+  await expect(page.getByRole('heading',{name:'Gällande kanalpriser'})).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'Köparens faktureringsuppgifter',exact:true})).toHaveCount(0);
  }finally{await page.close();}
 });

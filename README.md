@@ -152,3 +152,5 @@ Reservationsutgång sker vid relevanta lageroperationer och genom det uttrycklig
 Fortsatt byggordning, beroenden och leveranskrav finns i [MASTERPLAN](docs/MASTERPLAN.md). Där anges vilka delar som återhämtats från originalplanen och vilka som rekonstruerats från fragment och kod.
 
 Rättelser av låsta annonsunderlag: separata granskade nedsättningar, oförändrat original och privat rättelse-CSV beskrivs i [rättelsekontraktet](docs/ADVERTISING_CORRECTIONS_CONTRACT.md).
+
+[Faktureringsuppgifter och fakturautkast](docs/ADVERTISING_INVOICE_DRAFT_CONTRACT.md) bevarar granskat annonsunderlag och uppgiftsversioner i privata PDF-utkast. Momsbedömning och faktisk fakturautställning är separata steg.

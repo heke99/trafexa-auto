@@ -1,0 +1,16 @@
+import type { AdvertisingResult } from './database.types';
+import type { AdvertisingBillingPage } from './billing-types';
+import type { AdvertisingCorrectionsPage } from './correction-types';
+export type AdvertisingInvoiceProfileFields = {legalName:string|null;organisationNumber:string|null;invoiceEmail:string|null;addressLine1:string|null;addressLine2:string|null;postalCode:string|null;city:string|null;countryCode:string|null;reference:string|null};
+export type AdvertisingBuyerProfileFields = Omit<AdvertisingInvoiceProfileFields,'legalName'|'organisationNumber'>;
+export type AdvertisingInvoiceProfile = {kind:'buyer'|'seller';companyId:string|null;version:number;fields:AdvertisingInvoiceProfileFields;missingFields:string[];updatedAt:string|null};
+export type AdvertisingInvoiceProfileSnapshot = Pick<AdvertisingInvoiceProfile,'version'|'fields'|'missingFields'>;
+export type AdvertisingInvoiceBasis = Omit<AdvertisingCorrectionsPage,'actorUserId'|'actorRole'>;
+export type AdvertisingInvoiceSnapshot = {status:'draft';currency:'SEK';vatStatus:'unresolved';companyId:string;month:string;buyerProfile:AdvertisingInvoiceProfileSnapshot;sellerProfile:AdvertisingInvoiceProfileSnapshot;basis:AdvertisingInvoiceBasis;missingFields:string[]};
+export type AdvertisingInvoiceDraft = {id:string;companyId:string;month:string;version:number;createdAt:string;sourceHash:string;canonicalSnapshot:string;snapshot:AdvertisingInvoiceSnapshot};
+export type AdvertisingInvoiceSummary = Pick<AdvertisingInvoiceDraft,'id'|'version'|'createdAt'|'sourceHash'> & {missingFields:string[];isOutdated:boolean};
+export type AdvertisingInvoicePage = {companyId:string;actorUserId:string;actorRole:AdvertisingBillingPage['actorRole'];month:string;buyerProfile:AdvertisingInvoiceProfile;sellerProfile:AdvertisingInvoiceProfile;canEditBuyer:boolean;canEditSeller:boolean;basis:AdvertisingInvoiceBasis;reviewToken:string;canonicalSnapshot:string;drafts:AdvertisingInvoiceSummary[];nextBeforeVersion:number|null};
+export type AdvertisingInvoicePageResult = AdvertisingResult<{page:AdvertisingInvoicePage}>;
+export type AdvertisingInvoiceDraftResult = AdvertisingResult<{draft:AdvertisingInvoiceDraft;isOutdated:boolean}>;
+export type AdvertisingInvoiceProfileResult = AdvertisingResult<{profile:AdvertisingInvoiceProfile;receipt:{profileId:string;kind:'buyer'|'seller';companyId:string|null;actorUserId:string;requestId:string}}>;
+export type AdvertisingInvoiceCreateResult = AdvertisingResult<{draft:AdvertisingInvoiceDraft;isOutdated:boolean;receipt:{draftId:string;companyId:string;actorUserId:string;requestId:string;sourceHash:string}}>;

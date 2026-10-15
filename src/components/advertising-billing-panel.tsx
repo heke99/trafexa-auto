@@ -7,6 +7,7 @@ import type { AdvertisingBillingPage } from '@/lib/advertising/billing-types';
 import type { AdvertisingChannel } from '@/lib/advertising/database.types';
 import { formatOre, kronorToOre } from '@/lib/calculations/vehicle-calculation';
 
+const AdvertisingInvoicePanel = dynamic(() => import('./advertising-invoice-panel').then(module => module.AdvertisingInvoicePanel), { loading: () => <p role="status">Läser in fakturautkast…</p> });
 const AdvertisingBillingCorrectionsPanel = dynamic(() => import('./advertising-billing-corrections-panel').then(module => module.AdvertisingBillingCorrectionsPanel), { loading: () => <p role="status">Läser in rättelser…</p> });
 const channels: AdvertisingChannel[] = ['blocket', 'wayke'];
 const names = { blocket: 'Blocket', wayke: 'Wayke' };
@@ -19,6 +20,7 @@ export function AdvertisingBillingPanel(props: Props) { return <Billing key={`${
 function Billing({ companyId, userId, role = 'platform_admin', superadmin = false, onDenied }: Props) {
   const [month, setMonth] = useState(previousMonth);
   const [showCorrections, setShowCorrections] = useState(false);
+  const [showInvoices, setShowInvoices] = useState(false);
   const [page, setPage] = useState<AdvertisingBillingPage | null>(null);
   const [channel, setChannel] = useState<AdvertisingChannel>('blocket');
   const [price, setPrice] = useState('');
@@ -44,7 +46,7 @@ function Billing({ companyId, userId, role = 'platform_admin', superadmin = fals
   }
   function scoped(result: AdvertisingBillingPage) { return result.companyId === companyId && result.actorUserId === userId && result.actorRole === (superadmin ? 'platform_admin' : role) && result.month === month; }
   useEffect(() => {
-    const request = ++generation.current; setPage(null); setReview(null); setShowCorrections(false);
+    const request = ++generation.current; setPage(null); setReview(null); setShowCorrections(false); setShowInvoices(false);
     if (denied || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) { setLoading(false); return; }
     setLoading(true); setError('');
     void (superadmin ? getPlatformAdvertisingBillingAction : listAdvertisingBillingAction)({ companyId, month }).then(result => {
@@ -122,6 +124,8 @@ function Billing({ companyId, userId, role = 'platform_admin', superadmin = fals
       </section>}
       {page.locked && !review && <button type="button" className="button button-outline" style={{ marginTop: 20 }} aria-expanded={showCorrections} onClick={() => setShowCorrections(value => !value)}>{showCorrections ? 'Dölj rättelser' : 'Visa rättelser av låst underlag'}</button>}
       {page.locked && showCorrections && <AdvertisingBillingCorrectionsPanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={page.month} originalId={page.locked.id} onDenied={message => failure({ code: 'access_denied', message })}/>}
+      {!review && <button type="button" className="button button-outline" style={{ marginTop: 20 }} aria-expanded={showInvoices} onClick={() => setShowInvoices(value => !value)}>{showInvoices ? 'Dölj faktureringsuppgifter och utkast' : 'Visa faktureringsuppgifter och utkast'}</button>}
+      {showInvoices && <AdvertisingInvoicePanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={page.month} onDenied={message => failure({ code: 'access_denied', message })}/>}
     </>}
   </div></section>;
 }
