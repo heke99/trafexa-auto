@@ -25,8 +25,8 @@ before(async () => {
   styles = await readFile(resolve(repo, 'src/app/globals.css'), 'utf8');
   const config = {
     mode: 'development', target: 'web', devtool: false, context: repo,
-    entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js' },
-    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/company-team/actions': resolve(helpers, 'actions.js') } },
+    entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js', publicPath: '' },
+    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/company-team/actions': resolve(helpers, 'actions.js'), '@/lib/company-ownership/actions': resolve(repo, 'tests/helpers/company-ownership-ui/actions.js'), 'next/navigation': resolve(repo, 'tests/helpers/company-ownership-ui/navigation.js'), '@': resolve(repo, 'src') } },
     module: { rules: [{ test: /\.tsx?$/, use: resolve(helpers, 'swc-loader.cjs') }] },
   };
   await new Promise((resolveBuild, reject) => {

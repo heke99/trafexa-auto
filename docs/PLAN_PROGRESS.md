@@ -1,5 +1,9 @@
 # Planläge 15 oktober 2026
 
+## Företagets ägarroll — pågående organisationsetapp 15 oktober 2026
+
+Från publicerad main `bb8f756` ([PR #31](https://github.com/heke99/trafexa-auto/pull/31)) byggs [granskad överlåtelse av företagets ägarroll](COMPANY_OWNERSHIP_TRANSFER.md). Nuvarande ägare begär överlåtelse till en befintlig aktiv, verifierad och godkänd administratör; mottagaren måste själv acceptera inom 24 timmar. Acceptansen växlar båda rollerna atomiskt. Detta avser behörigheten i Trafexa och ändrar inte juridiskt ägande eller företagsregistrering. Filialer, inköpsavtal och återhämtning av avvikande ägarbild är separata senare steg. Kod och databas är verifierade inför publicering: ägarrollens helsvit före integrationen 970/970 utan fel eller överhoppade fall och produktionsbygge inklusive TypeScript passerar. Efter att kreditleveransen i PR #32 nått main `6bd1f9c` pågår integrerad slutkontroll på den sammanslagna koden. Migration `20261015173753_company_ownership_transfer` är applicerad; hosted rollbackprov passerar och nio efterkontroller är noll. PR, main och produktionsdeployment för denna etapp återstår att återläsa.
+
 [Full kreditfaktura](ADVERTISING_CREDIT_INVOICE_CONTRACT.md) byggs från en utfärdad annonsfakturas exakta frysta belopp och moms. Superadmin granskar orsak och kredit innan numrering; företaget får privat läsåtkomst. Originalet bevaras och dubbel kreditering blockeras. Mejlleverans och betalningsavstämning är följande ekonomisteg. Verifieringsstatus redovisas separat.
 
 978/978 appfall, 91 berörda databasfall och produktionsbygge/TypeScript passerar. Fem oberoende samtidighetsgrupper och separat årsskiftesprov i PostgreSQL passerar. Sex kreditmigrationer är hosted-applicerade och rollback-/cleanupkontroll godkänd. Detta är en testad kodcheckpoint; slutligt PR-/main-/produktionsbevis redovisas separat.
@@ -41,7 +45,7 @@ Utgångspunkt: publicerad main `ecb0e2557979e5b481f1d18cc7668548a700881c`, PR #1
 | Fas | Byggt eller förberett | Återstår |
 |---|---|---|
 | 0 Produkt/partnerbeslut | Trafexas mål, resurser, roller och integrationernas gränser | Partneravtal, konkreta kanal-/signerings-/ekonomikontrakt och driftansvar |
-| 1 Konton/företag | Konto, e-postverifiering, lösenordsåterställning, företagsväxling, roller, personalinbjudningar, superadmin med plattformsöversikt, webbansökningar, obligatoriskt kontogodkännande och versionshanterade kontomejlmallar | Authmallar och affärsmejlkö finns. Resend-domänens DNS är verifierad. Produktionsnyckel, separat Auth SMTP och faktisk leverans/återställning behöver slutverifieras. Filialer, ägaröverlåtelse, organisationens godkännande och full verifiering av inloggade produktionsflöden |
+| 1 Konton/företag | Konto, e-postverifiering, lösenordsåterställning, företagsväxling, roller, personalinbjudningar, superadmin med plattformsöversikt, webbansökningar, obligatoriskt kontogodkännande och versionshanterade kontomejlmallar | Authmallar och affärsmejlkö finns. Resend-domänens DNS är verifierad. Produktionsnyckel, separat Auth SMTP och faktisk leverans/återställning behöver slutverifieras. Pågående ägarrollsetapp, filialer, organisationens godkännande och full verifiering av inloggade produktionsflöden |
 | 2 Lager/inköp | Lagerkort, CSV-import, kostnader, privata bilder, exakt fordonskalkyl, moms/VMB-underlag och privat versionshanterat inköps-/skickunderlag med PDF | Inköpsavtal, lagerintag vid faktiskt inbytesköp och avstämning |
 | 3 CRM/affär | Kunder, leads, kontaktlogg, uppföljningar, reservationer, offertversion/PDF, kundens offertgranskning/accept/avböjande, kontrollerad avbrytning, internt versionsbundet inbytesunderlag och granskad offertkoppling till kundvy/PDF | Verkligt inbytesköp/avtal samt verklig samtidig reservationsverifiering |
 | 4 Avtal/dokument | Granskade företagsmallar, privata avtalsutkast, selektiv DocuSeal-port, verifierad tvåpartssignering, signerad PDF/signeringsevidens samt privat originalarkiv med konfigurationsspärr | Serverkonfiguration, faktisk hosted Storage-API-verifiering, långtidsbevarande/backup/återställning och slutlig produktionsverifiering |
@@ -54,7 +58,7 @@ Utgångspunkt: publicerad main `ecb0e2557979e5b481f1d18cc7668548a700881c`, PR #1
 
 Fas 1–3 innehåller stora delar av den interna handlargrunden men är inte helt slutverifierade. Ingen hel fas redovisas som godkänd enbart därför att grundfunktioner finns. Externa integrationer kan förberedas parallellt; avtal och faktisk åtkomst måste finnas innan aktivering.
 
-Arbetsordning för närmaste leveranser: inbytesköp och avtal för det versionsbundna inbytesunderlaget, återstående organisationsflöden, därefter dokument/avtal samt ekonomi/leverans. Faktiska partneravtal kan ändra ordningen för finansieringen.
+Arbetsordning för närmaste leveranser: slutför den granskade ägarrollsetappen, fortsätt återstående organisationsflöden och separat native inköpsavtal, därefter dokument/avtal samt ekonomi/leverans. Faktiska partneravtal kan ändra ordningen för finansieringen.
 
 Se [MASTERPLAN](MASTERPLAN.md) för fulla leveranskrav och [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md) för aktuella tester och verifieringsgränser. Publik marknadsföring beskriver användbara funktioner; detta interna planläge beskriver även kvarstående arbete.
 
