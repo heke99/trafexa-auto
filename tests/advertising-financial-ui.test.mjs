@@ -40,7 +40,7 @@ async function setup(overrides={},props={}){
   const draft={id:'10000000-0000-4000-8000-000000000050',companyId,month:'2026-09',version:1,sourceHash:'c'.repeat(64)};
   const line={publicationId:'10000000-0000-4000-8000-000000000010',listingId:'10000000-0000-4000-8000-000000000011',channel:'blocket',originalOre:'14950',reductionOre:'4950',netOre:'10000',vatOre:null,grossOre:null};
   const preview={lines:[line],netTotalOre:'10000',vatTotalOre:null,grossTotalOre:null,blockers:['vatTreatment','paymentDays']};
-  window.financialPage={companyId,actorUserId,actorRole:'platform_admin',month:'2026-09',settings,draft,draftIsOutdated:false,preview,reviewToken:'a'.repeat(64),reviewCanonicalSnapshot:'{}',canCreateAssessment:false,assessments:[{id:'10000000-0000-4000-8000-000000000070',version:1,createdAt:'2026-10-15T12:00:00Z',sourceHash:'d'.repeat(64),draftId:draft.id,draftVersion:1,isOutdated:false}],nextBeforeVersion:null,...overrides};
+  window.financialPage={companyId,actorUserId,actorRole:'platform_admin',calculationVersion:2,month:'2026-09',settings,draft,draftIsOutdated:false,preview,reviewToken:'a'.repeat(64),reviewCanonicalSnapshot:'{}',canCreateAssessment:false,assessments:[{id:'10000000-0000-4000-8000-000000000070',version:1,createdAt:'2026-10-15T12:00:00Z',sourceHash:'d'.repeat(64),draftId:draft.id,draftVersion:1,isOutdated:false}],nextBeforeVersion:null,...overrides};
   window.financialAssessment={id:'10000000-0000-4000-8000-000000000070',companyId,month:'2026-09',version:1,createdAt:'2026-10-15T12:00:00Z',sourceHash:'d'.repeat(64),canonicalSnapshot:'{}',snapshot:{status:'reviewed_draft',currency:'SEK',calculationVersion:1,companyId,month:'2026-09',draft,settings:{...settings,version:2,fields:{vatTreatment:'se_standard_25',sellerVatRegistered:true,sellerVatNumber:'SE556855488401',paymentDays:15,paymentMethod:'bankgiro',paymentAccount:'9912346',reason:'Granskade uppgifter'}},lines:[{...line,vatOre:'2500',grossOre:'12500'}],netTotalOre:'10000',vatTotalOre:'2500',grossTotalOre:'12500'}};
  },{overrides});
  await page.addScriptTag({path:bundle});await page.evaluate(props=>window.mountFinancial(props),{companyId:COMPANY,userId:USER,role:'platform_admin',superadmin:true,month:'2026-09',draftId:DRAFT,...props});await expect(page.getByRole('heading',{name:'Gällande uppgifter · Version 0'})).toBeVisible();return page;
@@ -60,7 +60,7 @@ test('invalid days and missing reason cannot reach settings mutation',async()=>{
 }finally{await page.close();}});
 test('settings available without selected draft and finance remains read-only',async()=>{const page=await setup({actorRole:'finance',draft:null,preview:null,reviewToken:null},{role:'finance',superadmin:false,draftId:null});try{await expect(page.getByText('Välj ett sparat fakturautkast för att se momsberäkningen.',{exact:false})).toBeVisible();await expect(page.getByRole('button',{name:'Ändra moms- och betalningsuppgifter'})).toHaveCount(0);assert.equal(await page.evaluate(()=>window.financialCalls[0].platform),false);}finally{await page.close();}});
 test('reviewed assessment binds selected draft and all current settings tokens',async()=>{const page=await setup();try{
- await ready(page);await page.getByRole('button',{name:'Granska fakturaunderlag med moms',exact:true}).click();await expect(page.getByRole('button',{name:'Bekräfta och spara granskat underlag'})).toBeDisabled();await page.getByRole('checkbox',{name:assessmentAck}).check();await page.getByRole('button',{name:'Bekräfta och spara granskat underlag'}).click();await expect(page.getByText('Ett granskat fakturaunderlag med moms är sparat.',{exact:false})).toBeVisible();const call=await page.evaluate(()=>window.financialCalls.find(c=>c.kind==='create'));assert.equal(call.draftId,DRAFT);assert.equal(call.expectedDraftSourceHash,'c'.repeat(64));assert.equal(call.expectedSettingsVersion,2);assert.equal(call.expectedSettingsReviewToken,'b'.repeat(64));assert.equal(call.expectedReviewToken,'a'.repeat(64));assert.equal(call.reviewAcknowledged,true);
+ await ready(page);await page.getByRole('button',{name:'Granska fakturaunderlag med moms',exact:true}).click();await expect(page.getByRole('button',{name:'Bekräfta och spara granskat underlag'})).toBeDisabled();await page.getByRole('checkbox',{name:assessmentAck}).check();await page.getByRole('button',{name:'Bekräfta och spara granskat underlag'}).click();await expect(page.getByText('Ett granskat fakturaunderlag med moms är sparat.',{exact:false})).toBeVisible();const call=await page.evaluate(()=>window.financialCalls.find(c=>c.kind==='create'));assert.equal(call.draftId,DRAFT);assert.equal(call.expectedDraftSourceHash,'c'.repeat(64));assert.equal(call.calculationVersion,2);assert.equal(call.expectedSettingsVersion,2);assert.equal(call.expectedSettingsReviewToken,'b'.repeat(64));assert.equal(call.expectedReviewToken,'a'.repeat(64));assert.equal(call.reviewAcknowledged,true);
 }finally{await page.close();}});
 test('mobile historical assessment retains original sums and payment settings, marked stale with private PDF',async()=>{const page=await setup();try{
  await page.setViewportSize({width:390,height:844});await page.evaluate(()=>{window.financialOutdated=true;});await page.getByRole('button',{name:'Visa granskat underlag version 1'}).click();const selected=page.getByRole('region',{name:'Valt granskat fakturaunderlag'});await expect(selected).toContainText('125,00 kr');await expect(selected).toContainText('15 dagar');await expect(selected).toContainText('9912346');await expect(selected).toContainText('Detta underlag bygger på äldre uppgifter');await expect(selected.getByRole('link')).toHaveAttribute('href',`/api/advertising/financial/${ASSESSMENT}/pdf?companyId=${COMPANY}`);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=390));
@@ -85,5 +85,39 @@ test('issuance loads only after selected assessment and explicit click, remounts
   await page.evaluate(({second})=>{window.financialAssessment={...window.financialAssessment,id:second,version:2,sourceHash:'e'.repeat(64)};window.issuancePage={...window.issuancePage,assessment:window.financialAssessment};},{second});
   await page.getByRole('button',{name:'Visa granskat underlag version 2',exact:true}).click();await expect(page.getByRole('heading',{name:'Säljarens nummerserie',exact:true})).toBeVisible();await expect(page.getByLabel('Prefix för fakturanummer')).toHaveCount(0);assert.equal(await page.evaluate(()=>window.issuanceCalls.at(-1).assessmentId),second);
   await page.evaluate(()=>{window.issuanceResponses=[{ok:false,code:'access_denied',message:'Fakturaåtkomst återkallad'}];});await page.getByRole('button',{name:'Uppdatera fakturering',exact:true}).click();await expect(page.getByRole('alert')).toHaveText('Fakturaåtkomst återkallad');await expect(page.getByRole('heading',{name:'Fakturering och nummerserie',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Visa granskat underlag version 1'})).toHaveCount(0);await expect(page.getByRole('link',{name:/Hämta PDF av granskat underlag/})).toHaveCount(0);await expect(page.getByRole('button',{name:'Uppdatera moms- och betalningsunderlag'})).toBeDisabled();assert.equal(await page.evaluate(()=>window.issuanceCalls.filter(call=>['configure','issue'].includes(call.kind)).length),0);
+ }finally{await page.close();}
+});
+test('new version-two preview requests aggregate VAT while saved version-one details retain original row rounding and amounts',async()=>{
+ const page=await setup();try{
+  assert.equal(await page.evaluate(()=>window.financialCalls[0].calculationVersion),2);
+  await page.evaluate(()=>{
+   const first={publicationId:'10000000-0000-4000-8000-000000000010',listingId:'ANNONS-A',channel:'blocket',originalOre:'2',reductionOre:'0',netOre:'2',vatOre:'1',grossOre:'3'};
+   const second={...first,publicationId:'10000000-0000-4000-8000-000000000011',listingId:'ANNONS-B',channel:'wayke',vatOre:'0',grossOre:'2'};
+   window.financialPage={...window.financialPage,calculationVersion:2,preview:{lines:[first,second],netTotalOre:'4',vatTotalOre:'1',grossTotalOre:'5',blockers:[]}};
+   window.financialAssessment={...window.financialAssessment,snapshot:{...window.financialAssessment.snapshot,calculationVersion:1,lines:[first,{...second,vatOre:'1',grossOre:'3'}],netTotalOre:'4',vatTotalOre:'2',grossTotalOre:'6'}};
+  });
+  await page.getByRole('button',{name:'Uppdatera moms- och betalningsunderlag'}).click();
+  await expect(page.getByText('Moms beräknas som 25 % av totalbeloppet exklusive moms',{exact:false})).toBeVisible();
+  const currentTable=page.getByRole('table',{name:'Radvis underlag och momsberäkning'}).first();
+  await expect(currentTable.getByRole('columnheader',{name:'Fördelad moms',exact:true})).toBeVisible();
+  await expect(currentTable.getByRole('row',{name:'ANNONS-B Wayke 0,02 kr 0,00 kr 0,02 kr 0,00 kr 0,02 kr'})).toBeVisible();
+  await page.getByRole('button',{name:'Visa granskat underlag version 1'}).click();
+  const historical=page.getByRole('region',{name:'Valt granskat fakturaunderlag'});
+  await expect(historical).toContainText('Historisk beräkning: varje rads moms avrundas separat');
+  await expect(historical.getByRole('columnheader',{name:'Moms',exact:true})).toBeVisible();
+  await expect(historical.getByRole('row',{name:'ANNONS-B Wayke 0,02 kr 0,00 kr 0,02 kr 0,01 kr 0,03 kr'})).toBeVisible();
+  await expect(historical).toContainText('0,06 kr');
+  await expect(historical.getByRole('link',{name:'Hämta PDF av granskat underlag version 1'})).toHaveAttribute('href',`/api/advertising/financial/${ASSESSMENT}/pdf?companyId=${COMPANY}`);
+  assert.equal(await page.evaluate(()=>window.financialCalls.some(call=>call.kind==='create')),false);
+ }finally{await page.close();}
+});
+test('saved version-two details describe allocated total VAT without claiming independent row rounding',async()=>{
+ const page=await setup();try{
+  await page.evaluate(()=>{window.financialAssessment={...window.financialAssessment,snapshot:{...window.financialAssessment.snapshot,calculationVersion:2}};});
+  await page.getByRole('button',{name:'Visa granskat underlag version 1'}).click();
+  const selected=page.getByRole('region',{name:'Valt granskat fakturaunderlag'});
+  await expect(selected).toContainText('Ören fördelas mellan raderna med störst decimalrest först');
+  await expect(selected.getByRole('columnheader',{name:'Fördelad moms',exact:true})).toBeVisible();
+  await expect(selected).not.toContainText('varje rads moms avrundas separat');
  }finally{await page.close();}
 });

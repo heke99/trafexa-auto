@@ -45,5 +45,15 @@ do $$declare j private.advertising_jobs%rowtype;r jsonb;begin
  if not exists(select 1 from private.advertising_publication_prices pp join private.advertising_publications p on p.id=pp.publication_id where p.company_id='af190000-0000-4000-8000-000000000003' and pp.unit_price_ore=12500) then raise exception 'Frozen published price mismatch';end if;
  if (select count(*) from private.advertising_charge_commitments where company_id='af190000-0000-4000-8000-000000000003')<>2 or (select count(*) from private.advertising_job_price_commitments where company_id='af190000-0000-4000-8000-000000000003')<>2 then raise exception 'Accepted price bindings missing';end if;
 end $$;
-select 'PASS: atomic selected channels, frozen reviewed price, exact retry, old bypass denied, unique verified publication billing' result;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','af190000-0000-4000-8000-000000000002',true);
+do $$declare b jsonb;u jsonb;m text:=to_char(clock_timestamp() at time zone 'Europe/Stockholm','YYYY-MM');begin
+ b:=public.list_advertising_billing('af190000-0000-4000-8000-000000000003',m);
+ u:=public.list_advertising_quantities('af190000-0000-4000-8000-000000000003',m);
+ if b->>'count' is distinct from '1' or b->>'totalOre' is distinct from '12500' or b->>'unpricedCount' is distinct from '0'
+  or u->'totals'->>'newPublications' is distinct from '1' or u->'totals'->>'queued' is distinct from '1'
+  or u->'billing'->>'unpricedPublications' is distinct from '0' then raise exception 'Dealer billing and usage mismatch';end if;
+end $$;
+reset role;
+select 'PASS: atomic selected channels, frozen reviewed price, exact retry, old bypass denied, unique verified publication billing and dealer statistics' result;
 rollback;

@@ -1,0 +1,5 @@
+begin;
+alter table private.advertising_financial_assessments drop constraint advertising_financial_assessments_calculation_version_check;
+alter table private.advertising_financial_assessments add constraint advertising_financial_assessments_calculation_version_check check(calculation_version in(1,2));
+alter table private.advertising_financial_assessments add constraint advertising_financial_assessment_version_snapshot check(snapshot->>'calculationVersion'=calculation_version::text);
+commit;

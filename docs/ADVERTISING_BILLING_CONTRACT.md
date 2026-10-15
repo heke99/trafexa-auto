@@ -1,6 +1,6 @@
 # Kanalpriser och låsta månadsunderlag
 
-Trafexas modell är en unik verifierad publicering per annons och kanal. Statistik och antalexport är separata från det här pris- och månadsunderlaget. Alla belopp anges i **SEK, heltalsöre och exklusive moms**. Fordonets momsmodell eller VMB används inte för att beräkna Trafexas tjänsteavgifter. Ingen moms, fakturanummer, betalningsstatus eller utfärdad faktura skapas här.
+Trafexas modell är en unik verifierad publicering per annons och kanal. Statistik och antalexport är separata från det här pris- och månadsunderlaget. Alla belopp anges i **SEK, heltalsöre och exklusive moms**. Fordonets momsmodell eller VMB används inte för att beräkna Trafexas tjänsteavgifter. Den separata [momsberäkningen i version 2](ADVERTISING_VAT_ALLOCATION_CONTRACT.md) fördelar skatt i nya granskade ekonomiska underlag; den skriver inte om det accepterade nettopriset eller äldre sparade V1-underlag. Ingen moms, fakturanummer, betalningsstatus eller utfärdad faktura skapas här.
 
 ## Behörighet
 

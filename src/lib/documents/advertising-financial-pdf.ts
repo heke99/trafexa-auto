@@ -59,7 +59,9 @@ export async function generateAdvertisingFinancialPdf(value: unknown): Promise<U
   draw(`Summa inklusive moms: ${invoiceMoney(saved.grossTotalOre)}`, 14, accent);
   draw(`Säljarens uppgivna momsregistreringsnummer: ${saved.settings.fields.sellerVatNumber}`);
   draw('Momshantering: Svensk standardmoms, uttryckligen granskad för detta underlag.');
-  draw('Moms beräknas på varje publiceringsrads återstående belopp efter nedsättningar, avrundas till närmaste öre med halva ören uppåt och summeras därefter.', 9, muted);
+  draw(saved.calculationVersion === 1
+    ? 'Moms beräknas på varje publiceringsrads återstående belopp efter nedsättningar, avrundas till närmaste öre med halva ören uppåt och summeras därefter.'
+    : 'Moms beräknas på hela nettobeloppet efter nedsättningar och avrundas till närmaste öre med halva ören uppåt. Örena fördelas mellan raderna efter störst decimalrest; publicerings-ID avgör lika rest.', 9, muted);
   section(`Betalningsuppgifter · Inställningsversion ${saved.settings.version}`);
   draw(`Betalningsvillkor inför utställning: ${saved.settings.fields.paymentDays} dagar från fakturadatum.`);
   const methods = { bankgiro: 'Bankgiro', plusgiro: 'PlusGiro', iban: 'Svensk IBAN', unresolved: 'Ej fastställt' };
