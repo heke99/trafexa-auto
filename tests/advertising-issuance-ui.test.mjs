@@ -79,4 +79,11 @@ test('fresh denial after issuance receipt removes frozen data and all invoice li
 test('late issued detail after assessment switch cannot restore the prior invoice',async()=>{const page=await setup();try{
  await page.evaluate(()=>{window.issuancePage={...window.issuancePage,invoice:window.issuanceSummary,preview:null,canIssue:false};window.issuanceDetailResponses.push({hold:true});});await page.getByRole('button',{name:'Uppdatera fakturering'}).click();await page.getByRole('button',{name:'Visa den utfärdade fakturan'}).click();await page.waitForFunction(()=>typeof window.releaseIssuedDetail==='function');await page.evaluate(()=>window.mountIssuance({companyId:window.issuancePage.companyId,userId:window.issuancePage.actorUserId,role:'platform_admin',superadmin:true,month:'2026-09',assessmentId:'10000000-0000-4000-8000-000000000099'}));await expect(page.getByRole('alert')).toContainText('Företaget, underlaget eller din behörighet har ändrats');await page.evaluate(()=>window.releaseIssuedDetail({ok:true,invoice:window.issuedInvoice,isSourceOutdated:false}));await expect(page.getByRole('region',{name:'Vald utfärdad faktura'})).toHaveCount(0);
 }finally{await page.close();}});
-test('VAT rounding mismatch visibly blocks issuance without silently changing the reviewed assessment',async()=>{const page=await setup({preview:null,canIssue:false,blockers:['vat.roundingMismatch']});try{await expect(page.getByText('Utfärdandet är spärrat eftersom radmoms och moms på totalbeloppet skiljer sig. Kontakta Trafexa för granskning.')).toBeVisible();await expect(page.getByRole('button',{name:'Granska utfärdandet av fakturan'})).toHaveCount(0);assert.equal(await page.evaluate(()=>window.issuanceCalls.filter(call=>call.kind==='issue').length),0);}finally{await page.close();}});
+test('VAT rounding mismatch blocks issuance and directs a new reviewed original while retaining the saved assessment',async()=>{
+ const page=await setup({preview:null,canIssue:false,blockers:['vat.roundingMismatch']});try{
+  await expect(page.getByText('Det äldre underlagets radmoms skiljer sig från moms på totalbeloppet.',{exact:false})).toContainText('Skapa ett nytt granskat underlag från samma aktuella fakturautkast');
+  await expect(page.getByText('Det tidigare underlaget bevaras.',{exact:false})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Granska utfärdandet av fakturan'})).toHaveCount(0);
+  assert.equal(await page.evaluate(()=>window.issuanceCalls.some(call=>['issue','configure'].includes(call.kind))),false);
+ }finally{await page.close();}
+});

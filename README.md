@@ -1,5 +1,7 @@
 # Trafexa Dealer
 
+[Momsberäkning version 2](docs/ADVERTISING_VAT_ALLOCATION_CONTRACT.md) beräknar moms på nettototalen och fördelar örena deterministiskt mellan annonsraderna. Nya underlag använder v2; tidigare underlag och fakturor behåller sin sparade metod och PDF. Underlag som tidigare spärrats av avrundningsskillnad kan granskas i en ny version från samma aktuella fakturautkast.
+
 [Utfärdande av annonsfakturor](docs/ADVERTISING_INVOICE_ISSUANCE_CONTRACT.md) har separat superadmin-granskning, uttryckligt konfigurerad nummerserie, registrerat säte och bekräftade tjänstedatum. Fakturan får frysta belopp, datum och privat PDF. Samma företagsmånad kan inte faktureras igen genom en ny bedömning. Utskick, kreditfakturor, betalningsavstämning och bokföringsintegration är separata fortsättningar.
 
 [Butiksprofil och API-underlag](docs/COMPANY_STORE_PROFILE.md) samlar företagets butiksnamn, besöksadress, publika kontaktuppgifter, hemsida, logotypadress, presentation och öppettider. Ett nytt företagskonto och dess första profil skapas tillsammans efter e-postverifiering och kontogodkännande. Ägare och administratörer uppdaterar profilen och granskar versionsbundna JSON-underlag för en angiven annonskanal. Trafexas privata API kontrollerar aktuell åtkomst och lämnar exakta sparade bytes med kontrollsumma. Underlagen är förberedda i Trafexa; Blocket och Wayke har ingen här verifierad API-funktion för att skapa butikskonton och inget skickas automatiskt till dem.

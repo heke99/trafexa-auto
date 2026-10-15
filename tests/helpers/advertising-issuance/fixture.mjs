@@ -13,3 +13,8 @@ export function issuedInvoiceFixture(prices=['4','4']){
  return resignIssued({id:id(90),companyId:assessment.companyId,month:assessment.month,createdAt:'2026-10-15T09:04:00Z',invoiceNumber,invoiceDate,dueDate,snapshot});
 }
 export function resignIssued(value){value.canonicalSnapshot=JSON.stringify(value.snapshot);value.sourceHash=digest(value.canonicalSnapshot);return value;}
+export async function issuedInvoiceFixtureV2(prices=['14950','14950']){
+ const {financialAssessmentV2}=await import('../advertising-financial/fixture.mjs'),value=issuedInvoiceFixture(prices),assessment=await financialAssessmentV2(prices),snapshot=value.snapshot;
+ snapshot.assessment=assessment;snapshot.lines=assessment.snapshot.lines.map((line,index)=>({...line,quantity:1,serviceDate:snapshot.lines[index].serviceDate}));snapshot.netTotalOre=assessment.snapshot.netTotalOre;snapshot.vatTotalOre=assessment.snapshot.vatTotalOre;snapshot.grossTotalOre=assessment.snapshot.grossTotalOre;
+ return resignIssued(value);
+}

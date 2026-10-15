@@ -25,3 +25,10 @@ export function financialAssessment(prices=['2','2']){
  return resignFinancial({id:id(70),companyId:draft.companyId,month:draft.month,version:1,createdAt:'2026-10-15T09:02:00Z',snapshot});
 }
 export function resignFinancial(value){value.canonicalSnapshot=JSON.stringify(value.snapshot);value.sourceHash=digest(value.canonicalSnapshot);return value;}
+export async function financialAssessmentV2(prices=['14950','14950']){
+ const {computeAdvertisingFinancialPreviewV2}=await import('../../../src/lib/advertising/financial-math.ts');
+ const value=financialAssessment(prices),snapshot=value.snapshot,math=computeAdvertisingFinancialPreviewV2(snapshot.draft,snapshot.settings.fields);
+ snapshot.calculationVersion=2;const proof=JSON.parse(snapshot.sourceCanonicalSnapshot);proof.calculationVersion=2;snapshot.sourceCanonicalSnapshot=JSON.stringify(proof);snapshot.sourceReviewToken=digest(snapshot.sourceCanonicalSnapshot);
+ snapshot.lines=math.lines;snapshot.netTotalOre=math.netTotalOre;snapshot.vatTotalOre=math.vatTotalOre;snapshot.grossTotalOre=math.grossTotalOre;
+ return resignFinancial(value);
+}

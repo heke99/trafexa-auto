@@ -1,5 +1,9 @@
 # Trafexa Dealer – fortsättningsplan
 
+## Momsfortsättning 15 oktober
+
+[Momsberäkning version 2](ADVERTISING_VAT_ALLOCATION_CONTRACT.md) kompletterar fakturautställningen med avrundning på totalnettot och deterministisk fördelning av ören efter decimalrest/UUID. Nya underlag granskas uttryckligen i v2; v1-data och PDF bevaras. Nästa ekonomietapper är kreditfakturor, kontrollerade fakturamejl och betalnings-/bokföringsavstämning. Ingen ekonomileverantör är vald.
+
 ## Faktureringsfortsättning 15 oktober
 
 [Utfärdande av annonsfakturor](ADVERTISING_INVOICE_ISSUANCE_CONTRACT.md) byggs som en separat bekräftad superadminåtgärd efter granskad moms-/betalningsbedömning. Global seller-/årserie, unika nummer, datumbunden granskning och en faktura per företagsmånad skyddar mot dubbel fakturering. Fryst juridisk identitet, registrerat säte, tjänstedatum och privat versionerad PDF ingår. Fortsättning krävs för kredit/rättelse av utfärdade fakturor, mejlutskick, bank-/betalningsavstämning och bokföringsintegration; leverantör är ännu inte vald.
@@ -10,7 +14,7 @@ Verifierad föregående release: [PR #26](https://github.com/heke99/trafexa-auto
 
 ## Ekonomifortsättning 15 oktober
 
-[Granskad moms och betalningsvillkor](ADVERTISING_FINANCIAL_CONTRACT.md) bygger vidare på låsta annonsunderlag, nedsättningar och sparade fakturautkast. Aktuell superadmin väljer explicit svensk standardmoms och kontrollerade betalningsuppgifter; radmoms och totaler räknas exakt och sparas i oföränderliga privata versioner. Saknade beslut blockerar sparad bedömning. Separat fakturautställning med kontrollerad numrering/datum är implementerad ovan. Utökad momsavrundning, efterföljande kredit/rättelser och betalningsavstämning återstår; ekonomileverantör är ännu inte vald. Verifiering/publicering redovisas separat i IMPLEMENTATION_STATUS.
+[Granskad moms och betalningsvillkor](ADVERTISING_FINANCIAL_CONTRACT.md) bygger vidare på låsta annonsunderlag, nedsättningar och sparade fakturautkast. Aktuell superadmin väljer explicit svensk standardmoms och kontrollerade betalningsuppgifter; radmoms och totaler räknas exakt och sparas i oföränderliga privata versioner. Saknade beslut blockerar sparad bedömning. Separat fakturautställning med kontrollerad numrering/datum är implementerad ovan. Efterföljande kredit/rättelser och betalningsavstämning återstår; ekonomileverantör är ännu inte vald. Verifiering/publicering redovisas separat i IMPLEMENTATION_STATUS.
 
 Lageretapp 15 oktober: [granskat inbytesköp och lagerintag](TRADE_IN_ACQUISITION.md) är implementerat från exakt accepterad fryst offert och färdig native försäljningssignering av samma offert. Ägare/admin intygar externt inköpsavtal, mottagen bil, exakt skuld inklusive noll med underlag/datum och granskning; finance läser, övriga nekas. Bruttoinbytesvärdet blir inköpspris; drivmedel, växellåda och begärt pris väljs uttryckligen, momsmodellen är `unknown`. Fordon, tillgänglig lagerpost och privat proveniens skapas atomiskt med aktörsbundet återförsök. Befintligt kanoniskt registreringsnummer blockerar även för sålda bilar; restock är ett separat senare flöde. Migration `20261015105239_trade_in_acquisition`, hosted rollback/cleanup och riktade samtidighets-/app-/UI-prov passerar, liksom slutbygge/TypeScript med hostedtyper. Appens helsvitsresultat och PR-/publiceringsbevis redovisas separat i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md). Ingen servernyckel behövs; originalarkivets nyckelspärr bevaras. Betalning, skuldlösen, ägaröverföring och nytt native inköpsavtal ingår inte.
 
