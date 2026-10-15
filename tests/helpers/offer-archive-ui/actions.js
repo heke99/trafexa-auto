@@ -16,4 +16,18 @@ export const createVehicleAction = unexpected, createCustomerAction = unexpected
   reserveVehicleAction = unexpected, createFinanceRequestAction = unexpected, releaseReservationAction = unexpected,
   updateVehiclePriceAction = unexpected, createVehicleCostAction = unexpected, signOutAction = unexpected, selectCompanyAction = unexpected;
 
+export async function loadDealerRegisterPage(input) {
+  const snapshot = window.fixture.workspaceSnapshot;
+  const rows = input.kind === 'inventory' ? snapshot.inventory : input.kind === 'customers' ? snapshot.customers
+    : snapshot.deals.map(deal => ({ ...deal, customer: snapshot.customers.find(row => row.id === deal.customer_id), stockItem: snapshot.inventory.find(row => row.id === deal.stock_item_id) }));
+  const counts = { all: rows.length };
+  for (const row of rows) { const status = input.kind === 'customers' ? row.kind : row.status; counts[status] = (counts[status] ?? 0) + 1; }
+  return { ok: true, page: { kind: input.kind, companyId: snapshot.organization.id, actorId: snapshot.user.id, role: snapshot.membership.role, rows: rows.slice(0, 50), totalCount: rows.length, filteredCount: rows.length, counts, nextCursor: null } };
+}
+export async function loadVehicleCosts(input) {
+  const snapshot = window.fixture.workspaceSnapshot;
+  return { ok: true, companyId: snapshot.organization.id, actorId: snapshot.user.id, role: snapshot.membership.role, stockItemId: input.stockItemId, costs: snapshot.vehicle_costs.filter(cost => cost.stock_item_id === input.stockItemId) };
+}
+export const searchDealOptions = unexpected;
+
 export async function listDealTradeInsAction(input){const f=window.fixture;f.tradeReads??=[];f.tradeReads.push(input);const next=f.tradeResponses?.shift();if(next?.defer)return new Promise(resolve=>{f.resolveTrade=()=>resolve(next.result);});return next||{ok:true,companyId:input.companyId,dealId:input.dealId,salePriceOre:'25000000',customerName:'Fixturekund',latestVersion:2,canCreate:f.tradeCanCreate!==false,versions:f.tradeRows||[],nextBeforeVersion:f.tradeCursor||null};}
