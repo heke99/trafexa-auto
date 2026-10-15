@@ -1,0 +1,16 @@
+import type { AdvertisingResult } from './database.types';
+import type { AdvertisingBillingPage } from './billing-types';
+import type { AdvertisingFinancialAssessment,AdvertisingFinancialLine } from './financial-types';
+export type AdvertisingInvoiceSeriesConfiguration={id:string;sellerOrganisationNumber:string;year:number;prefix:string;firstNumber:string;sellerRegisteredSeat:string;configurationHash:string;canonicalConfiguration:string};
+export type AdvertisingInvoiceSeries=AdvertisingInvoiceSeriesConfiguration&{reason:string;configuredAt:string;nextNumber:string;reviewToken:string;canonicalSnapshot:string};
+export type AdvertisingInvoiceServiceDate={publicationId:string;serviceDate:string};
+export type AdvertisingIssuancePreview={invoiceNumber:string;sequence:string;invoiceDate:string;dueDate:string;serviceDates:AdvertisingInvoiceServiceDate[];assessmentSourceHash:string;seriesReviewToken:string;reviewToken:string;canonicalSnapshot:string};
+export type AdvertisingIssuedInvoiceLine=AdvertisingFinancialLine&{quantity:1;serviceDate:string};
+export type AdvertisingIssuedInvoiceSnapshot={status:'issued';currency:'SEK';rendererVersion:1;companyId:string;month:string;invoiceNumber:string;invoiceDate:string;dueDate:string;sequence:string;serviceDatesAcknowledged:true;series:AdvertisingInvoiceSeriesConfiguration;assessment:AdvertisingFinancialAssessment;lines:AdvertisingIssuedInvoiceLine[];netTotalOre:string;vatTotalOre:string;grossTotalOre:string};
+export type AdvertisingIssuedInvoice={id:string;companyId:string;month:string;createdAt:string;invoiceNumber:string;invoiceDate:string;dueDate:string;sourceHash:string;canonicalSnapshot:string;snapshot:AdvertisingIssuedInvoiceSnapshot};
+export type AdvertisingIssuedInvoiceSummary=Pick<AdvertisingIssuedInvoice,'id'|'createdAt'|'invoiceNumber'|'invoiceDate'|'dueDate'|'sourceHash'>&{assessmentId:string;isSourceOutdated:boolean};
+export type AdvertisingIssuancePage={companyId:string;actorUserId:string;actorRole:AdvertisingBillingPage['actorRole'];month:string;currentYear:number;businessDate:string;assessment:AdvertisingFinancialAssessment;isOutdated:boolean;series:AdvertisingInvoiceSeries|null;invoice:AdvertisingIssuedInvoiceSummary|null;preview:AdvertisingIssuancePreview|null;blockers:string[];canConfigureSeries:boolean;canIssue:boolean};
+export type AdvertisingIssuancePageResult=AdvertisingResult<{page:AdvertisingIssuancePage}>;
+export type AdvertisingInvoiceSeriesResult=AdvertisingResult<{series:AdvertisingInvoiceSeries;receipt:{seriesId:string;companyId:string;actorUserId:string;requestId:string;assessmentId:string;assessmentSourceHash:string;configurationHash:string}}>;
+export type AdvertisingIssuedInvoiceResult=AdvertisingResult<{invoice:AdvertisingIssuedInvoice;isSourceOutdated:boolean}>;
+export type AdvertisingInvoiceIssueResult=AdvertisingResult<{invoice:AdvertisingIssuedInvoice;isSourceOutdated:boolean;receipt:{invoiceId:string;companyId:string;actorUserId:string;requestId:string;assessmentId:string;assessmentSourceHash:string;seriesId:string;sourceHash:string;invoiceNumber:string;reviewToken:string}}>;

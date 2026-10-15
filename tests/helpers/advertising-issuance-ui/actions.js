@@ -1,0 +1,9 @@
+async function read(input,platform){window.issuanceCalls??=[];window.issuanceCalls.push({kind:'read',...input,platform});const next=window.issuanceResponses?.shift();if(next?.hold)return new Promise(resolve=>{window.releaseIssuance=resolve;});if(next)return next;if(!window.issuancePage)return{ok:false,code:'unavailable',message:'Fakturafixture saknas'};return{ok:true,page:window.issuancePage};}
+export const getPlatformAdvertisingIssuancePageAction=input=>read(input,true);
+export const listAdvertisingIssuancePageAction=input=>read(input,false);
+async function mutate(kind,input){window.issuanceCalls.push({kind,...input});const next=window.issuanceMutationResponses?.shift();if(next?.throw)throw Error('Unknown outcome');if(next)return next;const receipt={companyId:input.companyId,actorUserId:window.issuancePage.actorUserId,requestId:input.requestId,assessmentId:input.assessmentId,assessmentSourceHash:input.expectedAssessmentSourceHash};if(kind==='configure')return{ok:true,series:window.issuanceSeries,receipt};window.issuancePage={...window.issuancePage,invoice:window.issuanceSummary,preview:null,canIssue:false,blockers:['invoice.exists']};return{ok:true,invoice:window.issuedInvoice,isSourceOutdated:false,receipt};}
+export const configureAdvertisingInvoiceSeriesAction=input=>mutate('configure',input);
+export const issueAdvertisingInvoiceAction=input=>mutate('issue',input);
+async function detail(input,platform){window.issuanceCalls.push({kind:'detail',...input,platform});const next=window.issuanceDetailResponses?.shift();if(next?.hold)return new Promise(resolve=>{window.releaseIssuedDetail=resolve;});if(next)return next;return{ok:true,invoice:window.issuedInvoice,isSourceOutdated:window.issuedOutdated??false};}
+export const getAdvertisingIssuedInvoiceAction=input=>detail(input,false);
+export const getPlatformAdvertisingIssuedInvoiceAction=input=>detail(input,true);

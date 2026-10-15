@@ -1,12 +1,16 @@
 # Planläge 15 oktober 2026
 
+## Utfärdande av annonsfakturor
+
+Fortsättningen bygger separat granskad fakturautställning från ett aktuellt sparat moms-/betalningsunderlag, med uttrycklig nummerserie, registrerat säte, faktura-/förfallodatum och granskade tjänstedatum. Utfärdad källa och privat PDF bevaras och samma företagsmånad kan inte dubbeldebiteras. Inga verkliga serier eller fakturor aktiveras av testningen. Kreditfakturor, e-postleverans, betalningsavstämning och valt ekonomisystem återstår. Se [kontraktet](ADVERTISING_INVOICE_ISSUANCE_CONTRACT.md) och [verifieringsstatus](IMPLEMENTATION_STATUS.md).
+
 ## Företags- och butiksprofil — integrerad kod och databas verifierade
 
 Från publicerad main `5e694c5`/PR #26 är komplett profilregistrering för nya företag och komplettering för befintliga företag implementerad. Företag, ägarmedlemskap och första profil sparas atomiskt; kontogodkännande och verifierad adress krävs fortsatt. Endast ägare/admin får privat profil- och exportåtkomst. Juridisk identitet hämtas från företaget; oföränderliga profilversioner och kanoniska SHA-256-underlag binder granskningen till exakt källa. Förberett Trafexa-JSON för Blocket/Wayke är `prepared`, utan extern sändning eller skapad butik. Offentliga API-kontrakt för butiksprovisionering är inte verifierade och partneråtkomst saknas. Migration `20261015113334_company_store_profile`, hosted rollback/cleanup, 15 PostgreSQL-fall, fem faktiska korslagerfall och elva lokala HTTP-gränsfall passerar. Efter sammanfogning med ekonomietappen passerar 880/880 appfall utan fel eller överhoppade fall samt slutligt produktionsbygge med TypeScript. Sammanfogade omkörningar av PostgreSQL 15/15, korslager 5/5 och lokal Next-produktions-HTTP 11/11 passerar. Server-/domän- och UI-prov ingår i appkörningen och adderas inte separat. Testad kodcheckpoint före publicering; PR-/main- och deploymentbevis återläses separat; se [COMPANY_STORE_PROFILE](COMPANY_STORE_PROFILE.md) och [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
 
 ## Granskad moms och betalningsvillkor
 
-Nästa ekonomietapp är implementerad: uttryckliga moms-/betalningsbeslut per företag, exakta radvisa momsberäkningar och oföränderliga granskade underlag med privat PDF. Inget verkligt konto eller momsbeslut aktiveras automatiskt. Superadmin skriver och företagets ägare/admin/finance läser. Befintliga utkast och tidigare lager-/arkivleveranser bevaras. Fakturautställning, kredit/rättelse av utfärdade dokument, betalningsavstämning och valt ekonomisystem återstår. Se [kontraktet](ADVERTISING_FINANCIAL_CONTRACT.md) och [faktiska verifieringsresultat](IMPLEMENTATION_STATUS.md).
+Nästa ekonomietapp är implementerad: uttryckliga moms-/betalningsbeslut per företag, exakta radvisa momsberäkningar och oföränderliga granskade underlag med privat PDF. Inget verkligt konto eller momsbeslut aktiveras automatiskt. Superadmin skriver och företagets ägare/admin/finance läser. Befintliga utkast och tidigare lager-/arkivleveranser bevaras. Fakturautställning har nu ett separat granskningsflöde. Kredit/rättelse av utfärdade dokument, utökad momsavrundning, betalningsavstämning och valt ekonomisystem återstår. Se [kontraktet](ADVERTISING_FINANCIAL_CONTRACT.md) och [faktiska verifieringsresultat](IMPLEMENTATION_STATUS.md).
 
 ## Granskat inbytesköp och lagerintag
 
@@ -30,7 +34,7 @@ Utgångspunkt: publicerad main `ecb0e2557979e5b481f1d18cc7668548a700881c`, PR #1
 | 3 CRM/affär | Kunder, leads, kontaktlogg, uppföljningar, reservationer, offertversion/PDF, kundens offertgranskning/accept/avböjande, kontrollerad avbrytning, internt versionsbundet inbytesunderlag och granskad offertkoppling till kundvy/PDF | Verkligt inbytesköp/avtal samt verklig samtidig reservationsverifiering |
 | 4 Avtal/dokument | Granskade företagsmallar, privata avtalsutkast, selektiv DocuSeal-port, verifierad tvåpartssignering, signerad PDF/signeringsevidens samt privat originalarkiv med konfigurationsspärr | Serverkonfiguration, faktisk hosted Storage-API-verifiering, långtidsbevarande/backup/återställning och slutlig produktionsverifiering |
 | 5 Köpfinansiering | Internt finansintresse och behörighetsgränser | Verklig partneransökan, komplettering, erbjudande, kreditbeslut och utbetalningsstatus |
-| 6 Ekonomi/leverans | Fordonskalkyl, kostnadsunderlag samt verifierade unika annonsenheter, versionsbundna priser, granskning och låsta månadsunderlag med privat CSV | Fakturautställning, betalning, avstämning, bokföringsexport, leverans och ägarbyte |
+| 6 Ekonomi/leverans | Fordonskalkyl, kostnadsunderlag, unika annonsenheter, versionsbundna priser, låsta original/rättelser, granskad moms, fakturautkast och separat numrerat utfärdande med privat PDF | Utökad momsavrundning, kreditfakturor, fakturamejl, betalning/avstämning, bokföringsexport, leverans och ägarbyte |
 | 7 Lagerfinansiering | Produktbehov identifierat | Limit, finansierade bilar, partneravstämning, lösen och frigivning |
 | 8 Handlarnätverk | Informationsvy och gränser för privat data | Publicering, inköpsönskemål, matchning, bud och B2B-affär |
 | 9 Drift/slutverifiering | Publicerade domäner, lokala browser-/actiontester och rollbacktest i hosted databas | Fulla inloggade produktionsflöden, återställningsprov, incident- och supportprocess |

@@ -1,10 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { getPlatformAdvertisingFinancialPageAction, listAdvertisingFinancialPageAction, saveAdvertisingFinancialSettingsAction, createAdvertisingFinancialAssessmentAction, getAdvertisingFinancialAssessmentAction, getPlatformAdvertisingFinancialAssessmentAction } from '@/lib/advertising/financial-actions';
 import type { AdvertisingFinancialPage, AdvertisingFinancialSettings } from '@/lib/advertising/financial-types';
 import { formatOre } from '@/lib/calculations/vehicle-calculation';
 import { isValidFinancialPaymentAccount } from '../lib/advertising/financial-payment';
+
+const AdvertisingIssuedInvoicePanel = dynamic(() => import('./advertising-issued-invoice-panel').then(module => module.AdvertisingIssuedInvoicePanel), { loading: () => <p role="status">Läser in fakturering…</p> });
 
 type Props = { companyId: string; userId: string; role: string; superadmin?: boolean; month: string; draftId: string | null; onDenied?: (message: string) => void };
 type Fields = AdvertisingFinancialSettings['fields'];
@@ -22,6 +25,7 @@ function Preview({ value }: { value: NonNullable<AdvertisingFinancialPage['previ
 export function AdvertisingFinancialPanel(props: Props) { return <Financial key={`${props.companyId}:${props.userId}:${props.role}:${props.superadmin}:${props.month}:${props.draftId}`} {...props}/>; }
 function Financial({ companyId, userId, role, superadmin = false, month, draftId, onDenied }: Props) {
   const [page, setPage] = useState<AdvertisingFinancialPage | null>(null);
+  const [showIssuance, setShowIssuance] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null), [review, setReview] = useState<Review | null>(null);
   const [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [denied, setDenied] = useState(false);
@@ -34,7 +38,7 @@ function Financial({ companyId, userId, role, superadmin = false, month, draftId
   function failure(result: { code?: string; message: string }) { setError(result.message); if (result.code === 'access_denied' || result.code === 'unauthenticated') { ++generation.current; ++detailGeneration.current; setPage(null); setSelected(null); setDetailLoading(false); setReview(null); setEditor(null); setNotice(''); setDenied(true); deniedCallback.current?.(result.message); } }
   function scoped(value: AdvertisingFinancialPage) { return value.companyId === companyId && value.actorUserId === userId && value.actorRole === (superadmin ? 'platform_admin' : role) && value.month === month && (value.draft?.id ?? null) === draftId; }
   useEffect(() => {
-    const request = ++generation.current; ++detailGeneration.current; setPage(null); setSelected(null); setDetailLoading(false); setReview(null); setEditor(null);
+    const request = ++generation.current; ++detailGeneration.current; setPage(null); setSelected(null); setDetailLoading(false); setReview(null); setEditor(null); setShowIssuance(false);
     if (denied) { setLoading(false); return; }
     setLoading(true); setError('');
     void (superadmin ? getPlatformAdvertisingFinancialPageAction : listAdvertisingFinancialPageAction)({ companyId, month, draftId, beforeVersion }).then(result => { if (!alive.current || request !== generation.current) return; if (!result.ok) { failure(result); return; } if (!scoped(result.page)) { failure({ code: 'access_denied', message: 'Företaget, utkastet eller din behörighet har ändrats. Läs in sidan igen.' }); return; } setPage(result.page); }).catch(() => { if (alive.current && request === generation.current) setError('Moms- och betalningsunderlaget kunde inte verifieras. Försök igen.'); }).finally(() => { if (alive.current && request === generation.current) setLoading(false); });
@@ -72,7 +76,7 @@ function Financial({ companyId, userId, role, superadmin = false, month, draftId
     catch { if (alive.current && request === detailGeneration.current && scope === generation.current) setError('Det sparade underlaget kunde inte verifieras. Försök igen.'); }
     finally { if (alive.current && request === detailGeneration.current && scope === generation.current) setDetailLoading(false); }
   }
-  return <section aria-label="Moms och betalningsunderlag" className="surface" style={{ padding: 20, marginTop: 24, minWidth: 0 }}><h3>Moms och betalningsunderlag</h3><p>Granskat fakturaunderlag med moms, ej utfärdad faktura. Inget fakturanummer eller förfallodatum tilldelas. Inga utskick, betalningar eller banköverföringar görs.</p><button type="button" className="button button-outline" disabled={loading || busy || denied} onClick={() => { setPage(null); setEditor(null); setReview(null); setSelected(null); ++detailGeneration.current; setNotice(''); setRefresh(value => value + 1); }}>Uppdatera moms- och betalningsunderlag</button>
+  return <section aria-label="Moms och betalningsunderlag" className="surface" style={{ padding: 20, marginTop: 24, minWidth: 0 }}><h3>Moms och betalningsunderlag</h3><p>Det granskade underlaget är ingen utfärdad faktura. Underlaget tilldelas inget fakturanummer eller förfallodatum. Inga utskick, betalningar eller banköverföringar görs.</p><button type="button" className="button button-outline" disabled={loading || busy || denied} onClick={() => { setPage(null); setEditor(null); setReview(null); setSelected(null); ++detailGeneration.current; setNotice(''); setRefresh(value => value + 1); }}>Uppdatera moms- och betalningsunderlag</button>
     {loading && <p role="status">Verifierar moms- och betalningsunderlag…</p>}{error && <p role="alert" className="form-error">{error}</p>}{notice && <p role="status">{notice}</p>}
     {page && <><h4>Gällande uppgifter · Version {page.settings.version}</h4><Settings fields={page.settings.fields}/>{superadmin && !editor && !review && <button type="button" className="button button-outline" disabled={busy} onClick={() => setEditor({ ...page.settings.fields, paymentDays: page.settings.fields.paymentDays?.toString() ?? '' })}>Ändra moms- och betalningsuppgifter</button>}
       {editor && !review && <section className="workspace-form surface" aria-label="Redigera moms- och betalningsuppgifter" style={{ padding: 18, marginTop: 20 }}><h4>Komplettera moms och betalningsvillkor</h4><p>Välj uppgifterna uttryckligen. Ofullständiga uppgifter får sparas med motivering; de medger inte att ett granskat fakturaunderlag skapas. Kontrollera betalningskontot mot bolagets underlag före granskning.</p>
@@ -90,6 +94,8 @@ function Financial({ companyId, userId, role, superadmin = false, month, draftId
       <h4 style={{ marginTop: 24 }}>Sparade granskade underlag</h4>{page.assessments.length ? <ol style={{ paddingLeft: 20 }}>{page.assessments.map(item => <li key={item.id} style={{ marginBlock: 16, overflowWrap: 'anywhere' }}><strong>Granskat underlag version {item.version} · Ej utfärdad</strong><p>{date(item.createdAt)}<br/>Underlagsreferens: {item.id}</p>{item.isOutdated && <p className="form-privacy">Inaktuella källuppgifter. Det sparade underlaget och dess PDF är oförändrade.</p>}<button type="button" className="text-link" disabled={busy || detailLoading} onClick={() => void showAssessment(item.id)}>Visa granskat underlag version {item.version}</button></li>)}</ol> : <p>Inga granskade underlag har sparats.</p>}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>{beforeVersion !== null && <button type="button" className="button button-outline" disabled={busy || loading} onClick={() => setBeforeVersion(null)}>Visa senaste underlagen</button>}{page.nextBeforeVersion !== null && <button type="button" className="button button-outline" disabled={busy || loading} onClick={() => setBeforeVersion(page.nextBeforeVersion)}>Visa äldre granskade underlag</button>}</div>{detailLoading && <p role="status">Verifierar sparat underlag…</p>}
       {selected && <section aria-label="Valt granskat fakturaunderlag" className="surface" style={{ padding: 18, marginTop: 20 }}><h4>Granskat fakturaunderlag med moms · Version {selected.assessment.version} · Ej utfärdad</h4>{selected.isOutdated && <p className="form-privacy">Detta underlag bygger på äldre uppgifter. Originalet ändras inte.</p>}<p>Underlagsreferens: {selected.assessment.id}<br/>Fakturautkast version {selected.assessment.snapshot.draft.version} · Moms- och betalningsuppgifter version {selected.assessment.snapshot.settings.version}</p><Preview value={{ ...selected.assessment.snapshot, blockers: [] }}/><Settings fields={selected.assessment.snapshot.settings.fields}/><p>Beloppen och betalningsuppgifterna ovan är det sparade originalet. Ingen betalning har registrerats.</p><a className="text-link" href={`/api/advertising/financial/${encodeURIComponent(selected.assessment.id)}/pdf${superadmin ? `?companyId=${encodeURIComponent(companyId)}` : ''}`}>Hämta PDF av granskat underlag version {selected.assessment.version}</a></section>}
+      {selected && !review && !editor && <button type="button" className="button button-outline" style={{ marginTop: 20 }} aria-expanded={showIssuance} onClick={() => setShowIssuance(value => !value)}>{showIssuance ? 'Dölj fakturering och nummerserie' : 'Visa fakturering och nummerserie'}</button>}
+      {selected && showIssuance && <AdvertisingIssuedInvoicePanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={month} assessmentId={selected.assessment.id} onDenied={message => failure({ code: 'access_denied', message })}/>}
     </>}
   </section>;
 }
