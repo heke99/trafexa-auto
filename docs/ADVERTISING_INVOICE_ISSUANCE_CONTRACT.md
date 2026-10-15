@@ -36,7 +36,7 @@ Privat PDF finns på `/api/advertising/issued/[id]/pdf`; `companyId` i query är
 
 Renderer v1 visar fakturanummer, faktura-/förfallodatum, säljarens juridiska namn, organisationsnummer, momsnummer, postadress och registrerade säte; köparens namn/adress; tjänsternas art, omfattning, granskade datum, antal, enhetspris, nedsättning, netto, momssats och momsbelopp; betalningskonto och referens. Samma sparade källa ger identiska bytes vid upprepad rendering med denna renderer och dess paketerade typsnitt. Fakturan är inte ett betalningskvitto. Databasbackup och återställningsrutiner krävs för det sparade ekonomiska originalet; separat bytearkivering och långtidsbevarande är fortsatta driftuppgifter.
 
-Ingen e-post skickas vid utfärdande i denna etapp. Automatisk bankanslutning, betalstatus, påminnelser, ränta, inkasso, kreditfakturor, bokföring och integration med valt ekonomisystem ingår inte. Ekonomileverantör är ännu inte vald. Verifierad driftstatus och testernas praktiska gränser redovisas i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
+Full kreditering tillkommer genom det separata [kreditfakturakontraktet](ADVERTISING_CREDIT_INVOICE_CONTRACT.md); originalets utfärdande och PDF bevaras. Ingen e-post skickas vid utfärdande i denna etapp. Automatisk bankanslutning, betalstatus, påminnelser, ränta, inkasso, kreditfakturor, bokföring och integration med valt ekonomisystem ingår inte. Ekonomileverantör är ännu inte vald. Verifierad driftstatus och testernas praktiska gränser redovisas i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
 
 ## Primärkällor
 
