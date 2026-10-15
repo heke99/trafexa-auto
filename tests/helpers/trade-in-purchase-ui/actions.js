@@ -1,0 +1,5 @@
+export const getTradeInAcquisitionAction=input=>window.fixture.call('read',input);
+export const recordTradeInAcquisitionAction=input=>window.fixture.call('write',input);
+export async function loadDealerRegisterPage(input){const snapshot=window.fixture.snapshot;return {ok:true,page:{kind:'deals',companyId:snapshot.organization.id,actorId:snapshot.user.id,role:snapshot.membership.role,rows:snapshot.deals.map(row=>({...row,customer:snapshot.customers[0],stockItem:snapshot.inventory[0]})),totalCount:snapshot.deals.length,filteredCount:snapshot.deals.length,counts:{all:snapshot.deals.length,draft:snapshot.deals.length},nextCursor:null}};}
+const unexpected=()=>{throw Error('Unrelated write in isolated purchase UI fixture.');};
+export const createVehicleAction=unexpected,createCustomerAction=unexpected,reserveVehicleAction=unexpected,createFinanceRequestAction=unexpected,releaseReservationAction=unexpected,updateVehiclePriceAction=unexpected,createVehicleCostAction=unexpected,signOutAction=unexpected,selectCompanyAction=unexpected,loadVehicleCosts=unexpected;
