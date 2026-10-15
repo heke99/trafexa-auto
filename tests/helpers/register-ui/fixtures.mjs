@@ -1,0 +1,13 @@
+export const COMPANY='10000000-0000-4000-8000-000000000001';
+export const USER='10000000-0000-4000-8000-000000000002';
+export const OTHER_COMPANY='10000000-0000-4000-8000-000000000003';
+export const OTHER_USER='10000000-0000-4000-8000-000000000004';
+export const uid=n=>`20000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+export const customer=(n,name=`Kund ${String(n).padStart(4,'0')}`)=>({id:uid(n),name,email:`kund${n}@example.invalid`,phone:null,kind:n%2?'person':'business',address:null,notes:null,created_at:'2026-10-15T12:00:00Z'});
+export const stock=(n,{make='Volvo',status='available',price=19900029}={})=>({id:uid(100000+n),status,acquired_on:'2026-10-01',purchase_price_ore:15000000,asking_price_ore:price,vat_scheme:'standard',vehicles:{id:uid(200000+n),registration_number:`QA${String(n).padStart(5,'0')}`,make,model:`V60 ${String(n).padStart(4,'0')}`,model_year:2022,mileage_km:48000,fuel:'hybrid',gearbox:'automatic'}});
+export function deal(n){const c=customer(n),s=stock(n);return {id:uid(300000+n),status:'draft',sale_price_ore:s.asking_price_ore,customer_id:c.id,stock_item_id:s.id,created_at:'2026-10-15T12:00:00Z',customer:c,stockItem:s};}
+export const scope=({companyId=COMPANY,actorId=USER,role='owner'}={})=>({companyId,actorId,role});
+export function registerPage({kind='inventory',rows=[kind==='inventory'?stock(1):kind==='customers'?customer(1):deal(1)],total=1207,filtered=total,nextCursor=null,counts,...identity}={}){return {ok:true,page:{...scope(identity),kind,rows,totalCount:total,filteredCount:filtered,counts:counts??{all:total,available:1000,reserved:207,person:600,business:607,draft:1000},nextCursor}};}
+export function optionsPage({kind='customers',rows=[kind==='customers'?customer(1):stock(1)],selected=null,total=1207,filtered=total,nextCursor=null,...identity}={}){return {ok:true,page:{...scope(identity),kind,rows,selected,totalCount:total,filteredCount:filtered,nextCursor}};}
+export function snapshot({size=500,companyId=COMPANY,userId=USER,role='owner'}={}){const organization={id:companyId,name:'Fiktiv QA Bilhandel',organisation_number:'Fiktivt företag'},membership={company_id:companyId,role,companies:organization};return {user:{id:userId,email:'qa@example.invalid'},organization,membership,memberships:[membership],inventory:Array.from({length:size},(_,i)=>stock(i+1)),customers:Array.from({length:size},(_,i)=>customer(i+1)),deals:Array.from({length:Math.min(size,10)},(_,i)=>{const {customer,stockItem,...row}=deal(i+1);return row;}),vehicle_costs:[],finance_applications:[],documents:[],activities:[],finance_partners:[],dealer_approvals:[],integrations:[]};}
+export const registerProps=(kind='inventory',overrides={})=>({kind,companyId:COMPANY,userId:USER,role:'owner',snapshot:snapshot(),...overrides});

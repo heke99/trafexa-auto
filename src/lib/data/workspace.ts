@@ -31,15 +31,6 @@ async function dashboardTotals(db:Awaited<ReturnType<typeof createServerSupabase
   return {totals:parseInventoryDashboardTotals(data,company.toLowerCase())};
  } catch {return {error:'Företagets totalsiffror kunde inte verifieras. Läs in sidan igen.'};}
 }
-async function getVehicleCosts(db:Awaited<ReturnType<typeof createServerSupabaseClient>>,company:string):Promise<VehicleCost[]> {
- const costs:VehicleCost[]=[];
- for(let offset=0;;offset+=500) {
-  const {data,error}=await db.from('vehicle_costs').select('id,stock_item_id,category,description,amount_ore,incurred_on,created_at').eq('company_id',company).order('id').range(offset,offset+499);
-  if(error)throw new Error('Bilarnas kostnader kunde inte hämtas. Försök igen.');
-  costs.push(...(data??[]) as VehicleCost[]);
-  if(!data||data.length<500)return costs;
- }
-}
 export async function getWorkspaceSnapshot():Promise<WorkspaceSnapshot|null> {
  const session=await getCompanySession();
  if(!session)return null;
@@ -47,7 +38,7 @@ export async function getWorkspaceSnapshot():Promise<WorkspaceSnapshot|null> {
  const snapshot:WorkspaceSnapshot={user,organization:membership?.companies??null,membership,memberships,inventory:[],vehicle_costs:[],customers:[],deals:[],finance_applications:[],documents:[],activities:[],finance_partners:[],dealer_approvals:[],integrations:[]};
  if(!membership)return snapshot;
  const company=membership.company_id;
- const [results,costs,totals]=await Promise.all([Promise.all([
+ const [results,totals]=await Promise.all([Promise.all([
  db.from('stock_items').select('id,status,acquired_on,purchase_price_ore,asking_price_ore,vat_scheme,vehicles(id,registration_number,make,model,model_year,mileage_km,fuel,gearbox)').eq('company_id',company).order('created_at',{ascending:false}).limit(500),
  db.from('customers').select('*').eq('company_id',company).order('created_at',{ascending:false}).limit(500),
  db.from('deals').select('*').eq('company_id',company).order('created_at',{ascending:false}).limit(500),
@@ -56,11 +47,11 @@ export async function getWorkspaceSnapshot():Promise<WorkspaceSnapshot|null> {
  db.from('activities').select('*').eq('company_id',company).order('created_at',{ascending:false}).limit(50),
  db.from('finance_partners').select('id,name,status'),
  db.from('dealer_approvals').select('*').eq('company_id',company)
- ]),getVehicleCosts(db,company),dashboardTotals(db,company)]);
+ ]),dashboardTotals(db,company)]);
  if(results.some(r=>r.error)) throw new Error('Uppgifterna kunde inte hämtas. Försök igen.');
  snapshot.inventory=results[0].data as unknown as InventoryItem[];
- const stockIds=new Set(snapshot.inventory.map(item=>item.id));
- snapshot.vehicle_costs=costs.filter(cost=>stockIds.has(cost.stock_item_id));
+ // Detailed costs are loaded only for the opened vehicle through the scoped action.
+ snapshot.vehicle_costs=[];
  snapshot.customers=results[1].data as Customer[];snapshot.deals=results[2].data as Deal[];
  snapshot.finance_applications=results[3].data as FinanceApplication[];snapshot.documents=results[4].data as Document[];
  snapshot.activities=results[5].data as Activity[];snapshot.finance_partners=results[6].data as FinancePartner[];snapshot.dealer_approvals=results[7].data as DealerApproval[];

@@ -6,7 +6,8 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type Database = {
+/** Raw Supabase schema snapshot. RPC call compatibility is defined below. */
+export type GeneratedDatabase = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
@@ -112,6 +113,7 @@ export type Database = {
           name: string
           organisation_number: string
           status: string
+          team_version: number
         }
         Insert: {
           created_at?: string
@@ -120,6 +122,7 @@ export type Database = {
           name: string
           organisation_number: string
           status?: string
+          team_version?: number
         }
         Update: {
           created_at?: string
@@ -128,6 +131,7 @@ export type Database = {
           name?: string
           organisation_number?: string
           status?: string
+          team_version?: number
         }
         Relationships: []
       }
@@ -461,6 +465,7 @@ export type Database = {
           role: string
           status: string
           user_id: string
+          version: number
         }
         Insert: {
           company_id: string
@@ -469,6 +474,7 @@ export type Database = {
           role: string
           status?: string
           user_id: string
+          version?: number
         }
         Update: {
           company_id?: string
@@ -477,6 +483,7 @@ export type Database = {
           role?: string
           status?: string
           user_id?: string
+          version?: number
         }
         Relationships: [
           {
@@ -589,36 +596,45 @@ export type Database = {
         Row: {
           acquired_on: string
           asking_price_ore: number
+          calculation_version: number
           company_id: string
           created_at: string
           currency: string
           id: string
           purchase_price_ore: number
+          purchase_vat_ore: number | null
           status: string
+          vat_basis_confirmed: boolean
           vat_scheme: string
           vehicle_id: string
         }
         Insert: {
           acquired_on?: string
           asking_price_ore: number
+          calculation_version?: number
           company_id: string
           created_at?: string
           currency?: string
           id?: string
           purchase_price_ore: number
+          purchase_vat_ore?: number | null
           status?: string
+          vat_basis_confirmed?: boolean
           vat_scheme: string
           vehicle_id: string
         }
         Update: {
           acquired_on?: string
           asking_price_ore?: number
+          calculation_version?: number
           company_id?: string
           created_at?: string
           currency?: string
           id?: string
           purchase_price_ore?: number
+          purchase_vat_ore?: number | null
           status?: string
+          vat_basis_confirmed?: boolean
           vat_scheme?: string
           vehicle_id?: string
         }
@@ -645,6 +661,7 @@ export type Database = {
           category: string
           company_id: string
           created_at: string
+          deductible_vat_ore: number | null
           description: string
           id: string
           incurred_on: string
@@ -655,6 +672,7 @@ export type Database = {
           category: string
           company_id: string
           created_at?: string
+          deductible_vat_ore?: number | null
           description: string
           id?: string
           incurred_on?: string
@@ -665,6 +683,7 @@ export type Database = {
           category?: string
           company_id?: string
           created_at?: string
+          deductible_vat_ore?: number | null
           description?: string
           id?: string
           incurred_on?: string
@@ -742,9 +761,86 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_company_invitation: {
+        Args: {
+          p_expected_version: number
+          p_invitation_id: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      archive_vehicle_photo: {
+        Args: {
+          p_company_id: string
+          p_expected_version: number
+          p_photo_id: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      cancel_deal: {
+        Args: {
+          p_company_id: string
+          p_deal_id: string
+          p_expected_status: string
+          p_reason: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      check_transactional_email_lease: {
+        Args: { p_id: string; p_lease_id: string }
+        Returns: boolean
+      }
+      claim_advertising_job: {
+        Args: {
+          p_claim_token: string
+          p_expected_version: number
+          p_job_id: string
+        }
+        Returns: Json
+      }
+      claim_platform_admin_access: { Args: never; Returns: Json }
+      claim_transactional_email: {
+        Args: { p_kind?: string; p_reference?: string }
+        Returns: Json
+      }
       create_company: {
         Args: { company_name: string; org_number: string }
         Returns: string
+      }
+      create_company_invitation: {
+        Args: {
+          p_company_id: string
+          p_email: string
+          p_expected_team_version: number
+          p_request_id: string
+          p_role: string
+        }
+        Returns: Json
+      }
+      create_contract_template_version: {
+        Args: {
+          p_body: string
+          p_company_id: string
+          p_expected_version: number
+          p_request_id: string
+          p_template_id: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      create_customer_contact: {
+        Args: {
+          p_company_id: string
+          p_contact_on: string
+          p_customer_id: string
+          p_follow_up_on: string
+          p_kind: string
+          p_request_id: string
+          p_summary: string
+        }
+        Returns: Json
       }
       create_customer_lead: {
         Args: {
@@ -777,6 +873,53 @@ export type Database = {
         }
         Returns: string
       }
+      create_offer_version_with_trade_in: {
+        Args: {
+          company: string
+          deal: string
+          expected_offer_version: number
+          expected_sale_price_ore: number
+          expected_trade_in_version: number
+          gross_confirmed: boolean
+          submission: string
+          terms: string
+          trade_in_id: string
+          valid_until: string
+        }
+        Returns: string
+      }
+      create_purchase_condition_version: {
+        Args: {
+          p_acquired_on: string
+          p_checked_on: string
+          p_company_id: string
+          p_conditions: Json
+          p_document_reference: string
+          p_expected_calculation_version: number
+          p_expected_purchase_price_ore: number
+          p_expected_vehicle_id: string
+          p_expected_version: number
+          p_mileage_km: number
+          p_repair_estimate_ore: number
+          p_request_id: string
+          p_stock_id: string
+          p_supplier_kind: string
+          p_supplier_name: string
+          p_supplier_organisation_number: string
+        }
+        Returns: Json
+      }
+      create_sale_contract_draft: {
+        Args: {
+          p_company_id: string
+          p_deal_id: string
+          p_expected_template_approval_version: number
+          p_offer_id: string
+          p_request_id: string
+          p_template_version_id: string
+        }
+        Returns: Json
+      }
       create_stock: {
         Args: {
           asking_ore: number
@@ -793,17 +936,464 @@ export type Database = {
         }
         Returns: string
       }
+      create_trade_in_version: {
+        Args: {
+          p_company_id: string
+          p_condition_notes: string
+          p_deal_id: string
+          p_debt_known: boolean
+          p_debt_ore: number
+          p_equipment_notes: string
+          p_expected_sale_price_ore: number
+          p_expected_version: number
+          p_lender_name: string
+          p_make: string
+          p_mileage_km: number
+          p_model: string
+          p_model_year: number
+          p_registration: string
+          p_request_id: string
+          p_value_ore: number
+        }
+        Returns: Json
+      }
+      dealer_register_page: {
+        Args: {
+          p_company_id: string
+          p_cursor?: Json
+          p_kind: string
+          p_options?: boolean
+          p_query?: string
+          p_selected_id?: string
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      erase_platform_web_application: {
+        Args: {
+          p_application_id: string
+          p_expected_version: number
+          p_reason: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      expire_advertising_dispatch: {
+        Args: { p_expected_version: number; p_job_id: string }
+        Returns: Json
+      }
+      finish_transactional_email: {
+        Args: {
+          p_id: string
+          p_lease_id: string
+          p_provider_id?: string
+          p_status: string
+        }
+        Returns: boolean
+      }
+      get_account_access: { Args: never; Returns: Json }
+      get_advertising_job: { Args: { p_job_id: string }; Returns: Json }
+      get_contract_signing: {
+        Args: { p_company_id?: string; p_signing_id: string }
+        Returns: Json
+      }
+      get_platform_admin_session: { Args: never; Returns: Json }
+      get_platform_advertising_billing: {
+        Args: { p_company_id: string; p_month: string }
+        Returns: Json
+      }
+      get_platform_advertising_quantities: {
+        Args: { p_company_id: string; p_month: string }
+        Returns: Json
+      }
+      get_platform_advertising_usage: {
+        Args: { p_company_id: string; p_month: string }
+        Returns: Json
+      }
+      get_platform_overview: { Args: never; Returns: Json }
+      get_platform_web_application: {
+        Args: { p_application_id: string }
+        Returns: Json
+      }
+      get_purchase_condition_version: {
+        Args: { p_company_id: string; p_stock_id: string; p_version: number }
+        Returns: Json
+      }
+      get_sale_contract_draft: {
+        Args: { p_company_id: string; p_draft_id: string }
+        Returns: Json
+      }
+      get_stock_advertising: {
+        Args: { p_company_id: string; p_stock_id: string }
+        Returns: Json
+      }
+      get_transactional_email_status: { Args: never; Returns: Json }
+      get_vehicle_calculation: {
+        Args: { p_company_id: string; p_stock_item_id: string }
+        Returns: Json
+      }
+      get_vehicle_photo: {
+        Args: { p_company_id: string; p_photo_id: string }
+        Returns: Json
+      }
       import_stock_batch: {
         Args: { company: string; payload: Json; submission: string }
         Returns: number
+      }
+      inventory_dashboard_totals: {
+        Args: { p_company_id: string }
+        Returns: Json
+      }
+      list_advertising_billing: {
+        Args: { p_company_id: string; p_month: string }
+        Returns: Json
+      }
+      list_advertising_quantities: {
+        Args: { p_company_id: string; p_month: string }
+        Returns: Json
+      }
+      list_advertising_stock: {
+        Args: { p_company_id: string; p_limit?: number; p_page_key?: string }
+        Returns: Json
+      }
+      list_advertising_usage: {
+        Args: { p_company_id: string; p_month: string }
+        Returns: Json
+      }
+      list_company_advertising: {
+        Args: {
+          p_company_id: string
+          p_jobs_page_key?: string
+          p_limit?: number
+          p_page_key?: string
+        }
+        Returns: Json
+      }
+      list_company_team: {
+        Args: {
+          p_company_id: string
+          p_invitations_page_key?: string
+          p_limit?: number
+          p_members_page_key?: string
+        }
+        Returns: Json
+      }
+      list_contract_templates: {
+        Args: {
+          p_before_template_id?: string
+          p_company_id: string
+          p_template_id?: string
+        }
+        Returns: Json
+      }
+      list_customer_contacts: {
+        Args: {
+          p_company_id: string
+          p_customer_id: string
+          p_limit?: number
+          p_page_key?: string
+        }
+        Returns: Json
+      }
+      list_customer_follow_ups: {
+        Args: {
+          p_company_id: string
+          p_filter?: string
+          p_limit?: number
+          p_page_key?: string
+        }
+        Returns: Json
+      }
+      list_deal_contract_signings: {
+        Args: { p_company_id: string; p_deal_id: string }
+        Returns: Json
+      }
+      list_deal_contracts: {
+        Args: {
+          p_before_draft_version?: number
+          p_company_id: string
+          p_deal_id: string
+        }
+        Returns: Json
+      }
+      list_deal_offer_reviews: {
+        Args: { p_company_id: string; p_deal_id: string }
+        Returns: Json
+      }
+      list_deal_trade_ins: {
+        Args: {
+          p_before_version?: number
+          p_company_id: string
+          p_deal_id: string
+          p_limit?: number
+        }
+        Returns: Json
+      }
+      list_my_company_invitations: {
+        Args: { p_limit?: number; p_page_key?: string }
+        Returns: Json
+      }
+      list_my_contract_signings: {
+        Args: { p_before_id?: string }
+        Returns: Json
+      }
+      list_my_offer_reviews: {
+        Args: { p_limit?: number; p_page_key?: string }
+        Returns: Json
+      }
+      list_platform_accounts: {
+        Args: { p_filter?: string; p_limit?: number; p_page_key?: string }
+        Returns: Json
+      }
+      list_platform_companies: {
+        Args: { p_limit?: number; p_page_key?: string; p_search?: string }
+        Returns: Json
+      }
+      list_platform_contact_requests: {
+        Args: { p_limit?: number; p_page_key?: string }
+        Returns: Json
+      }
+      list_stock_purchase_conditions: {
+        Args: {
+          p_before_version?: number
+          p_company_id: string
+          p_limit?: number
+          p_stock_id: string
+        }
+        Returns: Json
+      }
+      list_vehicle_photos: {
+        Args: {
+          p_company_id: string
+          p_limit?: number
+          p_page_key?: string
+          p_stock_id: string
+        }
+        Returns: Json
+      }
+      lock_advertising_billing_period: {
+        Args: {
+          p_company_id: string
+          p_expected_review_token: string
+          p_month: string
+          p_partial_coverage_acknowledged: boolean
+          p_request_id: string
+          p_review_acknowledged: boolean
+        }
+        Returns: Json
+      }
+      mark_vehicle_advertisement_ready: {
+        Args: {
+          p_company_id: string
+          p_expected_version: number
+          p_listing_id: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      publish_offer_review: {
+        Args: {
+          p_company_id: string
+          p_deal_id: string
+          p_offer_id: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      reconcile_advertising_billing: {
+        Args: {
+          p_channel: string
+          p_company_id: string
+          p_expected_review_token: string
+          p_month: string
+          p_reason: string
+          p_request_id: string
+          p_review_acknowledged: boolean
+          p_unit_price_ore: string
+        }
+        Returns: Json
+      }
+      refresh_advertising_dispatcher: {
+        Args: {
+          p_available_until: string
+          p_channel: string
+          p_dispatcher_id: string
+        }
+        Returns: Json
+      }
+      register_vehicle_photo: {
+        Args: {
+          p_company_id: string
+          p_content_type: string
+          p_object_path: string
+          p_photo_id: string
+          p_request_id: string
+          p_size_bytes: number
+          p_stock_id: string
+        }
+        Returns: Json
       }
       release_reservation: {
         Args: { company: string; deal: string }
         Returns: undefined
       }
+      request_advertising_connection: {
+        Args: {
+          p_account_reference: string
+          p_channel: string
+          p_company_id: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      request_contract_signing: {
+        Args: {
+          p_acknowledged: boolean
+          p_company_id: string
+          p_deal_id: string
+          p_draft_id: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
       reserve_vehicle: {
         Args: { company: string; deal: string; hours?: number }
         Returns: string
+      }
+      respond_offer_review: {
+        Args: {
+          p_ack_version: string
+          p_decision: string
+          p_expected_version: number
+          p_reason: string
+          p_request_id: string
+          p_responder_name: string
+          p_review_id: string
+        }
+        Returns: Json
+      }
+      review_contract_template: {
+        Args: {
+          p_company_id: string
+          p_expected_approval_version: number
+          p_reason: string
+          p_request_id: string
+          p_status: string
+          p_template_version_id: string
+        }
+        Returns: Json
+      }
+      revoke_company_invitation: {
+        Args: {
+          p_company_id: string
+          p_expected_version: number
+          p_invitation_id: string
+          p_reason: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      save_advertising_channel_rate: {
+        Args: {
+          p_channel: string
+          p_company_id: string
+          p_expected_version: number
+          p_request_id: string
+          p_unit_price_ore: string
+        }
+        Returns: Json
+      }
+      save_advertising_job: {
+        Args: {
+          p_claim_token: string
+          p_error_code?: string
+          p_expected_version: number
+          p_job_id: string
+          p_provider_ad_id?: string
+          p_provider_url?: string
+          p_status: string
+        }
+        Returns: Json
+      }
+      save_vehicle_advertisement: {
+        Args: {
+          p_company_id: string
+          p_description: string
+          p_expected_version: number
+          p_include_registration_number: boolean
+          p_listing_id: string
+          p_photo_ids: string[]
+          p_request_id: string
+          p_stock_id: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      save_vehicle_calculation_metadata: {
+        Args: {
+          p_company_id: string
+          p_cost_vat: Json
+          p_expected_version: string
+          p_purchase_vat_ore: string
+          p_stock_item_id: string
+          p_vat_basis_confirmed: boolean
+        }
+        Returns: Json
+      }
+      send_vehicle_advertisement: {
+        Args: {
+          p_channels: string[]
+          p_company_id: string
+          p_expected_version: number
+          p_listing_id: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      set_platform_account_access: {
+        Args: {
+          p_expected_version: number
+          p_reason: string
+          p_request_id: string
+          p_status: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      set_platform_company_status: {
+        Args: {
+          p_company_id: string
+          p_expected_status: string
+          p_reason: string
+          p_request_id: string
+          p_status: string
+        }
+        Returns: Json
+      }
+      set_platform_web_application_status: {
+        Args: {
+          p_application_id: string
+          p_expected_version: number
+          p_reason: string
+          p_request_id: string
+          p_status: string
+        }
+        Returns: Json
+      }
+      sign_contract: {
+        Args: {
+          p_acknowledged: boolean
+          p_company_id: string
+          p_consent_version: string
+          p_document_hash: string
+          p_expected_revision: number
+          p_full_name: string
+          p_request_id: string
+          p_signing_id: string
+          p_strokes: Json
+        }
+        Returns: Json
       }
       stock_import_duplicate_registrations: {
         Args: { company: string; registrations: string[] }
@@ -819,6 +1409,56 @@ export type Database = {
         }
         Returns: undefined
       }
+      submit_web_application: {
+        Args: {
+          p_company: string
+          p_email: string
+          p_message: string
+          p_name: string
+          p_organisation_number: string
+          p_phone: string
+          p_privacy_acknowledged: boolean
+          p_privacy_version: string
+          p_request_id: string
+          p_seeking: string[]
+        }
+        Returns: Json
+      }
+      update_company_team_member: {
+        Args: {
+          p_company_id: string
+          p_expected_version: number
+          p_membership_id: string
+          p_reason: string
+          p_request_id: string
+          p_role: string
+          p_status: string
+        }
+        Returns: Json
+      }
+      update_customer_follow_up: {
+        Args: {
+          p_company_id: string
+          p_contact_id: string
+          p_customer_id: string
+          p_expected_version: number
+          p_reason: string
+          p_request_id: string
+          p_status: string
+        }
+        Returns: Json
+      }
+      withdraw_offer_review: {
+        Args: {
+          p_company_id: string
+          p_deal_id: string
+          p_expected_version: number
+          p_reason: string
+          p_request_id: string
+          p_review_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
@@ -826,6 +1466,91 @@ export type Database = {
     CompositeTypes: {
       [_ in never]: never
     }
+  }
+}
+
+/**
+ * PostgreSQL argument metadata does not describe nullable arguments, and the
+ * generator represents bigint inputs as number. Existing feature contracts use
+ * explicit null for absent cursors/optional values and decimal strings for exact
+ * bigint values. Preserve those verified SQL contracts without changing the raw
+ * schema, table rows, relationships, return types or the application's callers.
+ *
+ * Feature databases intersect their RPC contracts with Database. These patches
+ * prevent those intersections from removing null or reducing bigint inputs to
+ * number & string (never). New generated RPCs remain available automatically.
+ */
+type RpcArgumentCompatibility = {
+  create_customer_contact: { p_follow_up_on: string | null }
+  create_offer_version_with_trade_in: {
+    trade_in_id: string | null
+    expected_trade_in_version: number | null
+    expected_sale_price_ore: number | string
+  }
+  create_purchase_condition_version: {
+    p_expected_purchase_price_ore: number | string
+    p_expected_calculation_version: number | string
+    p_supplier_organisation_number: string | null
+    p_document_reference: string | null
+    p_repair_estimate_ore: number | string | null
+  }
+  create_trade_in_version: {
+    p_expected_sale_price_ore: number | string
+    p_value_ore: number | string
+    p_debt_ore: number | string | null
+    p_lender_name: string | null
+  }
+  dealer_register_page: { p_selected_id: string | null }
+  finish_transactional_email: { p_provider_id: string | null }
+  get_contract_signing: { p_company_id: string | null }
+  list_advertising_stock: { p_page_key: string | null }
+  list_company_advertising: {
+    p_page_key: string | null
+    p_jobs_page_key: string | null
+  }
+  list_company_team: {
+    p_members_page_key: string | null
+    p_invitations_page_key: string | null
+  }
+  list_contract_templates: {
+    p_before_template_id: string | null
+    p_template_id: string | null
+  }
+  list_customer_contacts: { p_page_key: string | null }
+  list_customer_follow_ups: { p_page_key: string | null }
+  list_deal_contracts: { p_before_draft_version: number | null }
+  list_deal_trade_ins: { p_before_version: number | null }
+  list_my_company_invitations: { p_page_key: string | null }
+  list_my_contract_signings: { p_before_id: string | null }
+  list_my_offer_reviews: { p_page_key: string | null }
+  list_platform_accounts: { p_page_key: string | null }
+  list_platform_companies: { p_page_key: string | null }
+  list_platform_contact_requests: { p_page_key: string | null }
+  list_stock_purchase_conditions: { p_before_version: number | null }
+  list_vehicle_photos: { p_page_key: string | null }
+  respond_offer_review: { p_reason: string | null }
+  save_vehicle_calculation_metadata: { p_purchase_vat_ore: string | null }
+  sign_contract: { p_company_id: string | null }
+}
+
+type GeneratedFunctions = GeneratedDatabase["public"]["Functions"]
+type PatchRpcArguments<Arguments, Patch> = {
+  // A homomorphic mapped type preserves the generator's optional argument flags.
+  [Key in keyof Arguments]: Key extends keyof Patch ? Patch[Key] : Arguments[Key]
+}
+type CompatibleFunctions = {
+  [Name in keyof GeneratedFunctions]: Omit<GeneratedFunctions[Name], "Args"> & {
+    Args: [GeneratedFunctions[Name]["Args"]] extends [never]
+      ? Record<string, never>
+      : Name extends keyof RpcArgumentCompatibility
+        ? PatchRpcArguments<GeneratedFunctions[Name]["Args"], RpcArgumentCompatibility[Name]>
+        : GeneratedFunctions[Name]["Args"]
+  }
+}
+
+export type Database = Omit<GeneratedDatabase, "public"> & {
+  public: Omit<GeneratedDatabase["public"], "Functions"> & {
+    Functions: CompatibleFunctions
   }
 }
 
