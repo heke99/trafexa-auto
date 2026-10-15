@@ -10,7 +10,9 @@ const nextConfig: NextConfig = {
       { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
       { key: 'X-Frame-Options', value: 'DENY' },
       { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' }
-    ] }];
+    ] },
+    { source: '/api/company-store-profile/:path*', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
+    { source: '/api/dealer-companies', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] }];
   }
 };
 export default nextConfig;

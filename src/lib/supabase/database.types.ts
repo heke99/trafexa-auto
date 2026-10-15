@@ -804,6 +804,20 @@ export type GeneratedDatabase = {
         Args: { p_kind?: string; p_reference?: string }
         Returns: Json
       }
+      create_advertising_financial_assessment: {
+        Args: {
+          p_company_id: string
+          p_draft_id: string
+          p_expected_draft_source_hash: string
+          p_expected_review_token: string
+          p_expected_settings_review_token: string
+          p_expected_settings_version: number
+          p_month: string
+          p_request_id: string
+          p_review_acknowledged: boolean
+        }
+        Returns: Json
+      }
       create_advertising_invoice_draft: {
         Args: {
           p_company_id: string
@@ -840,6 +854,16 @@ export type GeneratedDatabase = {
           p_expected_team_version: number
           p_request_id: string
           p_role: string
+        }
+        Returns: Json
+      }
+      create_company_with_profile: {
+        Args: {
+          p_fields: Json
+          p_legal_name: string
+          p_organisation_number: string
+          p_representation_acknowledged: boolean
+          p_request_id: string
         }
         Returns: Json
       }
@@ -1017,11 +1041,23 @@ export type GeneratedDatabase = {
         Returns: boolean
       }
       get_account_access: { Args: never; Returns: Json }
+      get_advertising_financial_assessment: {
+        Args: { p_company_id: string; p_id: string }
+        Returns: Json
+      }
       get_advertising_invoice_draft: {
         Args: { p_company_id: string; p_id: string }
         Returns: Json
       }
       get_advertising_job: { Args: { p_job_id: string }; Returns: Json }
+      get_company_store_export: {
+        Args: { p_company_id: string; p_export_id: string }
+        Returns: Json
+      }
+      get_company_store_profile: {
+        Args: { p_company_id: string }
+        Returns: Json
+      }
       get_contract_signing: {
         Args: { p_company_id?: string; p_signing_id: string }
         Returns: Json
@@ -1037,6 +1073,19 @@ export type GeneratedDatabase = {
       }
       get_platform_advertising_corrections: {
         Args: { p_company_id: string; p_month: string }
+        Returns: Json
+      }
+      get_platform_advertising_financial_assessment: {
+        Args: { p_company_id: string; p_id: string }
+        Returns: Json
+      }
+      get_platform_advertising_financial_page: {
+        Args: {
+          p_before_version?: number
+          p_company_id: string
+          p_draft_id?: string
+          p_month: string
+        }
         Returns: Json
       }
       get_platform_advertising_invoice_draft: {
@@ -1103,6 +1152,15 @@ export type GeneratedDatabase = {
       }
       list_advertising_corrections: {
         Args: { p_company_id: string; p_month: string }
+        Returns: Json
+      }
+      list_advertising_financial_page: {
+        Args: {
+          p_before_version?: number
+          p_company_id: string
+          p_draft_id?: string
+          p_month: string
+        }
         Returns: Json
       }
       list_advertising_invoice_page: {
@@ -1252,6 +1310,19 @@ export type GeneratedDatabase = {
           p_company_id: string
           p_expected_version: number
           p_listing_id: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      prepare_company_store_export: {
+        Args: {
+          p_acknowledged: boolean
+          p_attestation_version: string
+          p_channel: string
+          p_company_id: string
+          p_expected_source_sha256: string
+          p_expected_version: number
+          p_purpose: string
           p_request_id: string
         }
         Returns: Json
@@ -1415,6 +1486,16 @@ export type GeneratedDatabase = {
         }
         Returns: Json
       }
+      save_advertising_financial_settings: {
+        Args: {
+          p_company_id: string
+          p_expected_version: number
+          p_fields: Json
+          p_request_id: string
+          p_review_acknowledged: boolean
+        }
+        Returns: Json
+      }
       save_advertising_job: {
         Args: {
           p_claim_token: string
@@ -1429,6 +1510,16 @@ export type GeneratedDatabase = {
       }
       save_advertising_seller_profile: {
         Args: {
+          p_expected_version: number
+          p_fields: Json
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      save_company_store_profile: {
+        Args: {
+          p_acknowledged: boolean
+          p_company_id: string
           p_expected_version: number
           p_fields: Json
           p_request_id: string

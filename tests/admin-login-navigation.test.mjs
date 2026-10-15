@@ -14,7 +14,7 @@ async function harness({admin=true,user={id,email:'owner@example.invalid',email_
   '@/lib/supabase/server':{createServerSupabaseClient:async()=>db},
   '@/lib/data/workspace':{getWorkspaceSnapshot:async()=>snapshot},
   '@/lib/account-access/context':{getAccountAccessContext:async()=>user?{userId:id,emailVerified:true,status:approved?'approved':'pending',isPlatformAdmin:admin}:null},
-  '@/components/dealer-workspace':{DealerWorkspace:()=>null},'@/components/auth-shell':{AuthShell:()=>null},
+  '@/components/company-onboarding':{CompanyOnboarding:()=>null},'@/components/dealer-workspace':{DealerWorkspace:()=>null},'@/components/auth-shell':{AuthShell:()=>null},
  });
  return {loader,calls};
 }

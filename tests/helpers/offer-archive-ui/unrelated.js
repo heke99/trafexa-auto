@@ -21,3 +21,5 @@ export function DealCancellation(props) { return React.createElement('span',{'da
 export function DealTradeIns(props) { return React.createElement('span',{'data-trade-in':props.dealId,'data-company':props.companyId,'data-edit':String(props.canEdit),'data-demo':String(!!props.demo)},'Inbytesfixture'); }
 
 export const DealTradeInPurchase=()=>null;
+
+export const CompanyStoreProfile=()=>null;
