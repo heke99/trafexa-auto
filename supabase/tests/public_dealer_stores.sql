@@ -1,0 +1,52 @@
+-- Collision-checked synthetic metadata; transaction always rolls back.
+begin;
+-- BEGIN PUBLIC STORE FIXTURES
+do $$begin if exists(select 1 from auth.users where id::text like 'fd200000-0000-4000-8000-%') then raise exception 'Public store fixture collision';end if;end$$;
+insert into auth.users(id,email,email_confirmed_at)values('fd200000-0000-4000-8000-000000000001','public-store-1@fixture.invalid',now()),('fd200000-0000-4000-8000-000000000002','public-store-2@fixture.invalid',now()),('fd200000-0000-4000-8000-000000000003','public-store-3@fixture.invalid',now()),('fd200000-0000-4000-8000-000000000004','public-store-4@fixture.invalid',now()),('fd200000-0000-4000-8000-000000000005','public-store-5@fixture.invalid',now()),('fd200000-0000-4000-8000-000000000006','public-store-6@fixture.invalid',now()),('fd200000-0000-4000-8000-000000000007','public-store-7@fixture.invalid',now());
+insert into private.account_approvals(user_id,status,updated_by)select id,case when id='fd200000-0000-4000-8000-000000000007'then 'pending'else 'approved'end,'fd200000-0000-4000-8000-000000000001'from auth.users where id::text like 'fd200000-0000-4000-8000-%';
+insert into public.companies(id,name,organisation_number,created_by)values('fd200000-0000-4000-8000-000000000101','Public store legal A','5568554884','fd200000-0000-4000-8000-000000000001'),('fd200000-0000-4000-8000-000000000102','Public store legal B','5568554884','fd200000-0000-4000-8000-000000000003');
+insert into public.memberships(company_id,user_id,role)values('fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000001','owner'),('fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000002','admin'),('fd200000-0000-4000-8000-000000000102','fd200000-0000-4000-8000-000000000003','owner'),('fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000004','sales'),('fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000005','finance'),('fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000006','viewer'),('fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000007','owner');
+create function pg_temp.public_store_fields()returns jsonb language sql immutable as $$select jsonb_build_object('displayName','Opted-in public shop','addressLine1','Bilvägen 1','addressLine2',null,'postalCode','11122','city','Stockholm','countryCode','SE','publicEmail','public@fixture.invalid','publicPhone','+46 8 123 45 67','websiteUrl',null,'logoUrl',null,'description','Publik presentation','openingHoursText',null)$$;
+insert into private.company_store_profile_versions(id,company_id,version,fields,created_by)values('fd200000-0000-4000-8000-000000000201','fd200000-0000-4000-8000-000000000101',1,pg_temp.public_store_fields(),'fd200000-0000-4000-8000-000000000001'),('fd200000-0000-4000-8000-000000000202','fd200000-0000-4000-8000-000000000102',1,pg_temp.public_store_fields(),'fd200000-0000-4000-8000-000000000003');
+insert into private.company_store_profile_heads(company_id,profile_id,profile_version)values('fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000201',1),('fd200000-0000-4000-8000-000000000102','fd200000-0000-4000-8000-000000000202',1);
+insert into public.vehicles(id,company_id,registration_number,make,model,model_year,mileage_km)values('fd200000-0000-4000-8000-000000000301','fd200000-0000-4000-8000-000000000101','QAZ001','Volvo','V60',2022,12345);
+insert into public.stock_items(id,company_id,vehicle_id,purchase_price_ore,asking_price_ore,vat_scheme)values('fd200000-0000-4000-8000-000000000401','fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000301',1234567,25000000,'standard');
+insert into private.vehicle_photos(id,company_id,stock_id,object_path,content_type,size_bytes,created_by)values('fd200000-0000-4000-8000-000000000501','fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000401','fd200000-0000-4000-8000-000000000101/fd200000-0000-4000-8000-000000000401/fd200000-0000-4000-8000-000000000501.jpg','image/jpeg',100,'fd200000-0000-4000-8000-000000000001');
+insert into storage.objects(bucket_id,name,metadata)values('ads-vehicle-photos','fd200000-0000-4000-8000-000000000101/fd200000-0000-4000-8000-000000000401/fd200000-0000-4000-8000-000000000501.jpg','{"mimetype":"image/jpeg","size":100}');
+insert into private.advertising_listings(id,company_id,stock_id,version,status,created_by)values('fd200000-0000-4000-8000-000000000601','fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000401',2,'ready','fd200000-0000-4000-8000-000000000001');
+insert into private.advertising_versions(company_id,listing_id,version,snapshot,created_by)values('fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000601',2,private.advertising_snapshot('fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000401','Publik Volvo 1','Beskrivning',array['fd200000-0000-4000-8000-000000000501']::uuid[],true),'fd200000-0000-4000-8000-000000000001');
+insert into public.vehicles(id,company_id,registration_number,make,model,model_year,mileage_km)values('fd200000-0000-4000-8000-000000000302','fd200000-0000-4000-8000-000000000101','QAZ002','Volvo','V60',2022,12345);
+insert into public.stock_items(id,company_id,vehicle_id,purchase_price_ore,asking_price_ore,vat_scheme)values('fd200000-0000-4000-8000-000000000402','fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000302',1234567,25000000,'standard');
+insert into private.vehicle_photos(id,company_id,stock_id,object_path,content_type,size_bytes,created_by)values('fd200000-0000-4000-8000-000000000502','fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000402','fd200000-0000-4000-8000-000000000101/fd200000-0000-4000-8000-000000000402/fd200000-0000-4000-8000-000000000502.jpg','image/jpeg',100,'fd200000-0000-4000-8000-000000000001');
+insert into storage.objects(bucket_id,name,metadata)values('ads-vehicle-photos','fd200000-0000-4000-8000-000000000101/fd200000-0000-4000-8000-000000000402/fd200000-0000-4000-8000-000000000502.jpg','{"mimetype":"image/jpeg","size":100}');
+insert into private.advertising_listings(id,company_id,stock_id,version,status,created_by)values('fd200000-0000-4000-8000-000000000602','fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000402',2,'ready','fd200000-0000-4000-8000-000000000001');
+insert into private.advertising_versions(company_id,listing_id,version,snapshot,created_by)values('fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000602',2,private.advertising_snapshot('fd200000-0000-4000-8000-000000000101','fd200000-0000-4000-8000-000000000402','Publik Volvo 2','Beskrivning',array['fd200000-0000-4000-8000-000000000502']::uuid[],true),'fd200000-0000-4000-8000-000000000001');
+insert into public.vehicles(id,company_id,registration_number,make,model,model_year,mileage_km)values('fd200000-0000-4000-8000-000000000303','fd200000-0000-4000-8000-000000000102','QAZ003','Volvo','V60',2022,12345);
+insert into public.stock_items(id,company_id,vehicle_id,purchase_price_ore,asking_price_ore,vat_scheme)values('fd200000-0000-4000-8000-000000000403','fd200000-0000-4000-8000-000000000102','fd200000-0000-4000-8000-000000000303',1234567,25000000,'standard');
+insert into private.vehicle_photos(id,company_id,stock_id,object_path,content_type,size_bytes,created_by)values('fd200000-0000-4000-8000-000000000503','fd200000-0000-4000-8000-000000000102','fd200000-0000-4000-8000-000000000403','fd200000-0000-4000-8000-000000000102/fd200000-0000-4000-8000-000000000403/fd200000-0000-4000-8000-000000000503.jpg','image/jpeg',100,'fd200000-0000-4000-8000-000000000003');
+insert into storage.objects(bucket_id,name,metadata)values('ads-vehicle-photos','fd200000-0000-4000-8000-000000000102/fd200000-0000-4000-8000-000000000403/fd200000-0000-4000-8000-000000000503.jpg','{"mimetype":"image/jpeg","size":100}');
+insert into private.advertising_listings(id,company_id,stock_id,version,status,created_by)values('fd200000-0000-4000-8000-000000000603','fd200000-0000-4000-8000-000000000102','fd200000-0000-4000-8000-000000000403',2,'ready','fd200000-0000-4000-8000-000000000003');
+insert into private.advertising_versions(company_id,listing_id,version,snapshot,created_by)values('fd200000-0000-4000-8000-000000000102','fd200000-0000-4000-8000-000000000603',2,private.advertising_snapshot('fd200000-0000-4000-8000-000000000102','fd200000-0000-4000-8000-000000000403','Publik Volvo 3','Beskrivning',array['fd200000-0000-4000-8000-000000000503']::uuid[],true),'fd200000-0000-4000-8000-000000000003');
+-- END PUBLIC STORE FIXTURES
+create temporary table public_store_proof(value jsonb);
+grant select,insert on public_store_proof to authenticated;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','fd200000-0000-4000-8000-000000000001',true);
+insert into public_store_proof select public.publish_company_public_store('fd200000-0000-4000-8000-000000000101','public-store-fixture',0,1,'[{"listingId":"fd200000-0000-4000-8000-000000000601","version":2}]',true,'fd200000-0000-4000-8000-000000000901');
+set local role anon;
+do $$declare p jsonb;begin
+ p:=public.get_public_dealer_store('public-store-fixture');
+ if p is null or jsonb_array_length(p->'listings')<>1 or p::text~'companyId|stockId|registration|objectPath|QAZ001|purchase' then raise exception 'Public whitelist mismatch';end if;
+ if public.get_public_store_photo('public-store-fixture','fd200000-0000-4000-8000-000000000502')is not null then raise exception 'Unselected photo exposed';end if;
+ if public.get_public_store_photo('public-store-fixture','fd200000-0000-4000-8000-000000000501')is null then raise exception 'Selected photo missing';end if;
+ if(select count(*)from storage.objects where name like 'fd200000-0000-4000-8000-%')<>1 then raise exception 'Public photo RLS mismatch';end if;
+end$$;
+set local role authenticated;
+select public.unpublish_company_public_store('fd200000-0000-4000-8000-000000000101',1,true,'fd200000-0000-4000-8000-000000000902');
+set local role anon;
+do $$begin
+ if public.get_public_dealer_store('public-store-fixture')is not null or public.get_public_store_photo('public-store-fixture','fd200000-0000-4000-8000-000000000501')is not null then raise exception 'Withdrawn publication remained accessible';end if;
+ if exists(select 1 from storage.objects where name like 'fd200000-0000-4000-8000-%')then raise exception 'Withdrawn photo RLS remained accessible';end if;
+end$$;
+reset role;
+rollback;

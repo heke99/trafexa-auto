@@ -1,6 +1,12 @@
 # Annonsering till handlarens externa konton
 
-Trafexa ska låta handlaren skapa en annons från sitt lager, välja egna bilder och kanaler, granska annonsen och skicka den till rätt handlarkonto. Varje annonsversion och utsändning hör till ett företag. Kunden har bekräftat att partneråtkomst ännu saknas: denna leverans förbereder integrationerna, utan externa utsändningar eller aktiverade arbetare.
+Trafexa ska låta handlaren skapa en annons från sitt lager, välja egna bilder och kanaler, granska annonsen och skicka den till rätt handlarkonto. Varje annonsversion och utsändning hör till ett företag. Användaren har nu lämnat Blockets klientdokumentation för gruppanslutning och bekräftat önskemålet om en publik Trafexa-butik med valda annonser. Faktisk token, kontoomfattning och partneråtkomst är ännu inte verifierade; inga externa utsändningar eller arbetare aktiveras av dokumentationen.
+
+## Pågående gruppanslutning och publik Trafexa-butik
+
+[Blocket gruppanslutning V5](BLOCKET_GROUP_SETUP.md) byggs från den uppladdade klientdokumentationen. Företagsbundet `dealer_code`, en icke-hemlig credentialreferens och en beständig leveransjournal ska skydda rätt konto och återförsök. Ingen JWT sparas i databas eller UI och ingen faktisk token eller scope har ännu verifierats.
+
+[Publika handlarbutiker](PUBLIC_DEALER_STORES.md) byggs separat i Trafexa från uttryckligen granskad profil och valda aktuella annonser. Trafexapublicering skapar inte en annons eller butik hos Blocket. Offentlig JSON-läsning ger ingen privat partnerbehörighet. Integrerad helsvit 1139/1139 och produktionsbygge inklusive TypeScript passerar; publiceringen återstår att verifiera.
 
 ## Kanalval och granskat pris, 2026-10-15
 

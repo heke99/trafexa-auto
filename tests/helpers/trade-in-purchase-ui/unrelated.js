@@ -6,3 +6,5 @@ export const useRouter=()=>({refresh(){}});
 export const CompanyStoreProfile=()=>null;
 
 export const CompanyBranches=()=>null;
+
+export const CompanyPublicStore=()=>null;
