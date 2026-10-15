@@ -1,0 +1,7 @@
+export const id=n=>`10000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+export const COMPANY=id(1),ACTOR=id(2),props={companyId:COMPANY,userId:ACTOR,role:'owner'};
+export const fields={displayName:'Fiktiv Bilbutik',addressLine1:'Bilgatan 12',addressLine2:null,postalCode:'12345',city:'Stockholm',countryCode:'SE',publicEmail:'butik@bilfirma.se',publicPhone:'+46 70 123 45 67',websiteUrl:'https://bilfirma.se/',logoUrl:'https://bilder.bilfirma.se/logo.png',description:'Butikens presentation',openingHoursText:'Vardagar 09–18'};
+export const profile=(override={})=>({id:id(3),companyId:COMPANY,version:1,fields,createdAt:'2026-10-15T12:00:00Z',actorLabel:'Du',...override});
+export const source=(override={})=>({schemaVersion:1,companyId:COMPANY,profileId:id(3),profileVersion:1,legalName:'Fiktiva Bilföretaget AB',organisationNumber:'5568554884',shop:fields,...override});
+export const page=(override={})=>({ok:true,companyId:COMPANY,actorId:ACTOR,role:'owner',legalName:'Fiktiva Bilföretaget AB',organisationNumber:'5568554884',identityValid:true,profile:profile(),source:source(),sourceSha256:'a'.repeat(64),canExport:true,reason:null,exports:[],...override});
+export const exported=(override={})=>({id:id(4),companyId:COMPANY,channel:'blocket',purpose:'new_store',profileId:id(3),profileVersion:1,sourceSha256:'a'.repeat(64),exportSha256:'b'.repeat(64),createdAt:'2026-10-15T12:00:00Z',actorLabel:'Du',status:'prepared',attestationVersion:'2026-10-15',snapshot:source(),canonicalContent:JSON.stringify(source()),...override});

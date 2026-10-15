@@ -9,7 +9,7 @@ async function harness({status='pending',admin=false,unavailable=false,user=true
  const loader=await createSourceLoader({
   'next/navigation':{redirect,notFound(){throw new Error('404');}},'next/link':({children,...props})=>createElement('a',props,children),
   '@/components/auth-shell':{AuthShell:({children,title,subtitle})=>createElement('main',{},createElement('h1',{},title),createElement('p',{},subtitle),children)},
-  '@/components/dealer-workspace':{DealerWorkspace:()=>null},'@/components/customer-offer-reviews':{CustomerOfferReviews:()=>assert.fail('Unapproved business component')},'@/components/company-invitations':{CompanyInvitations:()=>assert.fail('Unapproved invitation component')},'@/components/brand':{Brand:()=>null},
+  '@/components/company-onboarding':{CompanyOnboarding:()=>null},'@/components/dealer-workspace':{DealerWorkspace:()=>null},'@/components/customer-offer-reviews':{CustomerOfferReviews:()=>assert.fail('Unapproved business component')},'@/components/company-invitations':{CompanyInvitations:()=>assert.fail('Unapproved invitation component')},'@/components/brand':{Brand:()=>null},
   '@/lib/platform-admin/context':{getPlatformAdminContext:async()=>admin?{userId:'actor'}:null},
   '@/lib/account-access/context':{getAccountAccessContext:async()=>{if(unavailable)throw new Error('Unavailable');return user?{userId:'actor',email:'new@example.invalid',emailVerified:true,status,version:0,isPlatformAdmin:false}:null;}},
   '@/lib/supabase/server':{createServerSupabaseClient:async()=>({auth:{getUser:async()=>({data:{user:user?{id:'actor',email:'new@example.invalid',email_confirmed_at:'2026-10-14T08:00:00Z'}:null},error:null})}})},
