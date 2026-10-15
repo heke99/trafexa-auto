@@ -18,3 +18,5 @@ export default function Unrelated(){return null;}
 export const DealTradeInPurchase=()=>null;
 
 export const CompanyStoreProfile=()=>null;
+
+export const CompanyBranches=()=>null;
