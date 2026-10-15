@@ -1,6 +1,13 @@
 import type { Database, Json } from '@/lib/supabase/database.types';
 
 type AdvertisingFunctions = {
+  get_platform_advertising_credit_page: { Args: { p_company_id: string; p_original_invoice_id: string }; Returns: Json };
+  list_advertising_credit_page: { Args: { p_company_id: string; p_original_invoice_id: string }; Returns: Json };
+  get_platform_advertising_credit_invoice: { Args: { p_company_id: string; p_id: string }; Returns: Json };
+  get_advertising_credit_invoice: { Args: { p_company_id: string; p_id: string }; Returns: Json };
+  configure_advertising_credit_series: { Args: { p_company_id: string; p_original_invoice_id: string; p_expected_original_source_hash: string; p_year: number; p_prefix: string; p_first_number: string; p_seller_registered_seat: string; p_reason: string; p_review_acknowledged: boolean; p_request_id: string }; Returns: Json };
+  issue_advertising_credit_invoice: { Args: { p_company_id: string; p_original_invoice_id: string; p_expected_original_source_hash: string; p_expected_series_id: string; p_expected_series_review_token: string; p_expected_review_token: string; p_reason: string; p_review_acknowledged: boolean; p_request_id: string }; Returns: Json };
+
   list_company_advertising: { Args: { p_company_id: string; p_page_key: string | null; p_jobs_page_key: string | null; p_limit: number }; Returns: Json };
   list_advertising_stock: { Args: { p_company_id: string; p_page_key: string | null; p_limit: number }; Returns: Json };
   get_stock_advertising: { Args: { p_company_id: string; p_stock_id: string }; Returns: Json };

@@ -1,0 +1,49 @@
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {createSourceLoader} from './helpers/source-loader.mjs';
+import {creditInvoiceFixture,id} from './helpers/advertising-credit/fixture.mjs';
+
+async function harness(options={}){
+ let reads=0,checks=0,adminChecks=0,selected=0,renders=0;
+ const draft=creditInvoiceFixture();
+ const read=async input=>{
+  reads++;assert.deepEqual(input,{companyId:id(1),id:id(91)});
+  if(options.denyRead===reads)return{ok:false,code:'access_denied'};
+  if(options.missing)return{ok:false,code:'not_found'};
+  return{ok:true,credit:{...draft,...(reads===1?options.first:options.last)},ignoredLiveProfileChanged:reads>1&&Boolean(options.outdated)};
+ };
+ const loader=await createSourceLoader({
+  '@/lib/data/company-context':{async getActiveCompanyContext(){selected++;if(options.noAuth)throw{code:'unauthenticated'};return{company:options.switchCompany&&selected>1?id(8):id(1),user:id(2),role:options.role??'finance'};}},
+  '@/lib/contracts/context':{async requireContractContext(){checks++;if(options.denyContext||options.revoke&&checks>1)throw{code:'access_denied'};return{userId:id(2),companyId:id(1),role:options.changeRole&&checks>1?'sales':options.role??'finance'};}},
+  '@/lib/platform-admin/context':{async requirePlatformAdminContext(){adminChecks++;if(options.notAdmin||options.revokeAdmin&&adminChecks>1)throw{code:'forbidden'};return{userId:id(2)};}},
+  '@/lib/advertising/credit-actions':{getAdvertisingCreditInvoiceAction:read,getPlatformAdvertisingCreditInvoiceAction:read},
+  '@/lib/documents/advertising-credit-invoice-pdf':{async generateAdvertisingCreditInvoicePdf(value){renders++;assert.equal(value.id,id(91));if(options.renderFailure)throw Error('PRIVATE INTERNAL FAILURE');return new TextEncoder().encode('%PDF-TEST-PRIVATE');}},
+ });
+ const route=loader.load('src/app/api/advertising/credits/[id]/pdf/route.ts');
+ return{get:(query=options.admin?`?companyId=${id(1)}`:'',draftId=id(91))=>route.GET(new Request(`https://app.trafexa.com/api/advertising/credits/${draftId}/pdf${query}`),{params:Promise.resolve({id:draftId})}),counts:()=>({reads,renders})};
+}
+function privacy(r){assert.match(r.headers.get('cache-control'),/private, no-store/);assert.equal(r.headers.get('vary'),'Cookie');assert.equal(r.headers.get('x-content-type-options'),'nosniff');}
+test('selected credit invoice downloads privately for own finance or actual superadmin with fresh scope proofs',async()=>{
+ for(const options of[{role:'owner'},{role:'admin'},{role:'finance'},{admin:true}]){const h=await harness(options),r=await h.get();assert.equal(r.status,200);privacy(r);assert.equal(r.headers.get('content-type'),'application/pdf');assert.ok(r.headers.get('content-disposition').includes('FIXTURE-2026-000002.pdf'));assert.equal(await r.text(),'%PDF-TEST-PRIVATE');assert.equal(h.counts().reads,2);}
+});
+test('untrusted company/query/id or unauthenticated and nonfinancial roles cannot reach credit invoice sources',async()=>{
+ for(const[options,query,draftId,status]of[[{noAuth:true},'',id(91),401],[{notAdmin:true},`?companyId=${id(1)}`,id(91),403],[{role:'sales'},'',id(91),403],[{role:'viewer'},'',id(91),403],[{denyContext:true},'',id(91),403],[{},'?companyId=bad',id(91),404],[{},'?role=platform_admin',id(91),404],[{},`?companyId=${id(1)}&companyId=${id(1)}`,id(91),404],[{},'','invalid',404]]){
+  const h=await harness(options),r=await h.get(query,draftId);assert.equal(r.status,status);privacy(r);assert.deepEqual(h.counts(),{reads:0,renders:0});
+ }
+});
+test('foreign credit/company substitutions and changing immutable version withhold all rendered bytes',async()=>{
+ for(const options of[{first:{companyId:id(9)}},{first:{id:id(9)}},{last:{creditNumber:'FIXTURE-2026-000003'}},{last:{sourceHash:'a'.repeat(64)}},{last:{companyId:id(9)}}]){
+  const h=await harness(options),r=await h.get();assert.equal(r.status,503);privacy(r);assert.ok(!(await r.text()).includes('%PDF'));
+ }
+});
+test('later independent source changes do not rewrite or block a historical credit PDF',async()=>{
+ const h=await harness({outdated:true}),r=await h.get();assert.equal(r.status,200);privacy(r);assert.equal(await r.text(),'%PDF-TEST-PRIVATE');
+});
+test('revoked approval/admin status, role or selected company during render prevents private byte release',async()=>{
+ for(const options of[{revoke:true},{switchCompany:true},{changeRole:true},{admin:true,revokeAdmin:true},{denyRead:2}]){
+  const h=await harness(options),r=await h.get();assert.equal(r.status,403);privacy(r);assert.ok(!(await r.text()).includes('%PDF'));
+ }
+});
+test('missing credit or rendering failure returns sanitized private errors without internal diagnostics',async()=>{
+ for(const[options,status]of[[{missing:true},404],[{renderFailure:true},503]]){const h=await harness(options),r=await h.get();assert.equal(r.status,status);privacy(r);assert.ok(!(await r.text()).includes('PRIVATE INTERNAL'));}
+});

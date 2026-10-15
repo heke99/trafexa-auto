@@ -22,7 +22,7 @@ before(async () => {
   styles = await readFile(resolve(repo, 'src/app/globals.css'), 'utf8');
   const config = { mode: 'development', target: 'web', devtool: false, context: repo,
     entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js', publicPath: '' },
-    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/advertising/issuance-actions': resolve(helpers,'actions.js'), '@': resolve(repo,'src') } },
+    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/advertising/credit-actions': resolve(repo, 'tests/helpers/advertising-credit-ui/actions.js'), '@/lib/advertising/issuance-actions': resolve(helpers,'actions.js'), '@': resolve(repo,'src') } },
     plugins: [new webpack.optimize.LimitChunkCountPlugin({ maxChunks: 1 })],
     module: { rules: [{ test: /\.tsx?$/, use: resolve(repo, 'tests/helpers/advertising-usage-ui/swc-loader.cjs') }] } };
   await new Promise((resolveBuild, reject) => { const compiler = webpack(config); compiler.run((error, stats) => compiler.close(() => { if (error || stats.hasErrors()) reject(error ?? new Error(stats.toString({ all: false, errors: true }))); else resolveBuild(); })); });
@@ -87,3 +87,8 @@ test('VAT rounding mismatch blocks issuance and directs a new reviewed original 
   assert.equal(await page.evaluate(()=>window.issuanceCalls.some(call=>['issue','configure'].includes(call.kind))),false);
  }finally{await page.close();}
 });
+test('credit panel loads only after opening issued original and denial clears the entire issuance scope',async()=>{const page=await setup();try{
+ await expect(page.getByRole('button',{name:'Visa kreditering av fakturan'})).toHaveCount(0);
+ await page.evaluate(()=>{window.issuancePage={...window.issuancePage,invoice:window.issuanceSummary,preview:null,canIssue:false};window.creditPage={companyId:window.issuancePage.companyId,actorUserId:window.issuancePage.actorUserId,actorRole:'platform_admin',businessDate:'2026-10-15',currentYear:2026,originalInvoice:window.issuedInvoice,series:window.issuanceSeries,credit:null,preview:null,canConfigureSeries:false,canCredit:false,blockers:[]};});
+ await page.getByRole('button',{name:'Uppdatera fakturering'}).click();await page.getByRole('button',{name:'Visa den utfärdade fakturan'}).click();await expect(page.getByRole('region',{name:'Kreditering av faktura',exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Visa kreditering av fakturan'}).click();await expect(page.getByRole('region',{name:'Kreditering av faktura',exact:true})).toContainText('TFX-2026-000041');await page.evaluate(()=>window.creditResponses=[{ok:false,code:'access_denied',message:'Kreditbehörighet återkallad'}]);await page.getByRole('button',{name:'Uppdatera kreditering'}).click();await expect(page.getByRole('alert')).toHaveText('Kreditbehörighet återkallad');await expect(page.getByRole('region',{name:'Vald utfärdad faktura'})).toHaveCount(0);await expect(page.getByRole('link')).toHaveCount(0);await expect(page.getByRole('button',{name:'Uppdatera fakturering'})).toBeDisabled();
+}finally{await page.close();}});
