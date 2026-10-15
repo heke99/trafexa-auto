@@ -760,6 +760,38 @@ export type GeneratedDatabase = {
       [_ in never]: never
     }
     Functions: {
+      list_company_branches: {
+        Args: {
+          p_company_id: string
+          p_limit?: number
+          p_page_key?: string
+          p_status: string
+        }
+        Returns: Json
+      }
+      save_company_branch: {
+        Args: {
+          p_acknowledged: boolean
+          p_branch_id: string
+          p_company_id: string
+          p_expected_version: number
+          p_fields: Json
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      set_company_branch_status: {
+        Args: {
+          p_acknowledged: boolean
+          p_branch_id: string
+          p_company_id: string
+          p_expected_version: number
+          p_reason: string
+          p_request_id: string
+          p_status: string
+        }
+        Returns: Json
+      }
       get_company_ownership_transfer: {
         Args: { p_company_id: string; p_limit?: number; p_page_key?: string }
         Returns: Json

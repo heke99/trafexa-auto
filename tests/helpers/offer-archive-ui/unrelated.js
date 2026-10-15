@@ -23,3 +23,5 @@ export function DealTradeIns(props) { return React.createElement('span',{'data-t
 export const DealTradeInPurchase=()=>null;
 
 export const CompanyStoreProfile=()=>null;
+
+export const CompanyBranches=()=>null;
