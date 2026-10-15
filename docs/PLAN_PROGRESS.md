@@ -2,8 +2,11 @@
 
 ## Företagets ägarroll — pågående organisationsetapp 15 oktober 2026
 
-Från publicerad main `bb8f756` ([PR #31](https://github.com/heke99/trafexa-auto/pull/31)) byggs [granskad överlåtelse av företagets ägarroll](COMPANY_OWNERSHIP_TRANSFER.md). Nuvarande ägare begär överlåtelse till en befintlig aktiv, verifierad och godkänd administratör; mottagaren måste själv acceptera inom 24 timmar. Acceptansen växlar båda rollerna atomiskt. Detta avser behörigheten i Trafexa och ändrar inte juridiskt ägande eller företagsregistrering. Filialer, inköpsavtal och återhämtning av avvikande ägarbild är separata senare steg. Kod och databas är verifierade inför publicering: appens helsvit 970/970 utan fel eller överhoppade fall och produktionsbygge inklusive TypeScript passerar. Migration `20261015173753_company_ownership_transfer` är applicerad; hosted rollbackprov passerar och nio efterkontroller är noll. PR, main och produktionsdeployment för denna etapp återstår att återläsa.
+Från publicerad main `bb8f756` ([PR #31](https://github.com/heke99/trafexa-auto/pull/31)) byggs [granskad överlåtelse av företagets ägarroll](COMPANY_OWNERSHIP_TRANSFER.md). Nuvarande ägare begär överlåtelse till en befintlig aktiv, verifierad och godkänd administratör; mottagaren måste själv acceptera inom 24 timmar. Acceptansen växlar båda rollerna atomiskt. Detta avser behörigheten i Trafexa och ändrar inte juridiskt ägande eller företagsregistrering. Filialer, inköpsavtal och återhämtning av avvikande ägarbild är separata senare steg. Kod och databas är verifierade inför publicering: ägarrollens helsvit före integrationen 970/970 utan fel eller överhoppade fall och produktionsbygge inklusive TypeScript passerar. Efter att kreditleveransen i PR #32 nått main `6bd1f9c` pågår integrerad slutkontroll på den sammanslagna koden. Migration `20261015173753_company_ownership_transfer` är applicerad; hosted rollbackprov passerar och nio efterkontroller är noll. PR, main och produktionsdeployment för denna etapp återstår att återläsa.
 
+[Full kreditfaktura](ADVERTISING_CREDIT_INVOICE_CONTRACT.md) byggs från en utfärdad annonsfakturas exakta frysta belopp och moms. Superadmin granskar orsak och kredit innan numrering; företaget får privat läsåtkomst. Originalet bevaras och dubbel kreditering blockeras. Mejlleverans och betalningsavstämning är följande ekonomisteg. Verifieringsstatus redovisas separat.
+
+978/978 appfall, 91 berörda databasfall och produktionsbygge/TypeScript passerar. Fem oberoende samtidighetsgrupper och separat årsskiftesprov i PostgreSQL passerar. Sex kreditmigrationer är hosted-applicerade och rollback-/cleanupkontroll godkänd. Detta är en testad kodcheckpoint; slutligt PR-/main-/produktionsbevis redovisas separat.
 
 ## Kanalval, granskat pris och spårbar publiceringsavgift
 
@@ -11,11 +14,11 @@ Etappen från main `20cb4d`/PR #28, sammanfogad med utfärdandets main `a796bb`/
 
 ## Momsberäkning version 2
 
-Nya granskade annonsunderlag använder moms på nettototalen med exakt öresfördelning mellan raderna. Tidigare versioner och fakturor bevaras; ingen automatisk omräkning sker. PostgreSQLs division rättas till exakt heltalsdivision även för stora int64-belopp. Kreditfakturor, fakturamejl och betalningsavstämning är fortsatta steg. Se [beräkningskontraktet](ADVERTISING_VAT_ALLOCATION_CONTRACT.md) och [verifieringsstatus](IMPLEMENTATION_STATUS.md).
+Nya granskade annonsunderlag använder moms på nettototalen med exakt öresfördelning mellan raderna. Tidigare versioner och fakturor bevaras; ingen automatisk omräkning sker. PostgreSQLs division rättas till exakt heltalsdivision även för stora int64-belopp. Full kreditfaktura har nu ett separat granskningsflöde. Fakturamejl och betalningsavstämning är fortsatta steg. Se [beräkningskontraktet](ADVERTISING_VAT_ALLOCATION_CONTRACT.md) och [verifieringsstatus](IMPLEMENTATION_STATUS.md).
 
 ## Utfärdande av annonsfakturor
 
-Fortsättningen bygger separat granskad fakturautställning från ett aktuellt sparat moms-/betalningsunderlag, med uttrycklig nummerserie, registrerat säte, faktura-/förfallodatum och granskade tjänstedatum. Utfärdad källa och privat PDF bevaras och samma företagsmånad kan inte dubbeldebiteras. Inga verkliga serier eller fakturor aktiveras av testningen. Kreditfakturor, e-postleverans, betalningsavstämning och valt ekonomisystem återstår. Se [kontraktet](ADVERTISING_INVOICE_ISSUANCE_CONTRACT.md) och [verifieringsstatus](IMPLEMENTATION_STATUS.md).
+Fortsättningen bygger separat granskad fakturautställning från ett aktuellt sparat moms-/betalningsunderlag, med uttrycklig nummerserie, registrerat säte, faktura-/förfallodatum och granskade tjänstedatum. Utfärdad källa och privat PDF bevaras och samma företagsmånad kan inte dubbeldebiteras. Inga verkliga serier eller fakturor aktiveras av testningen. Full kreditering finns i separat granskningsflöde. E-postleverans, betalningsavstämning och valt ekonomisystem återstår. Se [kontraktet](ADVERTISING_INVOICE_ISSUANCE_CONTRACT.md) och [verifieringsstatus](IMPLEMENTATION_STATUS.md).
 
 ## Företags- och butiksprofil — integrerad kod och databas verifierade
 
@@ -47,7 +50,7 @@ Utgångspunkt: publicerad main `ecb0e2557979e5b481f1d18cc7668548a700881c`, PR #1
 | 3 CRM/affär | Kunder, leads, kontaktlogg, uppföljningar, reservationer, offertversion/PDF, kundens offertgranskning/accept/avböjande, kontrollerad avbrytning, internt versionsbundet inbytesunderlag och granskad offertkoppling till kundvy/PDF | Verkligt inbytesköp/avtal samt verklig samtidig reservationsverifiering |
 | 4 Avtal/dokument | Granskade företagsmallar, privata avtalsutkast, selektiv DocuSeal-port, verifierad tvåpartssignering, signerad PDF/signeringsevidens samt privat originalarkiv med konfigurationsspärr | Serverkonfiguration, faktisk hosted Storage-API-verifiering, långtidsbevarande/backup/återställning och slutlig produktionsverifiering |
 | 5 Köpfinansiering | Internt finansintresse och behörighetsgränser | Verklig partneransökan, komplettering, erbjudande, kreditbeslut och utbetalningsstatus |
-| 6 Ekonomi/leverans | Fordonskalkyl, kostnadsunderlag, unika annonsenheter, versionsbundna priser, låsta original/rättelser, granskad moms, fakturautkast och separat numrerat utfärdande med privat PDF | Kreditfakturor, fakturamejl, betalning/avstämning, bokföringsexport, leverans och ägarbyte |
+| 6 Ekonomi/leverans | Fordonskalkyl, kostnadsunderlag, unika annonsenheter, versionsbundna priser, låsta original/rättelser, granskad moms, fakturautkast och separat numrerat utfärdande samt full kreditering med privat PDF | Fakturamejl, betalning/avstämning, bokföringsexport, leverans och ägarbyte |
 | 7 Lagerfinansiering | Produktbehov identifierat | Limit, finansierade bilar, partneravstämning, lösen och frigivning |
 | 8 Handlarnätverk | Informationsvy och gränser för privat data | Publicering, inköpsönskemål, matchning, bud och B2B-affär |
 | 9 Drift/slutverifiering | Publicerade domäner, lokala browser-/actiontester och rollbacktest i hosted databas | Fulla inloggade produktionsflöden, återställningsprov, incident- och supportprocess |

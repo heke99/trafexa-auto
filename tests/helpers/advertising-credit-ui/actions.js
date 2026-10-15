@@ -1,0 +1,8 @@
+async function read(input,platform){window.creditCalls??=[];window.creditCalls.push({kind:'read',...input,platform});const next=window.creditResponses?.shift();if(next?.hold)return new Promise(resolve=>{window.releaseCredit=resolve;});if(next)return next;if(!window.creditPage)return{ok:false,code:'unavailable',message:'Kreditfixture saknas'};return{ok:true,page:window.creditPage};}
+export const getPlatformAdvertisingCreditPageAction=input=>read(input,true);
+export const listAdvertisingCreditPageAction=input=>read(input,false);
+async function mutate(kind,input){window.creditCalls.push({kind,...input});const next=window.creditMutationResponses?.shift();if(next?.throw)throw Error('Unknown outcome');if(next)return next;const receipt={companyId:input.companyId,actorUserId:window.creditPage.actorUserId,requestId:input.requestId,originalInvoiceId:input.originalInvoiceId,originalSourceHash:input.expectedOriginalSourceHash};if(kind==='configure'){window.creditPage={...window.creditPage,series:window.creditSeries,preview:window.creditPreview,canConfigureSeries:false,canCredit:true,blockers:[]};return{ok:true,series:window.creditSeries,receipt};}window.creditPage={...window.creditPage,credit:{...window.creditInvoice,snapshot:{...window.creditInvoice.snapshot,reason:input.reason}},preview:null,canCredit:false,blockers:['credit.exists']};return{ok:true,credit:window.creditPage.credit,receipt};}
+export const configureAdvertisingCreditSeriesAction=input=>mutate('configure',input);
+export const issueAdvertisingCreditInvoiceAction=input=>mutate('credit',input);
+export const getPlatformAdvertisingCreditInvoiceAction=async()=>({ok:true,credit:window.creditInvoice});
+export const getAdvertisingCreditInvoiceAction=getPlatformAdvertisingCreditInvoiceAction;
