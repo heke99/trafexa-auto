@@ -8,3 +8,5 @@ export const CompanyStoreProfile=()=>null;
 export const CompanyBranches=()=>null;
 
 export const CompanyPublicStore=()=>null;
+
+export const DealerDocumentHub=()=>null,DealerNetwork=()=>null,DealFulfilment=()=>null;
