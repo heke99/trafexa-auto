@@ -36,17 +36,18 @@ function ContactPanel({ companyId, customerId, canEdit, demo = false, onAccessDe
   const reviewHeading = useRef<HTMLHeadingElement>(null);
   const sequence = useRef(0);
   function deny() { setContacts([]); setCursor(null); setBlocked(true); setReview(null); setSummary(''); retries.current.clear(); onAccessDenied?.(); }
-  async function load(older = false) {
+  async function load(older = false): Promise<boolean> {
     const token = ++sequence.current;
     setLoading(true);
     try {
       const result = await listCustomerContactsAction({ companyId, customerId, ...(older && cursor ? { pageKey: cursor } : {}) });
-      if (!alive.current || token !== sequence.current) return;
-      if (!result.ok) { setContacts([]); setCursor(null); setReview(null); setBlocked(true); if (result.code === 'access_denied' || result.code === 'unauthenticated') deny(); setError(result.message); return; }
+      if (!alive.current || token !== sequence.current) return false;
+      if (!result.ok) { setContacts([]); setCursor(null); setReview(null); setBlocked(true); if (result.code === 'access_denied' || result.code === 'unauthenticated') deny(); setError(result.message); return false; }
       setBlocked(false); setError(''); setToday(result.businessDate); setContactOn(current => current || result.businessDate);
       setContacts(current => older ? [...current, ...result.contacts].filter((row, index, all) => all.findIndex(other => other.id === row.id) === index) : result.contacts);
       setCursor(result.nextPageKey);
-    } catch { if (alive.current && token === sequence.current) { setContacts([]); setCursor(null); setBlocked(true); setReview(null); setError('Kontaktloggen kunde inte hämtas. Försök igen.'); } }
+      return true;
+    } catch { if (alive.current && token === sequence.current) { setContacts([]); setCursor(null); setBlocked(true); setReview(null); setError('Kontaktloggen kunde inte hämtas. Försök igen.'); } return false; }
     finally { if (alive.current && token === sequence.current) setLoading(false); }
   }
   useEffect(() => { alive.current = true; if (!demo) void load(); return () => { alive.current = false; sequence.current++; }; }, []); // Component key isolates every access scope.
@@ -74,11 +75,20 @@ function ContactPanel({ companyId, customerId, canEdit, demo = false, onAccessDe
     if (!review || reason.trim().length < 2 || /[\r\n]/.test(reason) || demo || !canEdit || blocked || writeLock.current) return;
     const values = { companyId, customerId, contactId: review.contact.id, expectedVersion: review.contact.version, status: review.status, reason: reason.trim() };
     const id = requestId(JSON.stringify(values));
-    writeLock.current = true; setBusy(true); setError('');
+    writeLock.current = true; setBusy(true); setError(''); setMessage('');
     try {
       const result = await updateCustomerFollowUpAction({ ...values, requestId: id });
       if (!alive.current) return;
-      if (!result.ok) { setError(result.message); if (result.code === 'access_denied') deny(); if (result.code === 'conflict') { setReview(null); await load(); } return; }
+      if (!result.ok) {
+        setError(result.message);
+        if (result.code === 'access_denied') deny();
+        if (result.code === 'conflict') {
+          setReview(null);
+          const refreshed = await load();
+          if (refreshed && alive.current) setError(result.message);
+        }
+        return;
+      }
       retries.current.delete(JSON.stringify(values)); setReview(null); setMessage('Uppföljningen är uppdaterad.'); await load();
     } catch { if (alive.current) setError('Ändringen kunde inte bekräftas. Försök igen med samma granskade uppföljning.'); }
     finally { writeLock.current = false; if (alive.current) setBusy(false); }

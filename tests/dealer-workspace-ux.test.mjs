@@ -8,6 +8,25 @@ before(async()=>{harness=await startHarness();if(output)await mkdir(output,{recu
 after(async()=>{await harness?.close();});
 async function setup({width=1440,section='dashboard',role='owner',demo=true}={}){const p=await harness.page(width);await p.evaluate(props=>window.mountWorkspace(props),{snapshot:snapshot({size:4,role}),section,demo});return p;}
 async function opened(p){await p.getByRole('button',{name:'Öppna menyn',exact:true}).click();await expect(p.getByRole('dialog',{name:'Navigationsmeny'})).toBeVisible();await expect(p.locator('#dealer-navigation')).toHaveCSS('transform','matrix(1, 0, 0, 1, 0, 0)');}
+test('document archive exposes its existing private offer download only to permitted real company roles',async()=>{
+ for(const role of ['owner','admin','finance','sales','viewer'])for(const demo of [false,true]){
+  const p=await harness.page(390);try{
+   const data=snapshot({size:1,role}),id='30000000-0000-4000-8000-000000000001';
+   data.documents=[{id,name:'Offert v1 – ABC123',kind:'other',object_path:`${data.organization.id}/offers/40000000-0000-4000-8000-000000000001/v1/${'a'.repeat(64)}.pdf`,deal_id:data.deals[0].id,created_at:'2026-10-15T12:00:00Z'}];
+   await p.evaluate(props=>window.mountWorkspace(props),{snapshot:data,section:'documents',demo});
+   const link=p.getByRole('link',{name:'Hämta arkiverad PDF: Offert v1 – ABC123',exact:true});
+   if(!demo&&['owner','admin','finance'].includes(role))await expect(link).toHaveAttribute('href',`/api/documents/${id}/pdf`);else await expect(link).toHaveCount(0);
+   assert.equal(await p.evaluate(()=>window.fixture.writes.length),0);
+  }finally{await p.close();}
+ }
+});
+test('unrecognized or foreign document paths never become unsupported or external download links',async()=>{
+ const p=await harness.page(1440);try{
+  const data=snapshot({size:1});data.documents=['https://example.invalid/file.pdf','../offers/file.pdf',`10000000-0000-4000-8000-000000000099/offers/40000000-0000-4000-8000-000000000001/v1/${'a'.repeat(64)}.pdf`,`${data.organization.id}/offers/40000000-0000-4000-8000-000000000001/v0/${'a'.repeat(64)}.pdf`].map((object_path,i)=>({id:`30000000-0000-4000-8000-00000000000${i}`,name:`Dokument ${i}`,kind:'other',object_path,deal_id:null,created_at:'2026-10-15T12:00:00Z'}));
+  await p.evaluate(props=>window.mountWorkspace(props),{snapshot:data,section:'documents',demo:false});
+  await expect(p.getByRole('link',{name:/Hämta arkiverad PDF/})).toHaveCount(0);await expect(p.getByText('Skyddat dokument',{exact:true})).toHaveCount(4);
+ }finally{await p.close();}
+});
 test('mobile drawer traps keyboard focus, hides background and restores focus after Escape',async()=>{const p=await setup({width:390});try{await opened(p);const menu=p.getByRole('dialog',{name:'Navigationsmeny'});await expect(menu.getByRole('link',{name:'Översikt',exact:true})).toBeFocused();assert.equal(await p.locator('.workspace-body').evaluate(n=>n.inert),true);assert.equal(await p.evaluate(()=>document.body.style.overflow),'hidden');const links=menu.locator('a[href],button');await links.last().focus();await p.keyboard.press('Tab');await expect(links.first()).toBeFocused();await p.keyboard.press('Shift+Tab');await expect(links.last()).toBeFocused();await p.keyboard.press('Escape');await expect(p.getByRole('button',{name:'Öppna menyn',exact:true})).toBeFocused();assert.equal(await p.locator('.workspace-body').evaluate(n=>n.inert),false);assert.equal(await p.evaluate(()=>document.body.style.overflow),'');assert.equal(harness.audit.posts.length,0);}finally{await p.close();}});
 test('mobile close control and backdrop each restore usable page without background tab targets',async()=>{const p=await setup({width:390});try{await opened(p);await p.getByRole('button',{name:'Stäng navigationsmenyn'}).click();await expect(p.getByRole('button',{name:'Öppna menyn',exact:true})).toBeFocused();await opened(p);await p.locator('.sidebar-overlay').click({position:{x:370,y:100}});await expect(p.getByRole('button',{name:'Öppna menyn',exact:true})).toBeFocused();}finally{await p.close();}});
 test('mobile settings navigation highlights actual active destination and resize resets drawer state',async()=>{const p=await setup({width:390,section:'settings'});try{await opened(p);await expect(p.getByRole('dialog',{name:'Navigationsmeny'}).getByRole('link',{name:'Företag & inställningar',exact:true})).toHaveAttribute('aria-current','page');await expect(p.getByRole('dialog',{name:'Navigationsmeny'}).getByRole('link',{name:'Företag & inställningar',exact:true})).toBeFocused();await p.setViewportSize({width:1440,height:900});await expect(p.getByRole('dialog',{name:'Navigationsmeny'})).toHaveCount(0);assert.equal(await p.locator('.workspace-body').evaluate(n=>n.inert),false);await expect(p.getByRole('navigation',{name:'Arbetsytans meny'})).toBeVisible();}finally{await p.close();}});
