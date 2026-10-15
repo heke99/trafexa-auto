@@ -14,3 +14,5 @@ export const StockImport=()=>null;
 export const DealOffers=()=>null;
 export const CustomerLeads=()=>null;
 export default function Unrelated(){return null;}
+
+export const DealTradeInPurchase=()=>null;

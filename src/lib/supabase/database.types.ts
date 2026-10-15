@@ -1076,6 +1076,10 @@ export type GeneratedDatabase = {
         Args: { p_company_id: string; p_stock_id: string }
         Returns: Json
       }
+      get_trade_in_acquisition: {
+        Args: { p_company_id: string; p_deal_id: string }
+        Returns: Json
+      }
       get_transactional_email_status: { Args: never; Returns: Json }
       get_vehicle_calculation: {
         Args: { p_company_id: string; p_stock_item_id: string }
@@ -1271,6 +1275,28 @@ export type GeneratedDatabase = {
           p_request_id: string
           p_review_acknowledged: boolean
           p_unit_price_ore: string
+        }
+        Returns: Json
+      }
+      record_trade_in_acquisition: {
+        Args: {
+          p_acknowledged: boolean
+          p_acquired_on: string
+          p_asking_price_ore: number
+          p_attestation_version: string
+          p_company_id: string
+          p_deal_id: string
+          p_debt_confirmed: boolean
+          p_debt_confirmed_on: string
+          p_debt_confirmed_ore: number
+          p_debt_evidence_reference: string
+          p_expected_source_sha256: string
+          p_fuel: string
+          p_gearbox: string
+          p_purchase_agreement_reference: string
+          p_purchase_confirmed: boolean
+          p_received_confirmed: boolean
+          p_request_id: string
         }
         Returns: Json
       }
@@ -1631,6 +1657,10 @@ type RpcArgumentCompatibility = {
   list_platform_contact_requests: { p_page_key: string | null }
   list_stock_purchase_conditions: { p_before_version: number | null }
   list_vehicle_photos: { p_page_key: string | null }
+  record_trade_in_acquisition: {
+    p_debt_confirmed_ore: number | string
+    p_asking_price_ore: number | string
+  }
   respond_offer_review: { p_reason: string | null }
   save_vehicle_calculation_metadata: { p_purchase_vat_ore: string | null }
   sign_contract: { p_company_id: string | null }
