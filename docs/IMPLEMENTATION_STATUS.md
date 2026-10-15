@@ -1,5 +1,20 @@
 # Implementationsstatus
 
+## Företagets ägarroll — pågående organisationsetapp 15 oktober 2026
+
+Från publicerad main `bb8f756` ([PR #31](https://github.com/heke99/trafexa-auto/pull/31)) byggs [granskad överlåtelse av företagets ägarroll](COMPANY_OWNERSHIP_TRANSFER.md). Nuvarande ägare begär överlåtelse till en befintlig aktiv, verifierad och godkänd administratör; mottagaren måste själv acceptera inom 24 timmar. Acceptansen växlar båda rollerna atomiskt. Detta avser behörigheten i Trafexa och ändrar inte juridiskt ägande eller företagsregistrering. Filialer, inköpsavtal och återhämtning av avvikande ägarbild är separata senare steg. Kod och databas är verifierade inför publicering: appens helsvit 970/970 utan fel eller överhoppade fall och produktionsbygge inklusive TypeScript passerar. Migration `20261015173753_company_ownership_transfer` är applicerad; hosted rollbackprov passerar och nio efterkontroller är noll. PR, main och produktionsdeployment för denna etapp återstår att återläsa.
+
+
+### Verifierad kodcheckpoint för ägarrollen
+
+Native PostgreSQL passerar **15/15**, korslager **7/7**, serveråtgärder **10/10**, Chromium för ägarrollen **12/12** och befintlig personal-UI **8/8**. Produktionsbygge inklusive TypeScript avslutas med exitkod 0. Appens fulla helsvit passerar **970/970**, utan fel eller överhoppade fall, på **259 539,482164 ms**. De riktade appfallen ingår i helsviten och adderas inte till dess totalsumma.
+
+Migration **`20261015173753_company_ownership_transfer.sql`** är applicerad i hosted databas. Hosted rollbackprov passerar utan SQL-fel och samtliga **nio separata cleanupaggregat är noll**. Hosted historik innehåller **112 migrationer**: en parallell leverans applicerade sex `advertising_credit_*`-migrationer före denna migration. De sex är inte den här etappens arbete och ingick inte i dess lokala verifieringsbas med **108 migrationsfiler**. Main är fortfarande `bb8f756`; ingen publicering eller integrering av den parallella kreditleveransen påstås här. PR, main och produktionsdeployment för ägarrollsetappen återstår att återläsa.
+
+## Föregående publicerade checkpoint — PR #31
+
+Samordnarens verifierade releasecheckpoint är [PR #31](https://github.com/heke99/trafexa-auto/pull/31), main `bb8f756`, produktion `dpl_Dm1hVvFK8GZmsg5PCobV8C7zYhKc`, `READY` i `arn1`. Den föregående integrerade appkörningen 948/948 och produktionsbygget gäller denna annonsprisleverans; de återanvänds inte som bevis för den nya ägarrollsetappen. Nedanstående formuleringar om kodcheckpoint före publicering bevaras som historik före PR #31.
+
 ## Kanalval och granskat pris före utskick, 15 oktober 2026 — integrerad kod och databas verifierade
 
 Etappen utgår från main `20cb4d`/PR #28 och är sammanfogad med fakturautställningens main `a796bb`/PR #29 samt momsberäkning V2 på main `943514ae`/PR #30. Den inför serverberäknad prisoffert för valda annonskanaler före köning. Offerttoken och annonsversion binder handlarens granskning; ändrat underlag ger konflikt. Första accepterade priset per företag, annons och kanal sparas oföränderligt, binds till varje leveransjobb och används vid första verifierade publicering. Beloppen är SEK exklusive moms, uttryckligt noll skiljs från saknat pris och ingen extern prislista antas. Köade, inskickade, avvisade och okända utfall förblir operativ statistik utan faktureringsenhet. Nya versioner och återförsök debiteras inte på nytt. Tidigare finansiella original, utfärdandeflödet och företagsprofilen bevaras. Användaren har bekräftat att partneranslutning saknas; Blocket/Wayke och dispatchers förblir därför inaktiva. Se [sändningskontraktet](ADVERTISING_REVIEWED_SEND_CONTRACT.md).
