@@ -11,6 +11,7 @@ async function setup(options={}){
  '@/lib/account-access/context':{async getAccountAccessContext(){accounts++;return options.noAuth?null:{...account,...(accounts===1?options.firstAccount:options.lastAccount)};}},
  '@/lib/data/company-context':{async getActiveCompanyContext(){companies++;return {company,user,role:'finance',...(companies===1?options.firstCompany:options.lastCompany)};}},
  '@/lib/data/contract-signing-actions':{async getContractSigningAction(input){reads++;assert.equal(input.signingId,id);if(options.denial===reads)return{ok:false,code:'access_denied'};return{ok:true,signing:{...signing,...(reads===1?options.firstSigning:options.lastSigning)}};}},
+ '@/lib/data/contract-archive-actions':{async getContractArchiveAction(input){return {ok:true,archive:null,actorId:user,companyId:company,signingId:id,role:input.companyId?'finance':'customer'};}},
  './signed-contract-pdf':{parseCompletedContract(v){if(v.status!=='completed'||options.malformed)throw Error('SECRET_DTO');return v;},async generateSignedContractPdf(){renders++;return new Uint8Array(Buffer.from('%PDF-private'));},async generateSigningEvidence(){renders++;return{checksum:'fixture'};}},
  });
  const route=loader.load('src/lib/documents/signed-contract-download.ts');return{get:(query='',format='pdf',path=id)=>route.downloadSignedContract(new Request(`https://app.trafexa.com/api/contract-signings/${path}/${format}${query}`),path,format),counts:()=>({accounts,companies,reads,renders})};
