@@ -45,6 +45,7 @@ before(async () => {
       [resolve(repo, 'src/components/company-team')]: unrelated,
       [resolve(repo, 'src/components/company-store-profile')]: unrelated,
       [resolve(repo, 'src/components/company-branches')]: unrelated,
+      [resolve(repo, 'src/components/company-public-store')]: unrelated,
       [resolve(repo, 'src/components/vehicle-calculation')]: unrelated,
       [resolve(repo, 'src/components/purchase-condition')]: unrelated,
       [resolve(repo, 'src/components/contract-template-workspace')]: unrelated,

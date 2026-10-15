@@ -4,7 +4,14 @@
 
 ## Filialer — pågående organisationsetapp
 
-Från PR #33 byggs ett [internt filialregister](COMPANY_BRANCHES.md) för försäljningsställen inom samma juridiska företag. Ägare och administratörer ska kunna skapa och redigera adresser och kontaktuppgifter samt arkivera och återaktivera poster. Första nyttan är ett gemensamt adressregister; lagerkoppling och filialfilter är separata nästa steg. Företagsbehörighet, annonser, butiksprofil och externa partnerexporter ändras inte. Etappens kod och databas är verifierade inför publicering: **1023/1023 appfall** utan fel, avbrutna, överhoppade eller todo, samt produktionsbygge inklusive TypeScript passerar. Migration `20261015180528_company_branches` är applicerad och hosted rollback med nio nollställda efterkontroller passerar. PR, main och produktionsdeployment för filialetappen återstår att verifiera.
+## Gruppanslutning V5 och publika handlarbutiker — pågående etapp
+
+Från PR #34 byggs [Blocket gruppanslutning V5](BLOCKET_GROUP_SETUP.md) från användarens uppladdade klientdokumentation och en separat [publik Trafexa-butik](PUBLIC_DEALER_STORES.md) med uttryckligen valda annonser. Gruppanslutningen binds till företagets dealer_code och en icke-hemlig credentialreferens; token och kontoomfattning är ännu inte verifierade. Publik profil och högst 50 aktuella annonser granskas före publicering. Inga befintliga privata uppgifter publiceras automatiskt. Integrerad kod och databas är verifierade inför publicering: 1139/1139 appfall utan fel, avbrutna, överhoppade eller todo och produktionsbygge inklusive TypeScript passerar. PR, main och produktionsdeployment återstår att verifiera.
+
+
+## Filialer — publicerade via PR #34
+
+Från PR #33 byggs ett [internt filialregister](COMPANY_BRANCHES.md) för försäljningsställen inom samma juridiska företag. Ägare och administratörer ska kunna skapa och redigera adresser och kontaktuppgifter samt arkivera och återaktivera poster. Första nyttan är ett gemensamt adressregister; lagerkoppling och filialfilter är separata nästa steg. Företagsbehörighet, annonser, butiksprofil och externa partnerexporter ändras inte. Etappens kod och databas är verifierade inför publicering: **1023/1023 appfall** utan fel, avbrutna, överhoppade eller todo, samt produktionsbygge inklusive TypeScript passerar. Migration `20261015180528_company_branches` är applicerad och hosted rollback med nio nollställda efterkontroller passerar. Filialetappen är publicerad via [PR #34](https://github.com/heke99/trafexa-auto/pull/34) på main `b79032211fb1f9aacd1e3defdc41da53faeac6c3`. Produktion `dpl_2htBUB9ihSvgWkwH3aD2gyJiLhFE` är verifierad `READY` i `arn1`; appens login/registrering, www och demo gav 200 med exakt deployment-ID och apex 308 till www.
 
 ## Företagets ägarroll — publicerad via PR #33
 

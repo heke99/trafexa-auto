@@ -1,5 +1,13 @@
 import 'server-only';
 
+export type BlocketDelivery = {
+  id: string; companyId: string; listingId: string; listingVersion: number; sourceId: string;
+  dealerCode: string; revision: number; operation: 'create' | 'update'; providerAdId: string | null;
+  connectionId: string; connectionVersion: number; payloadSha256: string; providerRequestId: string | null;
+  status: 'dispatching' | 'submitted' | 'outcome_unknown' | 'published' | 'rejected'; version: number;
+};
+export type BlocketProviderOutcome = AdvertisingProviderOutcome & { providerRequestId?: string; evidenceSha256?: string; providerAdId?: string };
+
 /** Server-side contracts. Credentials and media access URLs never enter dealer DTOs. */
 export type AdvertisingChannel = 'blocket' | 'wayke';
 export type AdvertisingJobStatus = 'queued' | 'dispatching' | 'submitted' | 'outcome_unknown' | 'published' | 'rejected' | 'retryable';
@@ -34,6 +42,7 @@ export type AdvertisingProviderOutcome =
   | { status: 'outcome_unknown'; errorCode: string }
   | { status: 'rejected' | 'retryable'; errorCode: string };
 export interface AdvertisingProvider {
+  readonly deliveryProtocol?: 'blocket-v5';
   readonly channel: AdvertisingChannel;
   readonly dispatcherId: string;
   /** Set only by trusted provisioning after verifying the dealer credentials' actual scope. */
@@ -41,9 +50,9 @@ export interface AdvertisingProvider {
     companyId: string; connectionId: string; connectionVersion: number;
     accountReference: string; validUntil: string;
   };
-  submit(payload: AdvertisingPublicPayload): Promise<AdvertisingProviderOutcome>;
+  submit(payload: AdvertisingPublicPayload, delivery?: BlocketDelivery): Promise<BlocketProviderOutcome>;
   /** Must only read remote state. Never POST again after uncertain or accepted delivery. */
-  reconcile(payload: Pick<AdvertisingPublicPayload, 'sourceId' | 'listingVersion' | 'accountReference'>): Promise<AdvertisingProviderOutcome>;
+  reconcile(payload: Pick<AdvertisingPublicPayload, 'sourceId' | 'listingVersion' | 'accountReference'>, delivery?: BlocketDelivery): Promise<BlocketProviderOutcome>;
 }
 
 export function isAdvertisingProviderUrl(channel: AdvertisingChannel, value: string): boolean {

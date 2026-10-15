@@ -2,6 +2,8 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { isAdvertisingProviderUrl, type AdvertisingPhoto, type AdvertisingProvider,
   type AdvertisingProviderOutcome, type AdvertisingPublicPayload, type AdvertisingWorkerJob } from './provider-contract';
+import type { BlocketDeliveryStore } from './blocket-delivery-store';
+import { runBlocketDelivery } from './blocket-delivery-worker';
 
 export interface AdvertisingWorkerStore {
   getJob(id: string): Promise<AdvertisingWorkerJob | null>;
@@ -17,7 +19,7 @@ export interface AdvertisingMediaResolver {
 }
 type Options = {
   enabled?: boolean; store: AdvertisingWorkerStore; providers: readonly AdvertisingProvider[];
-  media: AdvertisingMediaResolver; now?: () => Date;
+  media: AdvertisingMediaResolver; now?: () => Date; blocketDelivery?: BlocketDeliveryStore;
 };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -145,6 +147,13 @@ export function createAdvertisingWorker(options: Options) {
         job = await options.store.expireDispatch(job.id, job.version);
       }
       const provider = providerFor(job, options, now);
+      if (provider.deliveryProtocol === 'blocket-v5') {
+        if (job.channel !== 'blocket' || !options.blocketDelivery) throw Error('blocket_delivery_store_required');
+        return runBlocketDelivery({ job, provider, ledger: options.blocketDelivery, store: options.store,
+          payload: () => payloadFor(job!, options), now: () => options.now?.() ?? new Date(),
+          verifyProvider: current => { if (providerFor(current, options, options.now?.() ?? new Date()) !== provider) throw Error('advertising_connection_unavailable'); },
+          safeOutcome });
+      }
       if (job.status === 'submitted' || job.status === 'outcome_unknown') {
         let outcome: AdvertisingProviderOutcome;
         try { outcome = await provider.reconcile({ sourceId: job.listingId, listingVersion: job.listingVersion, accountReference: job.accountReference }); }

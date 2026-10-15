@@ -760,6 +760,104 @@ export type GeneratedDatabase = {
       [_ in never]: never
     }
     Functions: {
+      begin_blocket_delivery: {
+        Args: {
+          p_claim_token: string
+          p_expected_job_version: number
+          p_job_id: string
+          p_payload_sha256: string
+        }
+        Returns: Json
+      }
+      bind_blocket_company: {
+        Args: {
+          p_acknowledged: boolean
+          p_company_id: string
+          p_dealer_code: string
+          p_evidence_reference: string
+          p_expected_connection_version: number
+          p_expected_group_version: number
+          p_group_id: string
+          p_reason: string
+          p_request_id: string
+          p_valid_until: string
+        }
+        Returns: Json
+      }
+      configure_blocket_group: {
+        Args: {
+          p_acknowledged: boolean
+          p_credential_reference: string
+          p_expected_version: number
+          p_group_id: string
+          p_group_reference: string
+          p_reason: string
+          p_request_id: string
+          p_scope: string
+          p_status: string
+        }
+        Returns: Json
+      }
+      disable_blocket_company: {
+        Args: {
+          p_acknowledged: boolean
+          p_company_id: string
+          p_expected_connection_version: number
+          p_reason: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      get_blocket_delivery: { Args: { p_job_id: string }; Returns: Json }
+      get_blocket_worker_binding: { Args: { p_job_id: string }; Returns: Json }
+      get_blocket_worker_group: { Args: { p_group_id: string }; Returns: Json }
+      get_company_public_store: {
+        Args: { p_company_id: string }
+        Returns: Json
+      }
+      get_platform_blocket_provisioning: {
+        Args: { p_company_id: string; p_limit?: number; p_page_key?: string }
+        Returns: Json
+      }
+      get_public_dealer_store: { Args: { p_slug: string }; Returns: Json }
+      get_public_store_photo: {
+        Args: { p_photo_id: string; p_slug: string }
+        Returns: Json
+      }
+      publish_company_public_store: {
+        Args: {
+          p_acknowledged: boolean
+          p_company_id: string
+          p_expected_version: number
+          p_listings: Json
+          p_profile_version: number
+          p_request_id: string
+          p_slug: string
+        }
+        Returns: Json
+      }
+      record_blocket_delivery: {
+        Args: {
+          p_claim_token: string
+          p_delivery_id: string
+          p_evidence_sha256: string
+          p_expected_version: number
+          p_job_id: string
+          p_provider_ad_id: string
+          p_provider_request_id: string
+          p_status: string
+        }
+        Returns: Json
+      }
+      unpublish_company_public_store: {
+        Args: {
+          p_acknowledged: boolean
+          p_company_id: string
+          p_expected_version: number
+          p_request_id: string
+        }
+        Returns: Json
+      }
       list_company_branches: {
         Args: {
           p_company_id: string

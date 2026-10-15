@@ -1,0 +1,6 @@
+async function run(kind,input){const f=window.fixture;f[`${kind}Calls`].push(input);const response=f[`${kind}Responses`].shift();if(response?.throw)throw Error('Unknown');if(response?.defer)return new Promise(resolve=>{f.resolve=resolve;});if(response)return structuredClone(response);if(kind==='get')return {ok:true,...structuredClone(f.manager)};if(kind==='profile')return {ok:true,...structuredClone(f.profile)};if(kind==='ads')return {ok:true,...structuredClone(f.ads)};const store={slug:input.slug??f.manager.store.slug,version:input.expectedVersion+1,status:kind==='publish'?'published':'unpublished',profileVersion:input.profileVersion??f.manager.store.profileVersion,publishedAt:'2026-10-15T12:00:00Z',updatedAt:'2026-10-15T12:00:00Z',selectedListings:input.listings??f.manager.store.selectedListings};return {ok:true,receipt:{companyId:input.companyId,actorUserId:f.manager.actorUserId,requestId:input.requestId,action:kind,store}};}
+export const getCompanyPublicStoreAction=input=>run('get',input);
+export const publishCompanyPublicStoreAction=input=>run('publish',input);
+export const unpublishCompanyPublicStoreAction=input=>run('unpublish',input);
+export const getCompanyStoreProfileAction=input=>run('profile',input);
+export const listAdvertisingWorkspaceAction=input=>run('ads',input);

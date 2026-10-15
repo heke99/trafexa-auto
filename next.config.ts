@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
       { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' }
     ] },
     { source: '/api/company-store-profile/:path*', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
+    { source: '/api/public-stores/:path*', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'Cache-Control', value: 'no-store, max-age=0' }] },
+    { source: '/api/internal/advertising/blocket/:path*', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'Cache-Control', value: 'private, no-store, max-age=0' }] },
+    { source: '/handlare/:path*', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'Cache-Control', value: 'no-store, max-age=0' }] },
     { source: '/api/dealer-companies', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] }];
   }
 };
