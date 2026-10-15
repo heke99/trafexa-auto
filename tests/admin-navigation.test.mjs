@@ -48,33 +48,25 @@ function credentials(patch = {}) {
   return form;
 }
 
-test('actual login and register pages keep /admin in hidden forms and reciprocal account links', async () => {
+test('login retains its destination but offers an application instead of open registration', async () => {
   const { loader, calls } = await fixture();
   const login = await loader.load('./src/app/login/page.tsx').default({ searchParams: Promise.resolve({ next: '/admin' }) });
   assert.equal(hiddenNext(login), '/admin');
-  const registerLink = new URL(hrefTo(login, '/register'), APP);
-  assert.equal(registerLink.searchParams.get('next'), '/admin');
-  const register = await loader.load('./src/app/register/page.tsx').default({ searchParams: Promise.resolve({ next: registerLink.searchParams.get('next') }) });
-  assert.equal(hiddenNext(register), '/admin');
-  assert.equal(new URL(hrefTo(register, '/login'), APP).searchParams.get('next'), '/admin');
+  assert.equal(hrefTo(login, '/register'), undefined);
+  assert.equal(elements(login, node => node.props.href === 'https://trafexa.com/#kontakt').length, 1);
+  const register = await redirected(() => loader.load('./src/app/register/page.tsx').default({ searchParams: Promise.resolve({ next: '/admin' }) }));
+  assert.equal(register.href, 'https://trafexa.com/#kontakt');
   assert.ok(calls.length > 0); assert.ok(calls.every(call => ['getClaims', 'getUser'].includes(call[0])));
 });
 
-test('signup verification callback and login return preserve the admin destination without claiming access', async () => {
-  const { actions, calls, callback } = await fixture();
+test('stale signup submissions lead to the application without creating an Auth user or confirmation email', async () => {
+  const { actions, calls } = await fixture();
   const result = await redirected(() => actions.signupAction(credentials()));
-  assert.equal(result.pathname, '/login'); assert.equal(result.searchParams.get('next'), '/admin');
-  assert.ok(result.searchParams.get('success'));
-  const outbound = new URL(calls[0][1].options.emailRedirectTo);
-  assert.equal(outbound.origin, APP); assert.equal(outbound.pathname, '/auth/callback');
-  assert.equal(outbound.searchParams.get('next'), '/admin');
-  outbound.searchParams.set('code', 'fixture-code');
-  const response = await callback.GET({ nextUrl: outbound });
-  assert.equal(response.location, `${APP}/admin`);
-  assert.deepEqual(calls.map(call => call[0]), ['signUp', 'exchangeCodeForSession']);
+  assert.equal(result.href, 'https://trafexa.com/#kontakt');
+  assert.deepEqual(calls, []);
 });
 
-test('signup validation and provider failures keep next and never reveal provider diagnostics', async () => {
+test('closed signup ignores submitted credentials and never contacts the Auth provider', async () => {
   const cases = [
     [{}, { email: 'invalid' }], [{}, { password: 'short' }], [{}, { acknowledgement: 'no' }],
     [{ signUpError: { message: 'Private provider diagnostics' } }, {}], [{ throwSignUp: true }, {}],
@@ -82,9 +74,9 @@ test('signup validation and provider failures keep next and never reveal provide
   for (const [options, patch] of cases) {
     const { actions, calls } = await fixture(options);
     const result = await redirected(() => actions.signupAction(credentials(patch)));
-    assert.equal(result.pathname, '/register'); assert.equal(result.searchParams.get('next'), '/admin');
-    assert.ok(result.searchParams.get('error')); assert.equal(result.toString().includes('Private'), false);
-    if (Object.keys(patch).length) assert.equal(calls.length, 0);
+    assert.equal(result.href, 'https://trafexa.com/#kontakt');
+    assert.equal(result.toString().includes('Private'), false);
+    assert.equal(calls.length, 0);
   }
 });
 
@@ -135,15 +127,13 @@ test('untrusted next cannot become an external redirect in pages, signup, login 
     const { loader, actions, callback, calls } = await fixture();
     const query = { searchParams: Promise.resolve({ next }) };
     const login = await loader.load('./src/app/login/page.tsx').default(query);
-    const register = await loader.load('./src/app/register/page.tsx').default(query);
-    assert.equal(hiddenNext(login), '/dashboard'); assert.equal(hiddenNext(register), '/dashboard');
+    const register = await redirected(() => loader.load('./src/app/register/page.tsx').default(query));
+    assert.equal(hiddenNext(login), '/dashboard'); assert.equal(register.href, 'https://trafexa.com/#kontakt');
     const signedIn = await redirected(() => actions.loginAction(credentials({ next })));
     assert.equal(signedIn.origin, APP); assert.equal(signedIn.pathname, '/dashboard');
-    await redirected(() => actions.signupAction(credentials({ next })));
-    const signup = calls.find(call => call[0] === 'signUp');
-    const destination = new URL(signup[1].options.emailRedirectTo);
-    assert.equal(destination.origin, APP);
-    assert.notEqual(destination.searchParams.get('next'), next);
+    const signupDestination = await redirected(() => actions.signupAction(credentials({ next })));
+    assert.equal(signupDestination.href, 'https://trafexa.com/#kontakt');
+    assert.equal(calls.some(call => call[0] === 'signUp'), false);
     const nextUrl = new URL('/auth/callback', APP); nextUrl.searchParams.set('code', 'code'); nextUrl.searchParams.set('next', next);
     assert.equal((await callback.GET({ nextUrl })).location, `${APP}/dashboard`);
   }

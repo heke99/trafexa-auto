@@ -48,8 +48,9 @@ export function PilotForm() {
       inFlight.current = false;
     }
   }
-  if (status === 'success') return <div className="pilot-success" role="status"><span className="success-symbol"><Check size={28}/></span><h3>Tack. Vi hörs snart.</h3><p>Din ansökan har sparats. Vi kontaktar dig för en genomgång av Trafexa och upplägget för din verksamhet.</p><button className="text-link" onClick={() => setStatus('idle')}>Skicka en till ansökan <ArrowUpRight size={16}/></button></div>;
+  if (status === 'success') return <div className="pilot-success" role="status"><span className="success-symbol"><Check size={28}/></span><h3>Tack. Vi hörs snart.</h3><p>Din ansökan har sparats och granskas av Trafexa. Efter godkännande får du en kontoinbjudan via e-post och väljer ditt lösenord.</p><button className="text-link" onClick={() => setStatus('idle')}>Skicka en till ansökan <ArrowUpRight size={16}/></button></div>;
   return <form className="pilot-form" action="/api/demo-requests" method="post" onSubmit={submit} aria-busy={status === 'sending'}>
+    <p>Ansök om tillgång till Trafexa. Vi granskar ansökan och skickar en kontoinbjudan efter godkännande.</p>
     <div className="field-pair"><label>Företag<input name="company" autoComplete="organization" placeholder="Din bilfirma" required maxLength={160}/></label><label>Ditt namn<input name="name" autoComplete="name" placeholder="För- och efternamn" required maxLength={160}/></label></div>
     <div className="field-pair"><label>Mejladress<input name="email" autoComplete="email" type="email" placeholder="namn@bilfirma.se" required maxLength={254}/></label><label>Telefon<input name="phone" autoComplete="tel" type="tel" placeholder="070 000 00 00" required minLength={7} maxLength={40}/></label></div>
     <label>Organisationsnummer<input name="organisationNumber" placeholder="556123-4567" inputMode="numeric" required pattern="[0-9]{6}-?[0-9]{4}" maxLength={11}/></label>

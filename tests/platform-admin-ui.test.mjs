@@ -26,7 +26,7 @@ before(async () => {
   const config = {
     plugins: [new LimitChunkCountPlugin({maxChunks:1})], mode: 'development', target: 'web', devtool: false, context: repo,
     entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js', publicPath: '' },
-    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/advertising/invoice-email-actions': resolve(repo, 'tests/helpers/advertising-invoice-email-ui/actions.js'), '@/lib/advertising/invoice-email-send-actions': resolve(repo, 'tests/helpers/advertising-invoice-email-ui/send-actions.js'), '@/lib/blocket-provisioning/actions': resolve(repo, 'tests/helpers/blocket-provisioning-ui/actions.js'), '@/lib/advertising/credit-actions': resolve(repo, 'tests/helpers/advertising-credit-ui/actions.js'), '@/lib/advertising/issuance-actions': resolve(repo, 'tests/helpers/advertising-issuance-ui/actions.js'), '@/lib/advertising/financial-actions': resolve(repo, 'tests/helpers/advertising-financial-ui/actions.js'), '@/lib/advertising/invoice-actions': resolve(repo, 'tests/helpers/advertising-invoice-ui/actions.js'), '@/lib/advertising/correction-actions': resolve(repo, 'tests/helpers/advertising-corrections-ui/actions.js'), '@/lib/advertising/billing-actions': resolve(repo, 'tests/helpers/advertising-billing-ui/actions.js'), '@/lib/calculations/vehicle-calculation': resolve(repo, 'src/lib/calculations/vehicle-calculation.ts'), '@/lib/advertising/usage-actions': resolve(repo, 'tests/helpers/advertising-usage-ui/actions.js'), '@/lib/advertising/actions': resolve(repo, 'tests/helpers/advertising-ui/actions.js'), '@/lib/platform-admin/actions': resolve(helpers, 'actions.js'), 'next/navigation': resolve(helpers, 'navigation.js'), '@/lib/platform-admin/overview-actions': resolve(helpers, 'overview-actions.js'), '@/lib/platform-admin/account-actions': resolve(helpers, 'account-actions.js') } },
+    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/platform-admin/application-invitation-actions': resolve(helpers, 'application-invitation-actions.js'), '@/lib/platform-admin/application-invitation-send-actions': resolve(helpers, 'application-invitation-send-actions.js'), '@/lib/advertising/invoice-email-actions': resolve(repo, 'tests/helpers/advertising-invoice-email-ui/actions.js'), '@/lib/advertising/invoice-email-send-actions': resolve(repo, 'tests/helpers/advertising-invoice-email-ui/send-actions.js'), '@/lib/blocket-provisioning/actions': resolve(repo, 'tests/helpers/blocket-provisioning-ui/actions.js'), '@/lib/advertising/credit-actions': resolve(repo, 'tests/helpers/advertising-credit-ui/actions.js'), '@/lib/advertising/issuance-actions': resolve(repo, 'tests/helpers/advertising-issuance-ui/actions.js'), '@/lib/advertising/financial-actions': resolve(repo, 'tests/helpers/advertising-financial-ui/actions.js'), '@/lib/advertising/invoice-actions': resolve(repo, 'tests/helpers/advertising-invoice-ui/actions.js'), '@/lib/advertising/correction-actions': resolve(repo, 'tests/helpers/advertising-corrections-ui/actions.js'), '@/lib/advertising/billing-actions': resolve(repo, 'tests/helpers/advertising-billing-ui/actions.js'), '@/lib/calculations/vehicle-calculation': resolve(repo, 'src/lib/calculations/vehicle-calculation.ts'), '@/lib/advertising/usage-actions': resolve(repo, 'tests/helpers/advertising-usage-ui/actions.js'), '@/lib/advertising/actions': resolve(repo, 'tests/helpers/advertising-ui/actions.js'), '@/lib/platform-admin/actions': resolve(helpers, 'actions.js'), 'next/navigation': resolve(helpers, 'navigation.js'), '@/lib/platform-admin/overview-actions': resolve(helpers, 'overview-actions.js'), '@/lib/platform-admin/account-actions': resolve(helpers, 'account-actions.js') } },
     module: { rules: [{ test: /\.tsx?$/, use: resolve(helpers, 'swc-loader.cjs') }] },
   };
   await new Promise((resolveBuild, reject) => {
@@ -40,15 +40,15 @@ before(async () => {
 });
 after(async () => { await browser?.close(); if (directory) await rm(directory, { recursive: true, force: true }); });
 
-async function setup({ activation = false, initialCompanies = [makeCompany()], nextPageKey = null, statusResponses = [], listResponses = [], contactResponses = [], application = null, detailResponses = [], applicationStatusResponses = [], eraseResponses = [], overviewResponses = [], overviewTab = false, accountRows = [], accountResponses = [], accountStatusResponses = [] } = {}) {
+async function setup({ activation = false, initialCompanies = [makeCompany()], nextPageKey = null, statusResponses = [], listResponses = [], contactResponses = [], application = null, detailResponses = [], applicationStatusResponses = [], eraseResponses = [], overviewResponses = [], overviewTab = false, accountRows = [], accountResponses = [], accountStatusResponses = [], invitationResponses = [], invitationReadResponses = [] } = {}) {
   const page = await browser.newPage();
   await page.route('**/*', route => route.abort());
   await page.setContent(`<style>${styles}</style><div class="wrap" id="root"></div>`);
-  await page.evaluate(({ companies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses, accountRows, accountResponses, accountStatusResponses }) => {
+  await page.evaluate(({ companies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses, accountRows, accountResponses, accountStatusResponses, invitationResponses, invitationReadResponses }) => {
     let ids = 0;
     Object.defineProperty(crypto, 'randomUUID', { configurable: true, value: () => `20000000-0000-4000-8000-${String(++ids).padStart(12, '0')}` });
-    window.fixture = { accounts: accountRows, accountResponses, accountStatusResponses, accountListCalls: [], accountStatusCalls: [], companies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses, overviewCalls: [], eraseCalls: [], detailCalls: [], applicationStatusCalls: [], statusCalls: [], listCalls: [], contactCalls: [], activationCalls: [], refreshes: 0 };
-  }, { companies: initialCompanies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses, accountRows, accountResponses, accountStatusResponses });
+    window.fixture = { invitationReadResponses, invitationReadCalls: [], invitationResponses, invitationCalls: [], accounts: accountRows, accountResponses, accountStatusResponses, accountListCalls: [], accountStatusCalls: [], companies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses, overviewCalls: [], eraseCalls: [], detailCalls: [], applicationStatusCalls: [], statusCalls: [], listCalls: [], contactCalls: [], activationCalls: [], refreshes: 0 };
+  }, { companies: initialCompanies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses, accountRows, accountResponses, accountStatusResponses, invitationResponses, invitationReadResponses });
   await page.addScriptTag({ path: bundle });
   await page.evaluate(props => window.mountAdminFixture(props), { actorUserId: '30000000-0000-4000-8000-000000000001', activation, initialPage: { companies: initialCompanies, nextPageKey }, initialError: null });
   if (!activation && !overviewTab) await page.getByRole('button', { name: 'Företag', exact: true }).click();
@@ -223,6 +223,102 @@ test('overview refresh clears stale metrics on errors, retries and revocation cl
 });
 
 const makeAccount=(options={})=>({userId:'40000000-0000-4000-8000-000000000001',name:null,email:'new@example.invalid',emailVerified:true,createdAt:'2026-10-14T08:00:00Z',status:'pending',version:1,isPlatformAdmin:false,...options});
+
+const invitationApplication = {id:COMPANY,name:'Invited Person',email:'invited@example.test',phone:'+46701234567',company:'Invitation AB',organisationNumber:'5561234567',seeking:['system'],message:'Vi söker tillgång.',status:'new',version:3,privacyVersion:'2026-10-14',privacyAcknowledgedAt:'2026-10-14T08:00:00Z',createdAt:'2026-10-14T08:00:00Z'};
+async function openInvitationReview(page) {
+  await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();
+  await page.getByRole('button',{name:/Visa ansökan/}).click();
+  await page.getByLabel('Motivering för kontogodkännande').fill('Ansökan och kontaktpersonen har granskats.');
+  await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();
+}
+test('application approval requires recipient review and explicit acknowledgement, then sends once with server-bound identity',async()=>{
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}]});
+ try {
+  await openInvitationReview(page);
+  const region=page.getByRole('region',{name:'Godkänn ansökan och bjud in'});
+  await expect(region.getByText('invited@example.test',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true})).toBeDisabled();
+  assert.equal(await page.evaluate(()=>window.fixture.invitationCalls.length),0);
+  await page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'}).check();
+  await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
+  await expect(region.getByRole('status')).toContainText('Kontoinbjudan har skickats till invited@example.test.');
+  await expect(page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true})).toBeDisabled();
+  const calls=await page.evaluate(()=>window.fixture.invitationCalls);
+  assert.equal(calls.length,1);assert.equal(calls[0].applicationId,COMPANY);assert.equal(calls[0].expectedVersion,3);assert.equal(calls[0].acknowledged,true);
+  assert.deepEqual(Object.keys(calls[0]).sort(),['acknowledged','applicationId','expectedVersion','reason','requestId']);
+ }finally{await page.close();}
+});
+test('unknown invitation transport reuses the reviewed request and provider ambiguity disables another send',async()=>{
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationResponses:[{throw:true},{ok:true,status:'unknown',invitationId:COMPANY,email:invitationApplication.email}]});
+ try {
+  await openInvitationReview(page);await page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'}).check();
+  await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();await expect(page.getByRole('alert')).toContainText('samma granskning');
+  await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
+  await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'}).getByRole('status')).toContainText('Skicka inte en ny inbjudan');
+  const calls=await page.evaluate(()=>window.fixture.invitationCalls);assert.deepEqual(calls[0],calls[1]);
+  await expect(page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true})).toBeDisabled();
+ }finally{await page.close();}
+});
+test('unconfigured invitation never claims delivery and an existing account directs superadmin to account review',async()=>{
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationResponses:[{ok:true,status:'not_configured',invitationId:COMPANY,email:invitationApplication.email},{ok:false,code:'existing_account'}]});
+ try {
+  await openInvitationReview(page);await page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'}).check();
+  await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
+  await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'}).getByRole('status')).toContainText('Ingen kontoinbjudan har skickats');
+  await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Granska kontot under Konton');
+ }finally{await page.close();}
+});
+test('invitation access denial clears application data and disables administration',async()=>{
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationResponses:[{ok:false,code:'forbidden'}]});
+ try {
+  await openInvitationReview(page);await page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'}).check();
+  await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Administratörsåtkomsten kunde inte verifieras');
+  await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'})).toHaveCount(0);
+  await expect(page.getByText('invited@example.test',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeDisabled();
+ }finally{await page.close();}
+});
+test('reviewed invitation fits mobile widths and changing application discards an in-flight response',async()=>{
+ const application={...invitationApplication,email:`${'longrecipient'.repeat(8)}@example.test`};
+ const page=await setup({application,contactResponses:[{ok:true,requests:[application],nextPageKey:null}],invitationResponses:[{hold:true}]});
+ try {
+  await openInvitationReview(page);
+  for(const width of [320,375,768]) {
+   await page.setViewportSize({width,height:900});
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  }
+  await page.getByRole('checkbox',{name:`Jag har granskat ansökan och godkänner kontot för ${application.email}.`}).check();
+  await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
+  await page.waitForFunction(()=>typeof window.releaseInvitation==='function');
+  await page.getByRole('button',{name:'Stäng detaljer',exact:true}).click();
+  await page.evaluate(()=>window.releaseInvitation({ok:true,status:'sent',invitationId:'50000000-0000-4000-8000-000000000001',email:window.fixture.application.email}));
+  await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'})).toHaveCount(0);
+  await expect(page.getByText('Kontoinbjudan har skickats',{exact:false})).toHaveCount(0);
+ }finally{await page.close();}
+});
+test('reopening a prepared invitation reuses persisted reason and request identity without claiming delivery',async()=>{
+ const requestId='60000000-0000-4000-8000-000000000001';
+ const previous={applicationId:COMPANY,applicationVersion:3,actorUserId:'30000000-0000-4000-8000-000000000001',requestId,reason:'Den tidigare granskningen.',status:'created'};
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationReadResponses:[{ok:true,invitation:previous}],invitationResponses:[{ok:true,status:'already_sent',invitationId:COMPANY,email:invitationApplication.email}]});
+ try {
+  await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();await page.getByRole('button',{name:/Visa ansökan/}).click();
+  await expect(page.getByLabel('Motivering för kontogodkännande')).toHaveValue(previous.reason);await expect(page.getByLabel('Motivering för kontogodkännande')).toBeDisabled();
+  await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'}).getByRole('status')).toContainText('Tidigare förberedelse betyder inte att mejlet har levererats');
+  await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();await page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'}).check();
+  await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
+  await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'}).getByRole('status')).toContainText('har redan skickats');
+  const calls=await page.evaluate(()=>window.fixture.invitationCalls);assert.equal(calls[0].requestId,requestId);assert.equal(calls[0].reason,previous.reason);
+ }finally{await page.close();}
+});
+test('invitation status read failure blocks approval until a fresh successful read',async()=>{
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationReadResponses:[{throw:true},{ok:true,invitation:null}]});
+ try {
+  await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();await page.getByRole('button',{name:/Visa ansökan/}).click();
+  await expect(page.getByRole('button',{name:'Granska godkännande',exact:true})).toBeDisabled();await expect(page.getByRole('alert')).toContainText('Kontoinbjudans status kunde inte läsas in');
+  await page.getByRole('button',{name:'Kontrollera kontoinbjudan igen',exact:true}).click();await expect(page.getByLabel('Motivering för kontogodkännande')).toBeEnabled();
+  assert.equal(await page.evaluate(()=>window.fixture.invitationReadCalls.length),2);assert.equal(await page.evaluate(()=>window.fixture.invitationCalls.length),0);
+ }finally{await page.close();}
+});
+
 test('account approval requires review, keeps nonce for unknown outcome and refreshes the actual list after receipt',async()=>{
  const page=await setup({accountRows:[makeAccount()],accountStatusResponses:[{throw:true}]});
  try{

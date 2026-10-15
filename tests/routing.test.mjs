@@ -61,3 +61,22 @@ test('customer offer account route redirects to app without becoming a dealer wo
 });
 
 test('customer contracts use app domain and preserve safe destination',()=>{assert.equal(domainRedirect('www.trafexa.com','/my-contracts'),'https://app.trafexa.com/my-contracts');assert.equal(safeNextPath('/my-contracts'),'/my-contracts');assert.equal(domainRedirect('www.trafexa.com','/my-contracts-public'),null);});
+
+
+test('invitation and activation navigation uses canonical app origin and preserves the single-use link', () => {
+ const token='a'.repeat(64), search=`?token_hash=${token}`;
+ for(const path of ['/auth/invitation','/activate-account']) {
+  assert.equal(isAuthPath(path),true);
+  for(const host of ['trafexa.com','www.trafexa.com']) {
+   const redirected=new URL(domainRedirect(host,path,search));
+   assert.equal(redirected.origin,'https://app.trafexa.com');
+   assert.equal(redirected.pathname,path);
+   assert.equal(redirected.searchParams.get('token_hash'),token);
+  }
+  assert.equal(domainRedirect('app.trafexa.com',path,search),null);
+ }
+ for(const path of ['/activate-account-public','/auth/invitation-extra','/auth/invitation/public','/activate-account/public']) {
+  assert.equal(isAuthPath(path),false);
+  assert.equal(domainRedirect('trafexa.com',path,search),null);
+ }
+});
