@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, useTransition } from 'react';
+const OwnershipTransfer = lazy(() => import('./company-ownership-transfer').then(module => ({ default: module.CompanyOwnershipTransfer })));
 import { cancelCompanyInvitationAction, inviteCompanyMemberAction, listCompanyTeamAction, updateCompanyMemberAction } from '@/lib/company-team/actions';
 
 import type { CompanyTeamPage, InviteRole } from '@/lib/company-team/database.types';
@@ -20,6 +21,7 @@ const validReason = (reason: string) => reason.trim().length > 0 && reason.trim(
 const lowerRoles: InviteRole[] = ['sales', 'finance', 'viewer'];
 
 export function CompanyTeam({ companyId, companyRole, userId }: { companyId: string; companyRole: string; userId: string }) {
+  const [ownershipOpen, setOwnershipOpen] = useState(false);
   const [page, setPage] = useState<TeamPage | null>(null);
   const [review, setReview] = useState<Review | null>(null);
   const [email, setEmail] = useState('');
@@ -133,6 +135,8 @@ export function CompanyTeam({ companyId, companyRole, userId }: { companyId: str
       </form>
       {invited && <div className="notice" role="status"><p>Inbjudan har sparats. Dela länken med kollegan, som loggar in med den inbjudna e-postadressen:</p><a href="https://app.trafexa.com/invitations">https://app.trafexa.com/invitations</a></div>}
     </div>
+    <button type="button" className="button button-outline" aria-expanded={ownershipOpen} onClick={() => setOwnershipOpen(open => !open)}>{ownershipOpen ? 'Stäng ägarroll' : 'Hantera ägarroll'}</button>
+    {ownershipOpen && <Suspense fallback={<p role="status">Läser in ägarrollen…</p>}><OwnershipTransfer companyId={companyId} userId={userId} companyRole={companyRole} onChanged={async () => { const token = ++generation.current; if (!await readCurrent(token)) throw Error('Team access could not be verified'); }}/></Suspense>}
     {review && <section className="surface" style={{ marginTop: 24 }} aria-labelledby="team-review-title"><div className="panel-heading"><h2 id="team-review-title" tabIndex={-1} ref={heading}>{review.confirmed ? 'Bekräfta ändringen' : review.kind === 'member' ? 'Granska medlemsbehörighet' : review.kind === 'invite' ? 'Granska inbjudan' : 'Granska återkallande'}</h2></div><form className="workspace-form" style={{ padding: 20 }} onSubmit={event => { event.preventDefault(); if (review.confirmed) save(); else if (review.kind === 'invite' || validReason(review.reason)) setReview({ ...review, confirmed: true }); }}>
       {review.kind === 'member' ? <><p><strong>{review.member.email || 'Medlem'}</strong></p><p>{roleLabels[review.member.role as Role]} / {statusLabel(review.member.status)} → {roleLabels[review.role]} / {statusLabel(review.status)}</p>{review.confirmed ? <><p><strong>Motivering:</strong> {review.reason.trim()}</p><p>Den nya rollen och statusen påverkar kollegans åtkomst till företagets uppgifter.</p></> : <><label>Ny roll<select value={review.role} disabled={pending} onChange={event => setReview({ ...review, role: event.target.value as Role })}>{roles.map(role => <option key={role} value={role}>{roleLabels[role]}</option>)}</select></label><label>Ny status<select value={review.status} disabled={pending} onChange={event => setReview({ ...review, status: event.target.value as MemberStatus })}><option value="active">Aktiv</option><option value="suspended">Avstängd</option></select></label><label>Motivering (obligatorisk)<input type="text" required maxLength={500} value={review.reason} disabled={pending} onChange={event => setReview({ ...review, reason: event.target.value })}/></label><p className="form-privacy">En rad, högst 500 tecken.</p></>}</>
         : review.kind === 'invite' ? <><p><strong>{review.email}</strong> · {roleLabels[review.role]}</p><p>Inbjudan gäller i sju dagar och ger denna roll först efter kollegans uttryckliga accept.</p></>

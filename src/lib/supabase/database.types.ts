@@ -760,6 +760,49 @@ export type GeneratedDatabase = {
       [_ in never]: never
     }
     Functions: {
+      get_company_ownership_transfer: {
+        Args: { p_company_id: string; p_limit?: number; p_page_key?: string }
+        Returns: Json
+      }
+      request_company_ownership_transfer: {
+        Args: {
+          p_acknowledged: boolean
+          p_attestation_version: string
+          p_company_id: string
+          p_expected_owner_version: number
+          p_expected_target_version: number
+          p_expected_team_version: number
+          p_reason: string
+          p_request_id: string
+          p_target_membership_id: string
+        }
+        Returns: Json
+      }
+      accept_company_ownership_transfer: {
+        Args: {
+          p_acknowledged: boolean
+          p_attestation_version: string
+          p_company_id: string
+          p_expected_team_version: number
+          p_expected_version: number
+          p_request_id: string
+          p_transfer_id: string
+        }
+        Returns: Json
+      }
+      cancel_company_ownership_transfer: {
+        Args: {
+          p_acknowledged: boolean
+          p_attestation_version: string
+          p_company_id: string
+          p_expected_team_version: number
+          p_expected_version: number
+          p_reason: string
+          p_request_id: string
+          p_transfer_id: string
+        }
+        Returns: Json
+      }
       accept_company_invitation: {
         Args: {
           p_expected_version: number

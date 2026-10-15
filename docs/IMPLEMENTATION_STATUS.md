@@ -1,5 +1,19 @@
 # Implementationsstatus
 
+## Företagets ägarroll — pågående organisationsetapp 15 oktober 2026
+
+Från publicerad main `bb8f756` ([PR #31](https://github.com/heke99/trafexa-auto/pull/31)) byggs [granskad överlåtelse av företagets ägarroll](COMPANY_OWNERSHIP_TRANSFER.md). Nuvarande ägare begär överlåtelse till en befintlig aktiv, verifierad och godkänd administratör; mottagaren måste själv acceptera inom 24 timmar. Acceptansen växlar båda rollerna atomiskt. Detta avser behörigheten i Trafexa och ändrar inte juridiskt ägande eller företagsregistrering. Filialer, inköpsavtal och återhämtning av avvikande ägarbild är separata senare steg. Kod och databas är verifierade inför publicering: ägarrollens helsvit före integrationen 970/970 utan fel eller överhoppade fall och produktionsbygge inklusive TypeScript passerar. Efter att kreditleveransen i PR #32 nått main `6bd1f9c` pågår integrerad slutkontroll på den sammanslagna koden. Migration `20261015173753_company_ownership_transfer` är applicerad; hosted rollbackprov passerar och nio efterkontroller är noll. PR, main och produktionsdeployment för denna etapp återstår att återläsa.
+
+
+### Verifierad kodcheckpoint för ägarrollen
+
+Native PostgreSQL passerar **15/15**, korslager **7/7**, serveråtgärder **10/10**, Chromium för ägarrollen **12/12** och befintlig personal-UI **8/8**. Produktionsbygge inklusive TypeScript avslutas med exitkod 0. Appens fulla helsvit passerar **970/970**, utan fel eller överhoppade fall, på **259 539,482164 ms**. De riktade appfallen ingår i helsviten och adderas inte till dess totalsumma.
+
+Migration **`20261015173753_company_ownership_transfer.sql`** är applicerad i hosted databas. Hosted rollbackprov passerar utan SQL-fel och samtliga **nio separata cleanupaggregat är noll**. Hosted historik innehåller **112 migrationer**: en parallell leverans applicerade sex `advertising_credit_*`-migrationer före denna migration. De sex är inte den här etappens arbete och ingick inte i dess lokala verifieringsbas med **108 migrationsfiler**. Detta är ägarrollens checkpoint före integrationen. PR #32 har därefter nått main `6bd1f9c` och kreditleveransen sammanfogas inför PR #33. Den integrerade lokala kedjan innehåller **114 migrationsfiler**: 112 hosted-applicerade och två äldre pending prototyper. Den sammanslagna kodens slutkontroll pågår; 970/970 och kreditens separata 978/978 är historiska delcheckpoints och adderas inte. PR, main och produktionsdeployment för ägarrollsetappen återstår att återläsa.
+
+## Föregående publicerade checkpoint — PR #31
+
+Samordnarens verifierade releasecheckpoint är [PR #31](https://github.com/heke99/trafexa-auto/pull/31), main `bb8f756`, produktion `dpl_Dm1hVvFK8GZmsg5PCobV8C7zYhKc`, `READY` i `arn1`. Den föregående integrerade appkörningen 948/948 och produktionsbygget gäller denna annonsprisleverans; de återanvänds inte som bevis för den nya ägarrollsetappen. Nedanstående formuleringar om kodcheckpoint före publicering bevaras som historik före PR #31.
 
 ## Full kreditfaktura, 15 oktober 2026 — kod och databas verifierade
 
