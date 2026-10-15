@@ -1,6 +1,8 @@
 # Trafexa Dealer
 
-[Annonsstatistik och antalunderlag](docs/ADVERTISING_USAGE_CONTRACT.md) räknar en unik verifierad annons per kanal och visar månadens enheter separat från jobbstatus. Superadmin väljer företag under Företag → Annonsunderlag; företagets ägare, administratör och ekonomiansvarig hittar samma statistik under Annonsering. Privat CSV-export finns. Priser och fakturautställning återstår; Blocket/Wayke är fortsatt inaktiva utan partneråtkomst.
+[Kanalpriser och låsta månadsunderlag](docs/ADVERTISING_BILLING_CONTRACT.md) hanteras av superadmin. Nya priser gäller framtida publiceringar; äldre oprissatta annonser kräver uttrycklig granskning. Behöriga företag får läsa sina underlag. Avslutade, färdigprissatta månader kan låsas och hämtas som privat radvis CSV med ursprungliga priser. Alla tjänsteavgifter anges exklusive moms; fakturautställning återstår.
+
+[Annonsstatistik och antalunderlag](docs/ADVERTISING_USAGE_CONTRACT.md) räknar en unik verifierad annons per kanal och visar månadens enheter separat från jobbstatus. Superadmin väljer företag under Företag → Annonsunderlag; företagets ägare, administratör och ekonomiansvarig hittar samma statistik under Annonsering. Privat antal-CSV finns. Priser och låsta original hanteras i månadsunderlaget; fakturautställning återstår; Blocket/Wayke är fortsatt inaktiva utan partneråtkomst.
 
 [Transaktionsmejl](docs/TRANSACTIONAL_EMAIL_SETUP.md) har sex svenska mallar, privat utskickskö och superadminstatus. Ansökningar, kontogodkännande och signeringshändelser kopplas till serverbundna mottagare. Resend-domänen är förberedd; DNS, produktionsnyckel och Supabase Auth SMTP behöver konfigureras innan riktiga utskick aktiveras.
 

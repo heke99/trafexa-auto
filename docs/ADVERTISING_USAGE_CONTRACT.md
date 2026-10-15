@@ -16,7 +16,7 @@ Företagets ägare, administratör och ekonomiansvarig kan läsa underlaget unde
 
 Vald månad visar nya unika publiceringar per kanal. Aktuell jobbstatus visar hela jobbregistret separat; publicerade jobb kan vara flera versioner av samma annons och är inte faktureringsantal. CSV-exporten innehåller period, registreringsstart, kanalantal och separata aktuella jobbstatusar. Privata nedladdningar upprepar faktisk användar-, företags- och behörighetskontroll och återläser underlaget före svar.
 
-Priser är **osatta**. Styckpris och fakturabelopp är null/blankt, aldrig ett påhittat nollbelopp. Detta är ett antalunderlag, ingen utfärdad faktura. Prisavtal, versionsbundet pris i publiceringsögonblicket, periodavstämning/stängning, radvis granskning, moms på Trafexas tjänst och faktisk fakturautställning är separata nästa steg.
+Priser ingår inte i detta antalunderlag. Kanalpriser, frysta publiceringspriser, uttrycklig granskning och låsta månadsunderlag finns separat enligt ADVERTISING_BILLING_CONTRACT.md. Ingen utfärdad faktura eller momsberäkning skapas genom antalexporten.
 
 ## Integrationsgräns
 

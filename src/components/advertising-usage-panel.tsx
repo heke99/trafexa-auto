@@ -60,9 +60,9 @@ function Usage({ companyId, userId, role, superadmin = false, onDenied }: { comp
       {loading && <p role="status">Verifierar annonsstatistik…</p>}{error && <p className="form-error" role="alert">{error}</p>}
       {page && <>
         <p><a className="text-link" href={`/api/advertising/usage/${encodeURIComponent(page.month)}/csv${superadmin ? `?companyId=${encodeURIComponent(companyId)}` : ''}`}>Hämta underlag som CSV</a></p>
-        <dl className="detail-list"><div><dt>Unika publiceringar under vald månad</dt><dd>{page.totals.newPublications}</dd></div><div><dt>Pris per annons och kanal</dt><dd>Ej fastställt</dd></div><div><dt>Belopp att fakturera</dt><dd>Kan beräknas när priser har fastställts</dd></div></dl>
-        <p className="form-privacy">{page.billing.unpricedPublications} publiceringar saknar pris. Underlaget är ingen faktura.</p>
-        <div className="table-scroll"><table className="data-table"><caption>Debiteringsgrund för {page.month}</caption><thead><tr><th scope="col">Kanal</th><th scope="col">Unika publiceringar</th><th scope="col">Pris</th></tr></thead><tbody>{page.channels.map(channel => <tr key={channel.channel}><th scope="row">{channelNames[channel.channel]}</th><td>{channel.newPublications}</td><td>Ej fastställt</td></tr>)}</tbody></table></div>
+        <dl className="detail-list"><div><dt>Unika publiceringar under vald månad</dt><dd>{page.totals.newPublications}</dd></div></dl>
+        <p className="form-privacy">Antalsstatistiken visar verifierade publiceringar. Överenskomna priser och låst månadsunderlag visas under Kanalpriser och månadsavstämning.</p>
+        <div className="table-scroll"><table className="data-table"><caption>Debiteringsgrund för {page.month}</caption><thead><tr><th scope="col">Kanal</th><th scope="col">Unika publiceringar</th></tr></thead><tbody>{page.channels.map(channel => <tr key={channel.channel}><th scope="row">{channelNames[channel.channel]}</th><td>{channel.newPublications}</td></tr>)}</tbody></table></div>
         <h3 style={{ marginTop: 24 }}>Aktuell leveransstatus</h3>
         <p className="settings-note">Nuvarande status för samtliga leveransjobb, oavsett månad. Jobbantalet är inte debiteringsgrund.</p>
         <dl className="detail-list"><div><dt>Annonsutkast</dt><dd>{page.totals.drafts}</dd></div><div><dt>Klara annonsversioner</dt><dd>{page.totals.ready}</dd></div></dl>

@@ -4,7 +4,7 @@ export type AdvertisingUsagePage = Omit<AdvertisingScope,'actorRole'> & {actorRo
  month:string; timeZone:'Europe/Stockholm'; periodStart:string; periodEnd:string;
  totals:AdvertisingUsageCounts & {drafts:number;ready:number};
  channels:(AdvertisingUsageCounts & {channel:AdvertisingChannel})[];
- billing:{status:'unconfigured';unitPriceOre:null;totalOre:null;unpricedPublications:number};
+ billing:{status:'quantity_only';unitPriceOre:null;totalOre:null;unpricedPublications:number};
  trackingStartedAt:string;legacyPublishedJobs:number;
 };
 export type AdvertisingUsageResult = AdvertisingResult<AdvertisingUsagePage>;
