@@ -4,6 +4,7 @@ import type { AdvertisingInvoiceDraft } from './invoice-types';
 import type { AdvertisingFinancialSettingsFields as FinancialSettingsFields } from './financial-types';
 
 import { isValidFinancialPaymentAccount } from './financial-payment.ts';
+import { allocateAdvertisingVatV2 } from './vat-allocation.ts';
 export { isValidFinancialPaymentAccount } from './financial-payment.ts';
 
 export type AdvertisingFinancialLine = {
@@ -16,6 +17,15 @@ export type AdvertisingFinancialPreview = {
 
 /** Version 1: SEK, VAT rounded half up per net publication row, then summed. */
 export function computeAdvertisingFinancialPreview(value: AdvertisingInvoiceDraft, fields: FinancialSettingsFields): AdvertisingFinancialPreview {
+  return computeFinancialPreview(value, fields, 1);
+}
+
+/** Version 2: VAT rounded on the total net tax base, then allocated deterministically. */
+export function computeAdvertisingFinancialPreviewV2(value: AdvertisingInvoiceDraft, fields: FinancialSettingsFields): AdvertisingFinancialPreview {
+  return computeFinancialPreview(value, fields, 2);
+}
+
+function computeFinancialPreview(value: AdvertisingInvoiceDraft, fields: FinancialSettingsFields, version: 1 | 2): AdvertisingFinancialPreview {
   const draft = parseAdvertisingInvoiceDraft(value, value.companyId, value.id), snapshot = draft.snapshot;
   if (!['unresolved', 'se_standard_25'].includes(fields.vatTreatment) ||
       !['unresolved', 'bankgiro', 'plusgiro', 'iban'].includes(fields.paymentMethod) ||
@@ -42,12 +52,19 @@ export function computeAdvertisingFinancialPreview(value: AdvertisingInvoiceDraf
   const lines: AdvertisingFinancialLine[] = snapshot.basis.original!.items.map(item => {
     const originalOre = ore(item.unitPriceOre), reductionOre = ore((reductions.get(item.publicationId) ?? 0n).toString());
     const netOre = ore((BigInt(originalOre) - BigInt(reductionOre)).toString());
-    const vatOre = taxKnown ? ore(((BigInt(netOre) * 25n + 50n) / 100n).toString()) : null;
+    const vatOre = taxKnown && version === 1 ? ore(((BigInt(netOre) * 25n + 50n) / 100n).toString()) : null;
     const grossOre = vatOre === null ? null : ore((BigInt(netOre) + BigInt(vatOre)).toString());
     return { publicationId: item.publicationId, listingId: item.listingId, channel: item.channel, originalOre, reductionOre, netOre, vatOre, grossOre };
   });
   const netTotalOre = ore(lines.reduce((sum, row) => sum + BigInt(row.netOre), 0n).toString());
   if (netTotalOre !== snapshot.basis.netTotalOre) throw Error('Financial net does not match frozen source');
+  if (taxKnown && version === 2) {
+    const taxes = allocateAdvertisingVatV2(lines);
+    for (let index = 0; index < lines.length; index++) {
+      lines[index].vatOre = taxes[index];
+      lines[index].grossOre = ore((BigInt(lines[index].netOre) + BigInt(taxes[index])).toString());
+    }
+  }
   const vatTotalOre = taxKnown ? ore(lines.reduce((sum, row) => sum + BigInt(row.vatOre!), 0n).toString()) : null;
   const grossTotalOre = vatTotalOre === null ? null : ore((BigInt(netTotalOre) + BigInt(vatTotalOre)).toString());
   return { lines, netTotalOre, vatTotalOre, grossTotalOre, blockers: [...new Set(blockers)] };

@@ -1,5 +1,9 @@
 # Planläge 15 oktober 2026
 
+## Momsberäkning version 2
+
+Nya granskade annonsunderlag använder moms på nettototalen med exakt öresfördelning mellan raderna. Tidigare versioner och fakturor bevaras; ingen automatisk omräkning sker. PostgreSQLs division rättas till exakt heltalsdivision även för stora int64-belopp. Kreditfakturor, fakturamejl och betalningsavstämning är fortsatta steg. Se [beräkningskontraktet](ADVERTISING_VAT_ALLOCATION_CONTRACT.md) och [verifieringsstatus](IMPLEMENTATION_STATUS.md).
+
 ## Utfärdande av annonsfakturor
 
 Fortsättningen bygger separat granskad fakturautställning från ett aktuellt sparat moms-/betalningsunderlag, med uttrycklig nummerserie, registrerat säte, faktura-/förfallodatum och granskade tjänstedatum. Utfärdad källa och privat PDF bevaras och samma företagsmånad kan inte dubbeldebiteras. Inga verkliga serier eller fakturor aktiveras av testningen. Kreditfakturor, e-postleverans, betalningsavstämning och valt ekonomisystem återstår. Se [kontraktet](ADVERTISING_INVOICE_ISSUANCE_CONTRACT.md) och [verifieringsstatus](IMPLEMENTATION_STATUS.md).
@@ -34,7 +38,7 @@ Utgångspunkt: publicerad main `ecb0e2557979e5b481f1d18cc7668548a700881c`, PR #1
 | 3 CRM/affär | Kunder, leads, kontaktlogg, uppföljningar, reservationer, offertversion/PDF, kundens offertgranskning/accept/avböjande, kontrollerad avbrytning, internt versionsbundet inbytesunderlag och granskad offertkoppling till kundvy/PDF | Verkligt inbytesköp/avtal samt verklig samtidig reservationsverifiering |
 | 4 Avtal/dokument | Granskade företagsmallar, privata avtalsutkast, selektiv DocuSeal-port, verifierad tvåpartssignering, signerad PDF/signeringsevidens samt privat originalarkiv med konfigurationsspärr | Serverkonfiguration, faktisk hosted Storage-API-verifiering, långtidsbevarande/backup/återställning och slutlig produktionsverifiering |
 | 5 Köpfinansiering | Internt finansintresse och behörighetsgränser | Verklig partneransökan, komplettering, erbjudande, kreditbeslut och utbetalningsstatus |
-| 6 Ekonomi/leverans | Fordonskalkyl, kostnadsunderlag, unika annonsenheter, versionsbundna priser, låsta original/rättelser, granskad moms, fakturautkast och separat numrerat utfärdande med privat PDF | Utökad momsavrundning, kreditfakturor, fakturamejl, betalning/avstämning, bokföringsexport, leverans och ägarbyte |
+| 6 Ekonomi/leverans | Fordonskalkyl, kostnadsunderlag, unika annonsenheter, versionsbundna priser, låsta original/rättelser, granskad moms, fakturautkast och separat numrerat utfärdande med privat PDF | Kreditfakturor, fakturamejl, betalning/avstämning, bokföringsexport, leverans och ägarbyte |
 | 7 Lagerfinansiering | Produktbehov identifierat | Limit, finansierade bilar, partneravstämning, lösen och frigivning |
 | 8 Handlarnätverk | Informationsvy och gränser för privat data | Publicering, inköpsönskemål, matchning, bud och B2B-affär |
 | 9 Drift/slutverifiering | Publicerade domäner, lokala browser-/actiontester och rollbacktest i hosted databas | Fulla inloggade produktionsflöden, återställningsprov, incident- och supportprocess |

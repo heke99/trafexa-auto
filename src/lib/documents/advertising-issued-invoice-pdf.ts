@@ -74,7 +74,9 @@ export async function generateAdvertisingIssuedInvoicePdf(value: unknown): Promi
   section('Dokumentreferenser');
   draw(`Fakturareferens: ${invoice.id}`, 9);
   draw(`Granskat underlag: ${saved.assessment.id} · Version ${saved.assessment.version}`, 9);
-  draw('Moms avrundas per nettorad till närmaste öre med halva ören uppåt och summeras sedan. Betalningsbeloppet avrundas inte till hela kronor.', 9, muted);
+  draw(financial.calculationVersion === 1
+    ? 'Moms avrundas per nettorad till närmaste öre med halva ören uppåt och summeras sedan. Betalningsbeloppet avrundas inte till hela kronor.'
+    : 'Moms beräknas på hela nettobeloppet och avrundas till närmaste öre med halva ören uppåt. Örena fördelas på raderna efter störst decimalrest, sedan publicerings-ID. Betalningsbeloppet avrundas inte till hela kronor.', 9, muted);
   draw(`Fakturans SHA-256: ${invoice.sourceHash}`, 8, muted);
   draw('Detta dokument är en utfärdad faktura och utgör inte ett betalningskvitto.', 9, muted);
   const pages = document.getPages();
