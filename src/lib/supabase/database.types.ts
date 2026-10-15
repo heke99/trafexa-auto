@@ -6,7 +6,6 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-/** Raw Supabase schema snapshot. RPC call compatibility is defined below. */
 export type GeneratedDatabase = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -805,6 +804,31 @@ export type GeneratedDatabase = {
         Args: { p_kind?: string; p_reference?: string }
         Returns: Json
       }
+      create_advertising_invoice_draft: {
+        Args: {
+          p_company_id: string
+          p_expected_buyer_version: number
+          p_expected_review_token: string
+          p_expected_seller_version: number
+          p_month: string
+          p_request_id: string
+          p_review_acknowledged: boolean
+        }
+        Returns: Json
+      }
+      create_advertising_reduction: {
+        Args: {
+          p_amount_ore: string
+          p_company_id: string
+          p_expected_review_token: string
+          p_month: string
+          p_publication_id: string
+          p_reason: string
+          p_request_id: string
+          p_review_acknowledged: boolean
+        }
+        Returns: Json
+      }
       create_company: {
         Args: { company_name: string; org_number: string }
         Returns: string
@@ -993,14 +1017,38 @@ export type GeneratedDatabase = {
         Returns: boolean
       }
       get_account_access: { Args: never; Returns: Json }
+      get_advertising_invoice_draft: {
+        Args: { p_company_id: string; p_id: string }
+        Returns: Json
+      }
       get_advertising_job: { Args: { p_job_id: string }; Returns: Json }
       get_contract_signing: {
+        Args: { p_company_id?: string; p_signing_id: string }
+        Returns: Json
+      }
+      get_contract_signing_archive: {
         Args: { p_company_id?: string; p_signing_id: string }
         Returns: Json
       }
       get_platform_admin_session: { Args: never; Returns: Json }
       get_platform_advertising_billing: {
         Args: { p_company_id: string; p_month: string }
+        Returns: Json
+      }
+      get_platform_advertising_corrections: {
+        Args: { p_company_id: string; p_month: string }
+        Returns: Json
+      }
+      get_platform_advertising_invoice_draft: {
+        Args: { p_company_id: string; p_id: string }
+        Returns: Json
+      }
+      get_platform_advertising_invoice_page: {
+        Args: {
+          p_before_version?: number
+          p_company_id: string
+          p_month: string
+        }
         Returns: Json
       }
       get_platform_advertising_quantities: {
@@ -1047,6 +1095,18 @@ export type GeneratedDatabase = {
       }
       list_advertising_billing: {
         Args: { p_company_id: string; p_month: string }
+        Returns: Json
+      }
+      list_advertising_corrections: {
+        Args: { p_company_id: string; p_month: string }
+        Returns: Json
+      }
+      list_advertising_invoice_page: {
+        Args: {
+          p_before_version?: number
+          p_company_id: string
+          p_month: string
+        }
         Returns: Json
       }
       list_advertising_quantities: {
@@ -1222,6 +1282,22 @@ export type GeneratedDatabase = {
         }
         Returns: Json
       }
+      register_contract_signing_archive: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_document_content_sha256: string
+          p_evidence_bytes: number
+          p_evidence_sha256: string
+          p_pdf_bytes: number
+          p_pdf_sha256: string
+          p_renderer_version: string
+          p_request_id: string
+          p_revision: number
+          p_signing_id: string
+        }
+        Returns: Json
+      }
       register_vehicle_photo: {
         Args: {
           p_company_id: string
@@ -1294,6 +1370,15 @@ export type GeneratedDatabase = {
         }
         Returns: Json
       }
+      save_advertising_buyer_profile: {
+        Args: {
+          p_company_id: string
+          p_expected_version: number
+          p_fields: Json
+          p_request_id: string
+        }
+        Returns: Json
+      }
       save_advertising_channel_rate: {
         Args: {
           p_channel: string
@@ -1313,6 +1398,23 @@ export type GeneratedDatabase = {
           p_provider_ad_id?: string
           p_provider_url?: string
           p_status: string
+        }
+        Returns: Json
+      }
+      save_advertising_seller_profile: {
+        Args: {
+          p_expected_version: number
+          p_fields: Json
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      save_platform_advertising_buyer_profile: {
+        Args: {
+          p_company_id: string
+          p_expected_version: number
+          p_fields: Json
+          p_request_id: string
         }
         Returns: Json
       }
@@ -1503,6 +1605,7 @@ type RpcArgumentCompatibility = {
   dealer_register_page: { p_selected_id: string | null }
   finish_transactional_email: { p_provider_id: string | null }
   get_contract_signing: { p_company_id: string | null }
+  get_contract_signing_archive: { p_company_id: string | null }
   list_advertising_stock: { p_page_key: string | null }
   list_company_advertising: {
     p_page_key: string | null

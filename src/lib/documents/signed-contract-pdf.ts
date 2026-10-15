@@ -38,17 +38,27 @@ export function parseCompletedContract(value: unknown) {
   if (Date.parse(s.completedAt) !== Math.max(Date.parse(s.customerSignature.signedAt), Date.parse(s.companySignature.signedAt))) throw Error('Invalid completion time');
   return s;
 }
-export async function generateSignedContractPdf(value: unknown) {
+/** One render supplies both artifacts; the evidence always hashes these bytes. */
+export async function generateSignedContractArtifacts(value: unknown) {
   const s = parseCompletedContract(value);
-  return renderContractPdf(s.draft, { documentHash:s.documentHash, completedAt:s.completedAt, signatures:[s.customerSignature,s.companySignature] });
-}
-export async function generateSigningEvidence(value: unknown) {
-  const s = parseCompletedContract(value), pdf = await generateSignedContractPdf(s);
-  return {
+  const pdf = new Uint8Array(await renderContractPdf(s.draft, { documentHash:s.documentHash, completedAt:s.completedAt, signatures:[s.customerSignature,s.companySignature] }));
+  const evidence = {
     schemaVersion:1, method:'trafexa-simple-electronic-signature', signingId:s.id,
     draftId:s.draftId, draftVersion:s.draftVersion, documentContentSha256:s.documentHash,
     signedPdfSha256:sha256(pdf), completedAt:s.completedAt,
     receipts:[s.customerSignature,s.companySignature].map(({party,fullName,signedAt,documentHash,consentVersion}) => ({party,fullName,signedAt,documentHash,consentVersion})),
     assurance:'Verified email and approved authenticated account; no BankID identification or certificate-based PDF signature.',
+  };
+  return { pdf, evidence: new TextEncoder().encode(JSON.stringify(evidence, null, 2)) };
+}
+export async function generateSignedContractPdf(value: unknown) {
+  return (await generateSignedContractArtifacts(value)).pdf;
+}
+export async function generateSigningEvidence(value: unknown) {
+  return JSON.parse(new TextDecoder().decode((await generateSignedContractArtifacts(value)).evidence)) as {
+    schemaVersion: number; method: string; signingId: string; draftId: string; draftVersion: number;
+    documentContentSha256: string; signedPdfSha256: string; completedAt: string;
+    receipts: { party: 'customer' | 'company'; fullName: string; signedAt: string; documentHash: string; consentVersion: string }[];
+    assurance: string;
   };
 }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { PDFDocument } from 'pdf-lib';
-import { generateSignedContractPdf, generateSigningEvidence, parseCompletedContract, sha256 } from '../src/lib/documents/signed-contract-pdf.ts';
+import { generateSignedContractArtifacts, generateSignedContractPdf, generateSigningEvidence, parseCompletedContract, sha256 } from '../src/lib/documents/signed-contract-pdf.ts';
 const id = n => `ce290000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 function fixture() {
   const sourceOffer = { schema_version:1,document_type:'offer',version:3,deal_id:id(3),issued_at:'2026-10-13T14:00:00Z',valid_until:'2026-11-12',terms:'ORIGINALVILLKOR: Betalning före leverans.\nÖverenskommelse om vinterdäck.',currency:'SEK',price_basis:'gross',sale_price_ore:'19900029',
@@ -22,6 +22,12 @@ test('completed two-party contract renders deterministic PDF and matching separa
  assert.equal(pdf.getTitle(),'SIGNERAT AVTAL – v2 – ABC123');assert.deepEqual(await generateSignedContractPdf(s),bytes);
  assert.equal(evidence.signedPdfSha256,sha256(bytes));assert.equal(evidence.documentContentSha256,s.documentHash);assert.equal(evidence.receipts.length,2);
  assert.ok(!JSON.stringify(evidence).includes('strokes'));assert.ok(evidence.assurance.includes('no BankID'));
+});
+test('one artifact pair hashes its exact PDF byte buffer and preserves evidence schema one',async()=>{
+ const s=signed(),pair=await generateSignedContractArtifacts(s),evidence=JSON.parse(new TextDecoder().decode(pair.evidence));
+ assert.equal(evidence.signedPdfSha256,sha256(pair.pdf));assert.equal(evidence.schemaVersion,1);assert.equal(evidence.signingId,s.id);
+ assert.deepEqual(Object.keys(evidence).sort(),['schemaVersion','method','signingId','draftId','draftVersion','documentContentSha256','signedPdfSha256','completedAt','receipts','assurance'].sort());
+ assert.equal(JSON.stringify(evidence).includes('strokes'),false);
 });
 test('pending, missing-party, mismatched-hash and substituted source contract fail before generating signed file',async()=>{
  for(const mutate of [s=>s.status='pending',s=>s.customerSignature=null,s=>s.companySignature.party='customer',s=>s.customerSignature.documentHash='0'.repeat(64),s=>s.documentHash='0'.repeat(64),s=>s.draft.template.body='Ändrad mall',s=>s.draftId=id(30),s=>s.draft.sourceOffer.customer.name='Annan kund']){
