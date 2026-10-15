@@ -15,6 +15,8 @@ const AdvertisingUsagePanel = dynamic(() => import('./advertising-usage-panel').
 const BlocketProvisioning = dynamic(() => import('./blocket-provisioning').then(module => module.BlocketProvisioning), { loading: () => <p role="status">Läser in Blocketadministration…</p> });
 
 type Review = { company: PlatformCompany; status: CompanyStatus; reason: string; confirmed: boolean };
+type CompanyView = 'advertising' | 'billing' | 'blocket';
+const companyViewLabels: Record<CompanyView, string> = { advertising: 'Annonsunderlag', billing: 'Fakturering', blocket: 'Blocketkoppling' };
 const applicationLabels: Record<string, string> = { new: 'Ny', in_review: 'Under granskning', contacted: 'Kontaktad', closed: 'Avslutad' };
 const seekingLabels: Record<string, string> = { system: 'Trafexa-systemet', purchase_finance: 'Inköpsfinansiering', stock_finance: 'Lagerfinansiering', dealer_network: 'Handlarnätverk', advertising: 'Annonsering', other: 'Annat' };
 const statusLabel = (status: CompanyStatus) => status === 'active' ? 'Aktivt' : 'Avstängt';
@@ -49,8 +51,9 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
   const applicationIntent = useRef<{ payload: string; requestId: string } | null>(null);
   const [search, setSearch] = useState('');
   const [loadedSearch, setLoadedSearch] = useState('');
-  const [usageCompany, setUsageCompany] = useState<PlatformCompany | null>(null);
-  const [blocketCompany, setBlocketCompany] = useState<PlatformCompany | null>(null);
+  const [companyDetail, setCompanyDetail] = useState<{ company: PlatformCompany; view: CompanyView } | null>(null);
+  const companyHeading = useRef<HTMLHeadingElement>(null);
+  const companyTrigger = useRef<HTMLButtonElement | null>(null);
   const [review, setReview] = useState<Review | null>(null);
   const [error, setError] = useState<string | null>(initialError);
   const [notice, setNotice] = useState<string | null>(null);
@@ -61,12 +64,13 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
   const selectedCompanyId = review?.company.id;
   const reviewConfirmed = review?.confirmed;
   useEffect(() => { reviewHeading.current?.focus(); }, [selectedCompanyId, reviewConfirmed]);
+  useEffect(() => { companyHeading.current?.focus(); }, [companyDetail?.company.id, companyDetail?.view]);
   const intent = useRef<{ payload: string; requestId: string } | null>(null);
 
   function handleFailure(result: { code: string; message: string }) {
     setError(result.message);
     if (result.code === 'access_denied') {
-      ++generation.current; ++overviewGeneration.current; setOverview(null); setOverviewError(null); setOverviewLoading(false); setDenied(true); setUsageCompany(null); setBlocketCompany(null); setCompanies([]); setContacts([]); setNextPageKey(null); setContactCursor(null); setReview(null); setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null);
+      ++generation.current; ++overviewGeneration.current; setOverview(null); setOverviewError(null); setOverviewLoading(false); setDenied(true); setCompanyDetail(null); companyTrigger.current = null; setCompanies([]); setContacts([]); setNextPageKey(null); setContactCursor(null); setReview(null); setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null);
     }
   }
   function loadOverview() {
@@ -90,8 +94,16 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
   function navigate(nextTab: 'overview' | 'companies' | 'contacts' | 'accounts') {
     if (pending || denied) return;
     ++generation.current;
-    setTab(nextTab); setReview(null); setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null); setError(null); setNotice(null);
+    setTab(nextTab); setCompanyDetail(null); setReview(null); setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null); setError(null); setNotice(null);
     if (nextTab === 'contacts' && !contactsLoaded) loadContacts();
+  }
+  function openCompany(company: PlatformCompany, view: CompanyView, trigger: HTMLButtonElement) {
+    companyTrigger.current = trigger;
+    setCompanyDetail({ company, view }); setReview(null); setError(null); setNotice(null);
+  }
+  function closeCompany() {
+    setCompanyDetail(null);
+    if (companyTrigger.current?.isConnected) companyTrigger.current.focus();
   }
   function loadCompanies(append = false) {
     const requestGeneration = ++generation.current;
@@ -219,7 +231,7 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
   }
 
   return <main className="workspace-main platform-admin-workspace" style={{ paddingInline: 0 }}>
-    <style>{`.platform-admin-workspace nav .table-controls{flex-wrap:wrap;gap:8px;justify-content:flex-start}.platform-admin-workspace nav .button{white-space:normal}.platform-admin-workspace .workspace-heading{min-width:0}.platform-admin-workspace .workspace-heading h1{overflow-wrap:anywhere}`}</style>
+    <style>{`.platform-admin-workspace nav .table-controls{flex-wrap:wrap;gap:8px;justify-content:flex-start}.platform-admin-workspace nav .button{white-space:normal}.platform-admin-workspace .workspace-heading{min-width:0}.platform-admin-workspace .workspace-heading h1{overflow-wrap:anywhere}.platform-admin-workspace .admin-company-detail{margin-top:24px;min-width:0}.platform-admin-workspace .admin-company-detail h2{overflow-wrap:anywhere}.platform-admin-workspace .admin-company-views{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}.platform-admin-workspace .admin-row-actions{display:flex;flex-direction:column;align-items:flex-start;gap:8px}.platform-admin-workspace .admin-cell-label{display:none}.platform-admin-workspace .admin-responsive-table td{overflow-wrap:anywhere}.platform-admin-workspace .admin-account-controls{flex-wrap:wrap;align-items:flex-end}.platform-admin-workspace .admin-account-controls label{flex:1 1 220px;min-width:0}.platform-admin-workspace .admin-account-controls button{flex:0 0 auto}@media(max-width:600px){.platform-admin-workspace .admin-responsive-table,.platform-admin-workspace .admin-responsive-table tbody{display:block;min-width:0;width:100%}.platform-admin-workspace .admin-responsive-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.platform-admin-workspace .admin-responsive-table tbody{padding:0 16px}.platform-admin-workspace .admin-responsive-table tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:18px 0;border-bottom:1px solid var(--line)}.platform-admin-workspace .admin-responsive-table td{display:block;border:0;padding:0;min-width:0;font-size:12px;line-height:1.5}.platform-admin-workspace .admin-responsive-table td:first-child,.platform-admin-workspace .admin-responsive-table td:last-child,.platform-admin-workspace .admin-account-table td:nth-child(2){grid-column:1/-1}.platform-admin-workspace .admin-cell-label{display:block;font-size:10px;font-weight:600;color:var(--muted);margin-bottom:4px}.platform-admin-workspace .admin-responsive-table td:first-child strong{font-size:14px}.platform-admin-workspace .admin-row-actions{flex-direction:row;flex-wrap:wrap;gap:8px 18px}.platform-admin-workspace .admin-responsive-table .text-link{min-height:40px;font-size:12px}.platform-admin-workspace .admin-company-detail>.panel-heading{flex-wrap:wrap;gap:16px}.platform-admin-workspace .admin-company-views .button{flex:1 1 auto;min-width:0;white-space:normal}.platform-admin-workspace .admin-account-controls{justify-content:flex-start}.platform-admin-workspace .admin-account-controls label{flex-basis:100%}}`}</style>
     <div className="workspace-heading"><div><p className="eyebrow">Trafexa · Administration</p><h1>Plattformsadministration</h1><p>Följ plattformens aktivitet, hantera företagens åtkomst och handlägg ansökningar.</p></div></div>
     <nav className="table-toolbar" aria-label="Administrationsvyer"><div className="table-controls">{([['overview', 'Översikt'], ['companies', 'Företag'], ['contacts', 'Inkomna ansökningar'], ['accounts', 'Konton']] as const).map(([view, label]) => <button key={view} className={`button ${tab === view ? 'button-green' : 'button-outline'}`} type="button" aria-pressed={tab === view} disabled={pending || denied} onClick={() => navigate(view)}>{label}</button>)}</div></nav>
     {error && <p role="alert" className="form-error">{error}</p>}
@@ -230,12 +242,23 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
     {!denied && tab === 'companies' && <>
       <section className="surface" aria-label="Företag">
         <form className="table-toolbar" onSubmit={event => { event.preventDefault(); loadCompanies(); }}><div className="table-controls"><label className="search-field"><span className="sr-only">Sök företag eller organisationsnummer</span><input placeholder="Namn eller organisationsnummer" value={search} onChange={event => setSearch(event.target.value)} maxLength={160} disabled={pending}/></label><button type="submit" className="button button-outline" disabled={pending}>Sök</button></div></form>
-        <div className="table-scroll"><table className="data-table"><caption className="sr-only">Företag som använder Trafexa</caption><thead><tr><th scope="col">Företag</th><th scope="col">Status</th><th scope="col">Medlemmar</th><th scope="col">Lagerobjekt</th><th scope="col">Registrerat</th><th scope="col">Åtgärd</th></tr></thead><tbody>{companies.map(company => <tr key={company.id}><td><strong>{company.name}</strong><br/>{company.organisationNumber}</td><td><span className="badge">{statusLabel(company.status)}</span></td><td>{company.membershipCount}</td><td>{company.stockCount}</td><td>{dateLabel(company.createdAt)}</td><td><button type="button" className="text-link" disabled={pending} onClick={() => { setReview({ company, status: company.status === 'active' ? 'suspended' : 'active', reason: '', confirmed: false }); setError(null); setNotice(null); }}>Hantera status<span className="sr-only"> för {company.name}</span></button><br/><button type="button" className="text-link" disabled={pending} onClick={() => setUsageCompany(company)}>Annonsunderlag<span className="sr-only"> för {company.name}</span></button><br/><button type="button" className="text-link" disabled={pending} onClick={() => setBlocketCompany(company)}>Blocketkoppling<span className="sr-only"> för {company.name}</span></button></td></tr>)}</tbody></table></div>
+        <div className="table-scroll"><table role="table" className="data-table admin-responsive-table"><caption className="sr-only">Företag som använder Trafexa</caption><thead><tr><th scope="col">Företag</th><th scope="col">Status</th><th scope="col">Medlemmar</th><th scope="col">Lagerobjekt</th><th scope="col">Registrerat</th><th scope="col">Åtgärd</th></tr></thead><tbody>{companies.map(company => <tr role="row" key={company.id}>
+          <td><span className="admin-cell-label" aria-hidden="true">Företag</span><strong>{company.name}</strong><br/>{company.organisationNumber}</td>
+          <td><span className="admin-cell-label" aria-hidden="true">Status</span><span className="badge">{statusLabel(company.status)}</span></td>
+          <td><span className="admin-cell-label" aria-hidden="true">Medlemmar</span>{company.membershipCount}</td>
+          <td><span className="admin-cell-label" aria-hidden="true">Lagerobjekt</span>{company.stockCount}</td>
+          <td><span className="admin-cell-label" aria-hidden="true">Registrerat</span>{dateLabel(company.createdAt)}</td>
+          <td><span className="admin-cell-label" aria-hidden="true">Åtgärder</span><div className="admin-row-actions"><button type="button" className="text-link" disabled={pending} onClick={() => { setCompanyDetail(null); setReview({ company, status: company.status === 'active' ? 'suspended' : 'active', reason: '', confirmed: false }); setError(null); setNotice(null); }}>Hantera status<span className="sr-only"> för {company.name}</span></button>{(['advertising', 'billing', 'blocket'] as const).map(view => <button key={view} type="button" className="text-link" disabled={pending} onClick={event => openCompany(company, view, event.currentTarget)}>{companyViewLabels[view]}<span className="sr-only"> för {company.name}</span></button>)}</div></td>
+        </tr>)}</tbody></table></div>
         {!companies.length && <div className="empty-state"><h2>Inga företag hittades</h2><p>Ändra sökningen eller läs in listan igen.</p></div>}
         <div className="table-footer"><span>{companies.length} företag inlästa</span>{nextPageKey && <button type="button" className="text-link" disabled={pending} onClick={() => loadCompanies(true)}>Läs in fler</button>}</div>
       </section>
-      {blocketCompany && <section aria-label="Valt företags Blocketkoppling"><div className="panel-heading"><h2>Blocketkoppling för {blocketCompany.name}</h2></div><BlocketProvisioning companyId={blocketCompany.id} userId={actorUserId} onAccessDenied={message => handleFailure({ code: 'access_denied', message })}/></section>}
-      {usageCompany && !denied && <section aria-label="Valt företags annonsunderlag"><div className="panel-heading"><h2 style={{ overflowWrap: 'anywhere' }}>Annonsunderlag för {usageCompany.name}</h2><button type="button" className="text-link" onClick={() => setUsageCompany(null)}>Stäng annonsunderlag</button></div><AdvertisingUsagePanel companyId={usageCompany.id} userId={actorUserId} role="platform_admin" superadmin onDenied={message => handleFailure({ code: 'access_denied', message })}/><AdvertisingBillingPanel companyId={usageCompany.id} userId={actorUserId} role="platform_admin" superadmin onDenied={message => handleFailure({ code: 'access_denied', message })}/></section>}
+      {companyDetail && <section className="admin-company-detail" aria-label="Valt företags administration"><div className="panel-heading"><div><p className="eyebrow">Valt företag · {companyDetail.company.organisationNumber}</p><h2 ref={companyHeading} tabIndex={-1}>{companyViewLabels[companyDetail.view]} för {companyDetail.company.name}</h2></div><button type="button" className="text-link" onClick={closeCompany}>Stäng företagsvy</button></div>
+        <nav className="admin-company-views" aria-label="Företagets administrationsvyer">{(['advertising', 'billing', 'blocket'] as const).map(view => <button key={view} type="button" className={`button ${companyDetail.view === view ? 'button-green' : 'button-outline'}`} aria-pressed={companyDetail.view === view} onClick={() => setCompanyDetail(previous => previous ? { ...previous, view } : null)}>{companyViewLabels[view]}</button>)}</nav>
+        {companyDetail.view === 'advertising' && <AdvertisingUsagePanel companyId={companyDetail.company.id} userId={actorUserId} role="platform_admin" superadmin onDenied={message => handleFailure({ code: 'access_denied', message })}/>}
+        {companyDetail.view === 'billing' && <AdvertisingBillingPanel companyId={companyDetail.company.id} userId={actorUserId} role="platform_admin" superadmin onDenied={message => handleFailure({ code: 'access_denied', message })}/>}
+        {companyDetail.view === 'blocket' && <BlocketProvisioning companyId={companyDetail.company.id} userId={actorUserId} onAccessDenied={message => handleFailure({ code: 'access_denied', message })}/>}
+      </section>}
       {review && <section className="surface" aria-labelledby="status-review-title" style={{ marginTop: 24 }}><div className="panel-heading"><h2 ref={reviewHeading} tabIndex={-1} id="status-review-title">{review.confirmed ? 'Bekräfta statusändring' : 'Ändra företagsstatus'}</h2></div><div className="dialog-content"><form className="workspace-form" onSubmit={event => { event.preventDefault(); if (review.confirmed) saveStatus(); else setReview(previous => previous ? { ...previous, reason: previous.reason.trim(), confirmed: true } : null); }}><p><strong>{review.company.name}</strong> · {review.company.organisationNumber}</p><p>{statusLabel(review.company.status)} → {statusLabel(review.status)}</p><p>{review.status === 'suspended' ? 'Företagets användare förlorar åtkomst till företagets data. Befintlig information behålls.' : 'Aktiva medlemskap återfår åtkomst till företagets data.'}</p>{review.confirmed ? <div><strong>Motivering</strong><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{review.reason}</p></div> : <label>Motivering (obligatorisk)<input type="text" required maxLength={500} value={review.reason} disabled={pending} onChange={event => setReview(previous => previous ? { ...previous, reason: event.target.value } : null)}/></label>}<div className="table-controls"><button className="button button-green" type="submit" disabled={pending || !review.reason.trim()}>{review.confirmed ? review.status === 'suspended' ? 'Bekräfta avstängning' : 'Bekräfta aktivering' : 'Granska ändring'}</button>{review.confirmed && <button className="button button-outline" type="button" disabled={pending} onClick={() => setReview(previous => previous ? { ...previous, confirmed: false } : null)}>Ändra motivering</button>}<button className="text-link" type="button" disabled={pending} onClick={() => { setReview(null); intent.current = null; }}>Avbryt</button></div></form></div></section>}
     </>}
     {!denied && tab === 'contacts' && <>

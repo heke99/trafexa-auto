@@ -20,5 +20,5 @@ export default async function AdminPage() {
   }
   const result = await listPlatformCompaniesAction({ limit: 50 });
   if (!result.ok && result.code === 'access_denied') notFound();
-  return <><PlatformAdminWorkspace key={actorUserId} actorUserId={actorUserId} initialPage={result.ok ? { companies: result.companies, nextPageKey: result.nextPageKey } : { companies: [], nextPageKey: null }} initialError={result.ok ? null : result.message}/><div className="wrap"><EmailDeliveryStatus key={`email:${actorUserId}`}/></div></>;
+  return <><PlatformAdminWorkspace key={actorUserId} actorUserId={actorUserId} initialPage={result.ok ? { companies: result.companies, nextPageKey: result.nextPageKey } : { companies: [], nextPageKey: null }} initialError={result.ok ? null : result.message}/><EmailDeliveryStatus key={`email:${actorUserId}`}/></>;
 }
