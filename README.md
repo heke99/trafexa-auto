@@ -1,5 +1,7 @@
 # Trafexa Dealer
 
+[Granskade fakturamejl](docs/ADVERTISING_INVOICE_EMAIL_CONTRACT.md) binder original eller kreditfaktura, sparad faktureringsadress och exakt PDF till en separat utskickskö. Superadmin bekräftar utskicket; leverantörsacceptans, leverans, studs och klagomål visas separat. Återförsök och signerad återhämtning efter avbrott förhindrar dubbel sändning. Produktionsflaggorna är aktiverade enligt användarens önskemål; tre serverhemligheter och Resend-webhook läggs in separat före verklig leverans. Nästa ekonomisteg är betalningsavstämning.
+
 [Internt filialregister](docs/COMPANY_BRANCHES.md) är implementerat och verifierat inför publicering: adresser och kontaktuppgifter för försäljningsställen inom samma företag, hanterade av ägare och administratörer. Lagerkoppling och filialfilter följer separat.
 
 [Överlåtelse av företagets ägarroll](docs/COMPANY_OWNERSHIP_TRANSFER.md) är publicerad via [PR #33](https://github.com/heke99/trafexa-auto/pull/33) på main `0b041063`. Nuvarande ägare väljer en befintlig administratör som själv granskar och accepterar inom 24 timmar; därefter växlas rollerna tillsammans. Det gäller Trafexas företagsbehörighet. Verifieringsstatus följs separat i [IMPLEMENTATION_STATUS](docs/IMPLEMENTATION_STATUS.md).
