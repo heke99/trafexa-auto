@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { before, after, test } from 'node:test';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -378,5 +378,54 @@ test('superadmin opens selected company advertising basis lazily and revoked acc
   await expect(page.getByRole('alert')).toContainText('Åtkomst återkallad');
   await expect(page.getByRole('cell',{name:'Fixture AB'})).toHaveCount(0);
   await expect(page.getByText('Unika publiceringar under vald månad')).toHaveCount(0);
+ }finally{await page.close();}
+});
+
+async function installAdminCompanyFixtures(page) {
+ await page.evaluate(()=>{
+  const actor='30000000-0000-4000-8000-000000000001',company='10000000-0000-4000-8000-000000000001';
+  const counts={queued:1,dispatching:0,outcomeUnknown:0,submitted:1,published:2,rejected:0,retryable:0,newPublications:1};
+  window.calls=[];window.responses=[];window.billingCalls=[];window.billingResponses=[];
+  window.usage={ok:true,companyId:company,actorUserId:actor,actorRole:'platform_admin',timeZone:'Europe/Stockholm',trackingStartedAt:'2026-09-01T00:00:00Z',legacyPublishedJobs:0,totals:{drafts:1,ready:1,...counts},channels:[{channel:'blocket',...counts}],billing:{status:'quantity_only',unitPriceOre:null,totalOre:null,unpricedPublications:1}};
+  window.billing={companyId:company,actorUserId:actor,actorRole:'platform_admin',month:'2026-09',periodStart:'2026-08-31T22:00:00Z',periodEnd:'2026-09-30T22:00:00Z',ended:true,trackingStartedAt:'2026-09-01T00:00:00Z',coverage:'full',legacyPublishedJobs:0,rates:[{id:'10000000-0000-4000-8000-000000000010',channel:'blocket',version:1,unitPriceOre:'14950',effectiveAt:'2026-09-01T12:00:00Z'}],items:[],count:0,unpricedCount:0,totalOre:'0',reviewToken:'a'.repeat(64),locked:null,hasChangesSinceLock:false};
+ });
+}
+
+for(const width of [390,1440])test(`superadmin visual snapshots cover overview, dealer management, accounts and billing at ${width}px`,async()=>{
+ const page=await setup({overviewTab:true,initialCompanies:[makeCompany(COMPANY,'Svenska Bilhandlargruppen AB'),makeCompany(NEXT,'Göteborgs Bil & Motor AB')],accountRows:[makeAccount({name:'Anna Andersson',email:'anna.andersson@bilhandlargruppen.invalid'}),makeAccount({userId:'40000000-0000-4000-8000-000000000002',name:'Erik Berg',email:'erik@motorgruppen.invalid',status:'approved'})]});
+ const output=process.env.TRAFEXA_ADMIN_QA_DIR;
+ async function capture(name){
+  await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeEnabled();
+  await page.evaluate(async()=>{await Promise.allSettled(document.getAnimations().filter(animation=>Number.isFinite(animation.effect?.getComputedTiming().iterations)).map(animation=>animation.finished));});
+  const dimensions=await page.evaluate(()=>({width:innerWidth,document:document.documentElement.scrollWidth,body:document.body.scrollWidth,navigation:[...document.querySelectorAll('nav[aria-label="Administrationsvyer"] button')].map(button=>({label:button.textContent,pressed:button.getAttribute('aria-pressed'),disabled:button.disabled,background:getComputedStyle(button).backgroundColor,color:getComputedStyle(button).color,opacity:getComputedStyle(button).opacity}))}));
+  assert.ok(dimensions.document<=width&&dimensions.body<=width,`${name}: ${JSON.stringify(dimensions)}`);
+  if(output){await mkdir(output,{recursive:true});await page.screenshot({path:resolve(output,`${width}-${name}.png`),fullPage:true,animations:'disabled'});await writeFile(resolve(output,`${width}-${name}.json`),JSON.stringify(dimensions));}
+ }
+ try{
+  await page.setViewportSize({width,height:1000});await expect(page.getByRole('heading',{name:'Översikt över Trafexa'})).toBeVisible();await capture('overview');
+  await page.getByRole('button',{name:'Företag',exact:true}).click();await expect(page.getByText('Svenska Bilhandlargruppen AB',{exact:true})).toBeVisible();await capture('companies');
+  await page.getByRole('button',{name:'Konton',exact:true}).click();await expect(page.getByRole('heading',{name:'Konton och åtkomst'})).toBeVisible();await expect(page.getByRole('button',{name:'Granska konto anna.andersson@bilhandlargruppen.invalid'})).toBeVisible();await capture('accounts');
+  await page.getByRole('button',{name:'Företag',exact:true}).click();await installAdminCompanyFixtures(page);await page.getByRole('button',{name:'Fakturering för Svenska Bilhandlargruppen AB'}).click();await expect(page.getByRole('heading',{name:'Gällande kanalpriser'})).toBeVisible();await capture('billing');
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  assert.equal(await page.evaluate(()=>window.billingCalls.some(call=>call.kind!=='read')),false);
+ }finally{await page.close();}
+});
+
+test('selected company has explicit lazy billing/integration views, cannot mix dealers, and close restores keyboard focus',async()=>{
+ const page=await setup({initialCompanies:[makeCompany(),makeCompany(NEXT,'Second Dealer AB')]});try{
+  await installAdminCompanyFixtures(page);assert.equal(await page.evaluate(()=>window.billingCalls.length),0);
+  await page.getByRole('button',{name:'Fakturering för Fixture AB',exact:true}).click();await expect(page.getByRole('heading',{name:'Fakturering för Fixture AB',exact:true})).toBeFocused();await expect(page.getByRole('heading',{name:'Gällande kanalpriser'})).toBeVisible();assert.equal(await page.evaluate(()=>window.calls.length),0);assert.equal(await page.evaluate(()=>window.billingCalls.length),1);
+  await page.getByRole('button',{name:'Blocketkoppling för Second Dealer AB',exact:true}).click();await expect(page.getByRole('heading',{name:'Blocketkoppling för Second Dealer AB',exact:true})).toBeFocused();await expect(page.getByRole('heading',{name:'Gällande kanalpriser'})).toHaveCount(0);await expect(page.getByRole('heading',{name:'Fakturering för Fixture AB',exact:true})).toHaveCount(0);await expect(page.getByRole('region',{name:'Valt företags administration'})).toHaveCount(1);
+  await page.getByRole('button',{name:'Stäng företagsvy',exact:true}).click();await expect(page.getByRole('button',{name:'Blocketkoppling för Second Dealer AB',exact:true})).toBeFocused();await expect(page.getByRole('region',{name:'Valt företags administration'})).toHaveCount(0);
+  await page.getByRole('button',{name:'Annonsunderlag för Fixture AB',exact:true}).click();await expect(page.getByText('Unika publiceringar under vald månad')).toBeVisible();await page.getByRole('button',{name:'Konton',exact:true}).click();await page.getByRole('button',{name:'Företag',exact:true}).click();await expect(page.getByRole('region',{name:'Valt företags administration'})).toHaveCount(0);assert.equal(await page.evaluate(()=>window.calls.length),1);
+ }finally{await page.close();}
+});
+
+test('mobile dealer and account actions remain inside their visible cards without horizontal scrolling',async()=>{
+ const page=await setup({accountRows:[makeAccount()]});try{
+  await page.setViewportSize({width:320,height:1000});await expect(page.getByRole('button',{name:'Fakturering för Fixture AB',exact:true})).toBeInViewport();await expect(page.getByRole('button',{name:'Hantera status för Fixture AB',exact:true})).toBeInViewport();
+  assert.equal(await page.evaluate(()=>document.body.scrollWidth<=innerWidth),true);
+  await page.getByRole('button',{name:'Konton',exact:true}).click();await expect(page.getByRole('button',{name:'Granska konto new@example.invalid',exact:true})).toBeInViewport();
+  const fits=await page.getByLabel('Visa konton').evaluate(element=>element.clientWidth>=180&&element.getBoundingClientRect().right<=innerWidth);assert.equal(fits,true);assert.equal(await page.evaluate(()=>document.body.scrollWidth<=innerWidth),true);
  }finally{await page.close();}
 });
