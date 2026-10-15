@@ -16,6 +16,8 @@ En inbjudan som förberetts av en annan administratör förblir skyddad av sitt 
 
 ## Gemensam dokumentöversikt
 
+Driftens saknade offertarkiv införs med en separat bootstrap som endast skapar detta arkivs förutsättningar. Den äldre externa signeringsprototypen aktiveras inte. Tester av driftens exakta migrationskedja utelämnar båda äldre prototypfilerna och verifierar skyddad PDF-nedladdning samt dokumentåtkomst efter leverans.
+
 Ägare, administratör och finansansvarig kan söka, filtrera och bläddra bland arkiverade offerter, faktiskt lagrade signerade avtalsoriginal och signeringsbevis samt utfärdade annonsfakturor och kreditfakturor. Källan anger dokumenttyp och använder befintlig skyddad nedladdningsroute. Pågående avtalsutkast visas inte som färdiga original. Markörer och svar binds till företag, användare, roll och kriterier. Inga lagringssökvägar eller interna belopp behövs i listans metadata.
 
 ## Manuell avstämning och leverans
