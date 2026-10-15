@@ -1,0 +1,2 @@
+export async function getDealFulfilmentAction(input){window.fixture.reads.push(input);return{ok:true,page:window.fixture.page};}
+export async function mutateDealFulfilmentAction(input){window.fixture.calls.push(input);const outcome=window.fixture.outcomes.shift();if(outcome?.delay)await new Promise(resolve=>{window.fixture.release=resolve;});if(outcome?.throw)throw Error('unknown');return outcome?.result??{ok:true,page:window.fixture.page};}

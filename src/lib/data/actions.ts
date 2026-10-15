@@ -9,6 +9,7 @@ import { safeNextPath } from '@/lib/routing.mjs';
 import { getAuthAppOrigin } from '@/lib/auth/app-origin';
 import { getAuthenticatedLandingPath } from '@/lib/auth/landing';
 import { canManageStockIntake, canWriteInternalFinance } from '@/lib/access/dealer-capabilities';
+import { createCustomerRequestAction, createFinanceIntakeRequestAction } from './create-record-actions';
 
 function outcome(path:string,type:'error'|'success',message:string):never {redirect(`${path}${path.includes('?')?'&':'?'}${type}=${encodeURIComponent(message)}`);}
 function friendlyError(error:unknown) {
@@ -76,9 +77,9 @@ export async function selectCompanyAction(form:FormData) {
  const company=member.company_id;
  (await cookies()).set('trafexa-company',company,{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:'/'});redirect('/dashboard');
 }
-async function mutate(path:string,work:()=>Promise<void>,success:string) {
+async function mutate(path:string,work:()=>Promise<void>,success:string,invalidate=true) {
  let failure:string|null=null;try {await work();}catch(e){if((e as {digest?:string}).digest?.startsWith('NEXT_REDIRECT'))throw e;failure=friendlyError(e);}
- if(failure)outcome(path,'error',failure);revalidatePath('/dashboard');revalidatePath(path);outcome(path,'success',success);
+ if(failure)outcome(path,'error',failure);if(invalidate){revalidatePath('/dashboard');revalidatePath(path);}outcome(path,'success',success);
 }
 export async function createVehicleAction(form:FormData) {
  await mutate('/inventory',async()=>{
@@ -93,9 +94,9 @@ export async function createVehicleAction(form:FormData) {
  },'Bilen har lagts till i lagret.');
 }
 export async function createCustomerAction(form:FormData) {
- await mutate('/customers',async()=>{const {db,company}=await context(uuidField(form,'expected_company_id'));const email=textField(form,'email',254);if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw new Error('Ange en giltig e-postadress.');
- const {error}=await db.from('customers').insert({company_id:company,name:requiredField(form,'name',2),kind:enumField(form,'kind',['person','business'],'person'),email:email||null,phone:textField(form,'phone',60)||null,address:textField(form,'address',500)||null,notes:textField(form,'notes',2000)||null});if(error)throw error;
- },'Kunden har lagts till.');
+ await mutate('/customers',async()=>{const {company}=await context(uuidField(form,'expected_company_id'));
+ const result=await createCustomerRequestAction({companyId:company,requestId:uuidField(form,'request_id'),name:requiredField(form,'name',2),kind:enumField(form,'kind',['person','business'],'person')as 'person'|'business',email:textField(form,'email',254),phone:textField(form,'phone',60),address:textField(form,'address',500),notes:textField(form,'notes',2000)});if(!result.ok)throw new Error(result.message);
+ },'Kunden har lagts till.',false);
 }
 export async function createDealAction(form:FormData) {
  await mutate('/deals',async()=>{const {db,company}=await context();const {error}=await db.rpc('create_deal',{company,stock:uuidField(form,'stock_item_id'),customer:uuidField(form,'customer_id'),price_ore:moneyField(form,'sale_price')});if(error)throw error;},'Affärsutkastet har skapats.');
@@ -107,9 +108,9 @@ export async function releaseReservationAction(form:FormData) {
  await mutate('/deals',async()=>{const {db,company}=await context();const {error}=await db.rpc('release_reservation',{company,deal:uuidField(form,'deal_id')});if(error)throw error;},'Reservationen har släppts.');
 }
 export async function createFinanceRequestAction(form:FormData) {
- await mutate('/finance',async()=>{const {db,company,user}=await context(uuidField(form,'expected_company_id'));const deal=textField(form,'deal_id');
- const {error}=await db.from('finance_applications').insert({company_id:company,created_by:user,product:enumField(form,'product',['purchase','stock']),deal_id:deal?uuidField(form,'deal_id'):null,requested_amount_ore:moneyField(form,'requested_amount'),deposit_ore:textField(form,'deposit')?moneyField(form,'deposit',true):0,term_months:textField(form,'term_months')?integerField(form,'term_months',1,120):null,note:textField(form,'note',2000)||null,status:'intake'});if(error)throw error;
- },'Förfrågan har sparats i Trafexa. Den är inte skickad till en finanspartner.');
+ await mutate('/finance',async()=>{const {company}=await context(uuidField(form,'expected_company_id'));const deal=textField(form,'deal_id');
+ const result=await createFinanceIntakeRequestAction({companyId:company,requestId:uuidField(form,'request_id'),product:enumField(form,'product',['purchase','stock'])as 'purchase'|'stock',dealId:deal?uuidField(form,'deal_id'):null,requestedAmount:requiredField(form,'requested_amount'),deposit:textField(form,'deposit'),termMonths:textField(form,'term_months'),note:textField(form,'note',2000)});if(!result.ok)throw new Error(result.message);
+ },'Förfrågan har sparats i Trafexa. Den är inte skickad till en finanspartner.',false);
 }
 export async function updateVehiclePriceAction(form:FormData) {
  await mutate('/inventory',async()=>{const {db,company}=await context();const {data,error}=await db.from('stock_items').update({asking_price_ore:moneyField(form,'asking_price')}).eq('company_id',company).eq('id',uuidField(form,'stock_item_id')).select('id');if(error)throw error;if(!data?.length)throw new Error('Bilen kunde inte hittas.');},'Försäljningspriset har uppdaterats.');

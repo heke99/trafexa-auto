@@ -11,6 +11,8 @@ Granskningen utgår från main `64ee46b` och använder syntetiska data. Den skil
 
 ## Rekommenderad fortsatt ordning
 
+Punkterna har därefter byggts vidare enligt [fortsättningens faktiska kontrakt](DEALER_NEXT_STEPS_20261015.md). Listan nedan bevarar granskningens ursprungliga prioritering och innebär inte att återförsöksskydd, kontosökning, dokumentöversikt eller första leverans-/nätverksflödet fortfarande saknas. De uttryckliga begränsningarna i det nya kontraktet gäller fortsatt.
+
 1. **Säkra återförsök för äldre skapandeflöden.** Kundregistrering och finansintresseanmälan saknar beständig, payloadbunden begäransreferens. Ett lyckat sparande med förlorat svar kan därför följas av en dubblett vid manuellt återförsök. Inför atomisk RPC/kvittens per företag, aktör och begärans-ID. Namn eller e-post ska inte användas som automatisk dubblettnyckel.
 2. **Snabbare superadminhandläggning.** Lägg till serverstödd kontosökning via e-post, mobilkort för inkomna ansökningar och ett uttryckligt överlämningsflöde för kontoinbjudan som förberetts av en annan administratör. För närvarande blockeras den senare situationen säkert, men vägen vidare är otydlig.
 3. **Samlad dokumentöversikt.** Arkiverade offerter blir direkt tillgängliga här; avtalsoriginal, signeringsbevis och ekonomidokument följer fortfarande egna flöden. En gemensam lista behöver typade källor, sidindelning och rätt behörighet per dokumenttyp.

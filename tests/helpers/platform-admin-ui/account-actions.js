@@ -3,7 +3,7 @@ export async function listPlatformAccountsAction(input) {
   const response=window.fixture.accountResponses.shift();
   if(response?.wait) return new Promise(resolve => {window.resolveAccountList=()=>resolve(response.result);});
   if(response?.throw) throw new Error('Unknown outcome');
-  return response ?? {ok:true,accounts:window.fixture.accounts.filter(row=>input.filter==='all'||row.status===input.filter),nextPageKey:null};
+  return response ?? {ok:true,accounts:window.fixture.accounts.filter(row=>(input.filter==='all'||row.status===input.filter)&&row.email.toLowerCase().includes((input.search??'').trim().toLowerCase())),nextPageKey:null};
 }
 export async function setPlatformAccountAccessAction(input) {
   window.fixture.accountStatusCalls.push({...input});

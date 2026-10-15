@@ -9,7 +9,7 @@ import type { RegisterDatabase } from '@/lib/registers/database.types';
 import type { DealerRegisterInput, DealerRegisterKind, DealerRegisterPage, DealerRegisterResult, DealerRegisterDeal, DealerRegisterSort, DealOptionsInput, DealOptionsResult, DealerRegisterRole } from '@/lib/registers/types';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const statuses = { inventory: ['all', 'available', 'reserved', 'sold', 'archived'], customers: ['all', 'person', 'business'], deals: ['all', 'draft', 'reserved', 'cancelled'] };
+const statuses = { inventory: ['all', 'available', 'reserved', 'sold', 'archived'], customers: ['all', 'person', 'business'], deals: ['all', 'draft', 'reserved', 'cancelled', 'completed'] };
 const roles: DealerRegisterRole[] = ['owner', 'admin', 'sales', 'finance', 'viewer'];
 type Request = { kind: DealerRegisterKind; companyId: string; query: string; status: string; sort: DealerRegisterSort; cursor: Record<string, Json> | null; options: boolean; selectedId: string | null };
 function record(value: unknown): Record<string, unknown> {

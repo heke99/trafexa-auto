@@ -9,7 +9,7 @@ const vehicle = (n = 10) => ({ id: uuid(n + 1000), company_id: COMPANY, registra
 const stock = (n = 10) => ({ id: uuid(n), company_id: COMPANY, status: 'available', created_at: DATE, acquired_on: '2026-10-15', purchase_price_ore: null, asking_price_ore: '15900009', vat_scheme: 'unknown', vehicles: vehicle(n) });
 const customer = (n = 20) => ({ id: uuid(n), company_id: COMPANY, name: 'Buyer', kind: 'person', email: null, phone: '0701234567', address: null, notes: null, created_at: DATE });
 const deal = () => ({ id: uuid(30), company_id: COMPANY, status: 'draft', sale_price_ore: '15900009', customer_id: uuid(2000), stock_item_id: uuid(3000), created_at: DATE, customer: customer(2000), stockItem: stock(3000) });
-const counts = (kind, n) => kind === 'inventory' ? { all: String(n), available: String(n), reserved: '0', sold: '0', archived: '0' } : kind === 'customers' ? { all: String(n), person: String(n), business: '0' } : { all: String(n), draft: String(n), reserved: '0', cancelled: '0' };
+const counts = (kind, n) => kind === 'inventory' ? { all: String(n), available: String(n), reserved: '0', sold: '0', archived: '0' } : kind === 'customers' ? { all: String(n), person: String(n), business: '0' } : { all: String(n), draft: String(n), reserved: '0', cancelled: '0', completed: '0' };
 function page(args, role = 'sales') {
   const rows = args.p_kind === 'inventory' ? [stock()] : args.p_kind === 'customers' ? [customer()] : [deal()];
   if (['owner', 'admin', 'finance'].includes(role)) for (const row of rows) { if ('stockItem' in row) row.stockItem.purchase_price_ore = '12500029'; else if ('purchase_price_ore' in row) row.purchase_price_ore = '12500029'; }

@@ -27,3 +27,6 @@ export const CompanyStoreProfile=()=>null;
 export const CompanyBranches=()=>null;
 
 export const CompanyPublicStore=()=>null;
+export const DealFulfilment=()=>null;
+export const DealerNetwork=()=>null;
+export const DealerDocumentHub=()=>null;

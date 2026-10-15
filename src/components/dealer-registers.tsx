@@ -21,7 +21,7 @@ export type DealerRegistersProps = {
 const filters: Record<DealerRegisterKind, [string, string][]> = {
   inventory: [['all', 'Alla bilar'], ['available', 'Tillgängliga'], ['reserved', 'Reserverade'], ['sold', 'Sålda'], ['archived', 'Arkiverade']],
   customers: [['all', 'Alla kunder'], ['person', 'Privatpersoner'], ['business', 'Företag']],
-  deals: [['all', 'Alla affärer'], ['draft', 'Utkast'], ['reserved', 'Reservationer'], ['cancelled', 'Avbrutna']],
+  deals: [['all', 'Alla affärer'], ['draft', 'Utkast'], ['reserved', 'Reservationer'], ['cancelled', 'Avbrutna'], ['completed', 'Levererade']],
 };
 const nouns = { inventory: 'bilar', customers: 'kunder', deals: 'affärer' };
 const placeholders = { inventory: 'Sök bil eller reg.nr', customers: 'Sök namn, mejl eller telefon', deals: 'Sök kund, bil eller reg.nr' };

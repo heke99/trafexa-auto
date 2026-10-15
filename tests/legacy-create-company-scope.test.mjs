@@ -9,8 +9,8 @@ const FOREIGN = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const USER = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const actions = [
   { name: 'createVehicleAction', path: '/inventory', target: 'create_stock', fields: { registration_number: 'ABC 123', make: 'Volvo', model: 'V60', model_year: '2025', mileage_km: '48000', fuel: 'hybrid', gearbox: 'automatic', purchase_price: '240000', asking_price: '289000', vat_scheme: 'unknown' } },
-  { name: 'createCustomerAction', path: '/customers', target: 'customers', fields: { name: 'Kund A', kind: 'person', email: 'buyer@example.invalid', phone: '+46 70 123 45 67', address: 'Gatan 1', notes: 'Kontakt om bilen' } },
-  { name: 'createFinanceRequestAction', path: '/finance', target: 'finance_applications', fields: { product: 'stock', requested_amount: '150000', deposit: '0', note: 'Lagerfinansiering' } },
+  { name: 'createCustomerAction', path: '/customers', target: 'create_customer_request', fields: { request_id: FOREIGN, name: 'Kund A', kind: 'person', email: 'buyer@example.invalid', phone: '+46 70 123 45 67', address: 'Gatan 1', notes: 'Kontakt om bilen' } },
+  { name: 'createFinanceRequestAction', path: '/finance', target: 'create_finance_intake_request', fields: { request_id: FOREIGN, product: 'stock', requested_amount: '150000', deposit: '0', note: 'Lagerfinansiering' } },
 ];
 
 function form(fields) {
@@ -46,12 +46,15 @@ async function harness() {
       async getUser() { const request = state(); request.authCalls++; return { data: { user: request.user }, error: request.authError ?? null }; },
       getClaims() { assert.fail('Unverified claims must not authorize business writes'); },
     },
-    async rpc(name, args) {
+    rpc(name, args) {
       const request = state();
       if (name === 'get_account_access') return { data: { userId: request.user.id, email: request.user.email, emailVerified: Boolean(request.user.email_confirmed_at), status: request.approval, version: 1, isPlatformAdmin: false }, error: null };
-      request.business.push({ target: name, value: args });
-      if (!request.providerError) request.saved.push({ target: name, value: args });
-      return { data: null, error: request.providerError ?? null };
+      const create=async()=>{
+        request.business.push({ target: name, value: args });
+        if (!request.providerError) request.saved.push({ target: name, value: args });
+        return { data: name==='create_stock'?null:{companyId:args.p_company_id,actorId:request.user.id,requestId:args.p_request_id,kind:name==='create_customer_request'?'customer':'finance_intake',recordId:FOREIGN,createdAt:'2026-10-15T10:00:00Z'}, error: request.providerError ?? null };
+      };
+      return name==='create_stock'?create():{abortSignal:create};
     },
     from(table) {
       const filters = {};
@@ -59,6 +62,10 @@ async function harness() {
         select() { return query; },
         eq(key, value) { filters[key] = value; return query; },
         order() { return query; },
+        async maybeSingle() {
+          const rows=state().memberships.filter(row=>Object.entries(filters).every(([key,value])=>(key==='companies.status'?row.companies.status:row[key])===value));
+          return{data:structuredClone(rows[0]??null),error:null};
+        },
         async insert(value) {
           const request = state(); request.business.push({ target: table, value });
           if (!request.providerError) request.saved.push({ target: table, value });
@@ -121,10 +128,10 @@ for (const action of actions) {
     assert.equal(result.pathname, action.path); assert.ok(result.searchParams.get('success')); assert.equal(result.searchParams.has('error'), false);
     assert.equal(request.saved.length, 1); assert.equal(request.business[0].target, action.target);
     const value = request.saved[0].value;
-    assert.equal(value.company ?? value.company_id, A); assert.equal(Object.hasOwn(value, 'expected_company_id'), false);
+    assert.equal(value.company ?? value.company_id ?? value.p_company_id, A); assert.equal(Object.hasOwn(value, 'expected_company_id'), false);
     if (action.target === 'create_stock') { assert.equal(value.registration, 'ABC123'); assert.equal(value.purchase_ore, 24000000); assert.equal(value.asking_ore, 28900000); }
-    if (action.target === 'customers') { assert.equal(value.email, action.fields.email); assert.equal(value.name, action.fields.name); }
-    if (action.target === 'finance_applications') { assert.equal(value.created_by, USER); assert.equal(value.status, 'intake'); assert.equal(value.deal_id, null); assert.equal(value.requested_amount_ore, 15000000); }
+    if (action.target === 'create_customer_request') { assert.equal(value.p_email, action.fields.email); assert.equal(value.p_name, action.fields.name); assert.equal(value.p_request_id, FOREIGN); }
+    if (action.target === 'create_finance_intake_request') { assert.equal('created_by'in value,false); assert.equal('status'in value,false); assert.equal(value.p_deal_id, null); assert.equal(value.p_requested_amount_ore, 15000000); assert.equal(value.p_request_id, FOREIGN); }
     assert.deepEqual(request.revalidated, ['/dashboard', action.path]);
   });
 
@@ -151,8 +158,8 @@ for (const action of actions) {
       assert.match(current.result.searchParams.get('error'), /Endast företagets ägare och administratörer/);
       assert.equal(current.request.business.length, 0);
     } else {
-      assert.equal(current.result.searchParams.get('error'), 'Du har inte behörighet att göra detta.');
-      assert.equal(current.request.business.length, 1);
+      assert.match(current.result.searchParams.get('error'), /företagsbehörighet kunde inte verifieras/);
+      assert.equal(current.request.business.length, 0);
     }
     assert.equal(current.result.searchParams.has('success'), false); assert.deepEqual(current.request.saved, []); assert.deepEqual(current.request.revalidated, []);
   });

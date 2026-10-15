@@ -28,8 +28,10 @@ export async function createDatabase({ includeSigningArchive=true, approveEstabl
   grant select,insert on storage.objects to authenticated;
   grant all on storage.objects,storage.buckets to service_role;
  `);
+ // The document hub depends on the archive and signing identity constraints.
+ // Keep the legacy option accepted, but run the real complete migration chain.
  const directory=new URL('../../supabase/migrations/',import.meta.url);
- for(const filename of (await readdir(directory)).filter(name=>name.endsWith('.sql') && (includeSigningArchive || !name.endsWith('_signing_ledger.sql') && !name.endsWith('_offer_document_archive.sql'))).sort()) {
+ for(const filename of (await readdir(directory)).filter(name=>name.endsWith('.sql')).sort()) {
   let source = await readFile(new URL(filename,directory),'utf8');
   if (filename.endsWith('_reservation_expiry_scheduler.sql')) {
    // PGlite cannot install pg_cron. Keep every real reservation function;

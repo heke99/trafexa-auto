@@ -1,5 +1,7 @@
 # Trafexa Dealer: regler och integrationskontrakt
 
+Fortsättningen den 15 oktober beskriver [beständiga återförsök, samlad dokumentöversikt, manuell avstämning, leverans och första opt-in-handlarnätverket](DEALER_NEXT_STEPS_20261015.md). Det uppdaterade kontraktet gäller dessa funktioner; tidigare fastexter nedan kan beskriva historiska checkpoints. Manuell avstämning är inte bankverifiering, och leverans av inbyte/skuldlösen är fortsatt spärrad.
+
 Detta dokument anger gränserna som huvudappen, databasändringar och providerintegrationer ska följa. Det kompletterar [genomförandeplanen i plan-PR:n](https://github.com/heke99/trafexa-auto/blob/docs/trafexa-execution-plan-20261013/docs/IMPLEMENTATION_PLAN.md), [DocuSeal-integrationen](DOCUSEAL_INTEGRATION.md) och [signeringsledgerns RPC-kontrakt](../supabase/README_SIGNING.md). Datum: 13 oktober 2026.
 
 Huvudbygget sker i den befintliga Next.js-appen på `codex/trafexa-dealer-continuation-20261013`. Målet är GitHub/Vercel **trafexa-auto**, Supabase **Trafexa dealer**, projekt `buqdtssxrotkzndublrt`, och `app.trafexa.com`. Sourcing-tabellerna från [utkast-PR #2](https://github.com/heke99/trafexa-auto/pull/2) är referensarbete och ska inte införas som en parallell företagsmodell.
