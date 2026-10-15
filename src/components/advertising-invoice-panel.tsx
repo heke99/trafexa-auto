@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { createAdvertisingInvoiceDraftAction, getPlatformAdvertisingInvoicePageAction, listAdvertisingInvoicePageAction, saveAdvertisingBuyerProfileAction, savePlatformAdvertisingBuyerProfileAction, saveAdvertisingSellerProfileAction, getAdvertisingInvoiceDraftAction, getPlatformAdvertisingInvoiceDraftAction } from '@/lib/advertising/invoice-actions';
 import type { AdvertisingInvoicePage, AdvertisingInvoiceProfile } from '@/lib/advertising/invoice-types';
 import { formatOre } from '@/lib/calculations/vehicle-calculation';
+
+const AdvertisingFinancialPanel = dynamic(() => import('./advertising-financial-panel').then(module => module.AdvertisingFinancialPanel), { loading: () => <p role="status">Läser in moms- och betalningsunderlag…</p> });
 
 type Props = { companyId: string; userId: string; role: string; superadmin?: boolean; month: string; onDenied?: (message: string) => void };
 type Fields = AdvertisingInvoiceProfile['fields'];
@@ -19,6 +22,7 @@ function Profile({ profile }: { profile: Pick<AdvertisingInvoiceProfile, 'versio
 export function AdvertisingInvoicePanel(props: Props) { return <Invoices key={`${props.companyId}:${props.userId}:${props.role}:${props.superadmin}:${props.month}`} {...props}/>; }
 function Invoices({ companyId, userId, role, superadmin = false, month, onDenied }: Props) {
   const [page, setPage] = useState<AdvertisingInvoicePage | null>(null);
+  const [showFinancial, setShowFinancial] = useState(false);
   const [editor, setEditor] = useState<{ kind: 'buyer' | 'seller'; fields: Fields } | null>(null);
   const [review, setReview] = useState<Review | null>(null);
   const [error, setError] = useState(''), [notice, setNotice] = useState('');
@@ -38,7 +42,7 @@ function Invoices({ companyId, userId, role, superadmin = false, month, onDenied
   }
   function scoped(value: AdvertisingInvoicePage) { return value.companyId === companyId && value.actorUserId === userId && value.actorRole === (superadmin ? 'platform_admin' : role) && value.month === month; }
   useEffect(() => {
-    const request = ++generation.current; ++selectedGeneration.current; setPage(null); setSelected(null); setSelectedLoading(false); setReview(null); setEditor(null);
+    const request = ++generation.current; ++selectedGeneration.current; setPage(null); setSelected(null); setSelectedLoading(false); setReview(null); setEditor(null); setShowFinancial(false);
     if (denied) { setLoading(false); return; }
     setLoading(true); setError('');
     void (superadmin ? getPlatformAdvertisingInvoicePageAction : listAdvertisingInvoicePageAction)({ companyId, month, beforeVersion }).then(result => {
@@ -123,6 +127,8 @@ function Invoices({ companyId, userId, role, superadmin = false, month, onDenied
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>{beforeVersion !== null && <button type="button" className="button button-outline" disabled={busy || loading} onClick={() => setBeforeVersion(null)}>Visa senaste utkasten</button>}{page.nextBeforeVersion !== null && <button type="button" className="button button-outline" disabled={busy || loading} onClick={() => setBeforeVersion(page.nextBeforeVersion)}>Visa äldre fakturautkast</button>}</div>
       {selectedLoading && <p role="status">Verifierar valt fakturautkast…</p>}
       {selected && <section aria-label="Valt fakturautkast" className="surface" style={{ padding: 18, marginTop: 20 }}><h4>UTKAST / EJ UTFÄRDAD · Version {selected.draft.version}</h4>{selected.isOutdated && <p className="form-privacy">Detta utkast bygger på äldre uppgifter. Originalets PDF ändras inte.</p>}<p>Utkastreferens: {selected.draft.id}</p><dl className="detail-list"><div><dt>Original i utkastet, exkl. moms</dt><dd>{selected.draft.snapshot.basis.original ? formatOre(selected.draft.snapshot.basis.original.totalOre) : 'Kan inte verifieras'}</dd></div><div><dt>Reduktioner i utkastet, exkl. moms</dt><dd>{formatOre(selected.draft.snapshot.basis.reductionTotalOre)}</dd></div><div><dt>Återstående belopp i utkastet, exkl. moms</dt><dd>{selected.draft.snapshot.basis.netTotalOre === null ? 'Kan inte verifieras' : formatOre(selected.draft.snapshot.basis.netTotalOre)}</dd></div></dl><p>Moms: ej fastställd. Belopp inklusive moms: kan inte beräknas.</p><h5>Köpare i sparat utkast</h5><Profile profile={selected.draft.snapshot.buyerProfile}/><h5>Säljare i sparat utkast</h5><Profile profile={selected.draft.snapshot.sellerProfile}/><Missing fields={selected.draft.snapshot.missingFields}/><a className="text-link" href={`/api/advertising/invoices/${encodeURIComponent(selected.draft.id)}/pdf${superadmin ? `?companyId=${encodeURIComponent(companyId)}` : ''}`}>Hämta PDF av sparat utkast version {selected.draft.version}</a></section>}
+      {!review && !editor && <button type="button" className="button button-outline" style={{ marginTop: 20 }} aria-expanded={showFinancial} onClick={() => setShowFinancial(value => !value)}>{showFinancial ? 'Dölj moms- och betalningsunderlag' : 'Visa moms- och betalningsunderlag'}</button>}
+      {showFinancial && <AdvertisingFinancialPanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={month} draftId={selected?.draft.id ?? null} onDenied={message => failure({ code: 'access_denied', message })}/>}
     </>}
   </section>;
 }

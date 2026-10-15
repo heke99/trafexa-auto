@@ -1,5 +1,9 @@
 # Planläge 15 oktober 2026
 
+## Granskad moms och betalningsvillkor
+
+Nästa ekonomietapp är implementerad: uttryckliga moms-/betalningsbeslut per företag, exakta radvisa momsberäkningar och oföränderliga granskade underlag med privat PDF. Inget verkligt konto eller momsbeslut aktiveras automatiskt. Superadmin skriver och företagets ägare/admin/finance läser. Befintliga utkast och tidigare lager-/arkivleveranser bevaras. Fakturautställning, kredit/rättelse av utfärdade dokument, betalningsavstämning och valt ekonomisystem återstår. Se [kontraktet](ADVERTISING_FINANCIAL_CONTRACT.md) och [faktiska verifieringsresultat](IMPLEMENTATION_STATUS.md).
+
 ## Granskat inbytesköp och lagerintag
 
 Registrering av styrkt inbytesköp och atomiskt lagerintag är implementerad från exakt accepterad fryst inbytesoffert och färdig native försäljningssignering av samma offert. Ägare/admin granskar separat externt inköpsavtal, mottagande och exakt skuld med underlag/datum även vid noll; finance läser och andra roller nekas. Bruttoinbytesvärdet blir inköpspris, drivmedel/växellåda/begärt pris väljs uttryckligen och momsmodellen är `unknown`. Befintligt kanoniskt registreringsnummer inom företaget blockerar även sålda bilar; restock är separat senare arbete. Aktörsbunden idempotens bevarar samma fordon/lagerpost vid identiskt återförsök.
