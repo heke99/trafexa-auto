@@ -1,6 +1,14 @@
 # Implementationsstatus
 
-## Kanalpriser och låsta månadsunderlag, 15 oktober 2026 — lokalt verifierat, release väntar
+## Rättelser av låsta annonsunderlag, 15 oktober 2026 — verifierat inför publicering
+
+Separata oföränderliga nedsättningar kopplas till publiceringsrader i det låsta originalet. Aktuell UUID-superadmin granskar belopp och motivering innan lagring; företagets ägare, administratör och ekonomiansvarig läser original, nedsättningar, återstående belopp och historik. En nedsättning måste vara positiv och sammanlagt rymmas i originalradens pris. Full nedsättning bevarar raden och dess antal med återstående belopp noll. Originalet och dess CSV ändras inte.
+
+Ett företagslås, aktuell granskningskontrollsumma och aktörsbundna begärans-ID skyddar mot samtidiga ändringar och dubbla återförsök. Kvittot verifieras mot företag, administratör, begäran, original och faktisk rättelse. Privat rättelse-CSV har egna radbelopp, granskningsreferenser och kontrollsummor samt skydd för fritext i kalkylblad. Ny rättelse eller återkallad behörighet under export stoppar privata bytes. Högst 2 000 rättelser per period; exakta ören och int64-beloppsgränser. Ingen faktura, kreditfaktura, betalning eller extern publicering skapas.
+
+Slutverifiering: **606/606 appfall**, **32/32 berörda PostgreSQL-grupper**, TypeScript och produktionsbygge passerar. De 14 riktade action-/DB-kontrollerna och nio CSV-/exportfallen överlappar dessa körningar och adderas inte till totalsiffrorna. Oberoende PostgreSQL-granskning passerade bland annat int64-gränsen, kvarvarande radbelopp, återförsök efter senare rättelser, oförändrat original och återkallad åtkomst. Fyra nya hosted migrationer har tillämpats och lokala filversioner synkroniserats; hosted rollbackprovet passerade med noll kvarvarande uppgifter i samtliga sju kontrollaggregat. Positiv rättelse av låst avslutad månad är verifierad lokalt, medan hosted provet verifierade läsbehörighet och nekad rättelse utan original. Security advisors har inga nya varningskategorier; privata RLS-tabeller saknar avsiktligt direktpolicyer. Merge och produktionens READY-kontroll återstår vid denna commit. Se [ADVERTISING_CORRECTIONS_CONTRACT](ADVERTISING_CORRECTIONS_CONTRACT.md).
+
+## Kanalpriser och låsta månadsunderlag, 15 oktober 2026 — publicerat via PR #21
 
 Fortsättning efter PR #20:s publiceringsregister och antalunderlag. Företag och kanal har versionshanterade priser i exakta heltalsören, SEK exklusive moms. Aktiveringstid sätts av servern; nya priser gäller framtida verifierade publiceringar och ändrar inte tidigare rader. Uttryckligt noll bevaras som ett beslutat pris; frånvaro av pris är null och blockerar låsning. Tidigare oprissatta publiceringar kan prissättas för vald kanal och månad efter motivering, uttrycklig granskning och kontroll av exakt aktuell underlagsversion. Redan prissatta rader skrivs inte om.
 
@@ -12,7 +20,7 @@ Gränser: högst **2 000 publiceringar** per månadsunderlag och **9 223 372 036
 
 Verifiering av slutkoden: **581/581 appfall** i full körning och **35/35 PostgreSQL/PGlite-grupper** passerar; produktionsbygget passerar. **26/26 berörda slutkontroller** passerar också men överlappar fullsviten och adderas inte till totalen. Browserfallen omfattar exakta decimaler/noll, skrivspärr för läsroller, granskad historisk prissättning, täckningsbekräftelser, låst original/CSV och rensning vid återkallad åtkomst eller sena svar från tidigare företag. Positiv stängning av avslutad månad är verifierad **lokalt**; hosted positiv stängning av sådan månad är inte bevisad. Hosted kontroll i nuvarande månad kan verifiera nekad låsning men ersätter inte det positiva provet.
 
-**Publicering återstår:** bekräftade hosted migrationer och rollbackkontroller, merge till main samt korrekt produktionsdeployment och driftkontroll. Denna sektion gör därför inget påstående om att den nya pris- och låsningsfunktionen redan är live. Tidigare daterade sektioner nedan är historiska checkpoints och deras testantal adderas inte till denna verifiering.
+**Publicerat:** PR #21 mergades till main `6234a91357e73f0b698a7a0dbd95b21de3006e35`. Produktionsdeployment `dpl_2StJtp8oxDDELqocc3VhMV9f4sMZ` verifierades READY för exakt denna commit, rätt projekt, region arn1 och app/www/apex. Sex migrationer tillämpades; syntetiskt hosted rollbackprov passerade och samtliga tio efterkontroller var noll. Login-/demoröktester gav HTTP 200. Tidigare daterade sektioner nedan är historiska checkpoints och deras testantal adderas inte till denna verifiering.
 
 ## Avtalsmallar och selektiv DocuSeal-port, 14 oktober 2026
 

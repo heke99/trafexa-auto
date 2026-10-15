@@ -12,7 +12,7 @@ SQL-funktionerna och serveråtgärderna kontrollerar aktuell Auth och kontogodk�
 
 Varje företag och kanal har versionshanterade priser. Aktiveringstid bestäms av servern när priset sparas. Ett nytt pris gäller endast framtida verifierade publiceringar, aldrig automatiskt historiken. Publiceringen kopierar då gällande prisversion och belopp till ett oföränderligt kvitto. Prisaktivering, publicering, granskning och periodlåsning samordnas med samma företagslås.
 
-Explicit noll är ett giltigt beslutat pris. Avsaknad av pris är null och blockerar ett slutligt underlag; den tolkas aldrig som gratis. Tidigare oprissatta publiceringar kan ges ett uttryckligen granskat pris per vald kanal och månad, med motivering och exakt aktuell underlagskontroll. Detta ändrar inga redan prissatta rader. För rättelser av beslutade priser behövs en separat framtida rättelse-/krediteringsprocess.
+Explicit noll är ett giltigt beslutat pris. Avsaknad av pris är null och blockerar ett slutligt underlag; den tolkas aldrig som gratis. Tidigare oprissatta publiceringar kan ges ett uttryckligen granskat pris per vald kanal och månad, med motivering och exakt aktuell underlagskontroll. Detta ändrar inga redan prissatta rader. Separata granskade nedsättningar av låsta original beskrivs i [rättelsekontraktet](ADVERTISING_CORRECTIONS_CONTRACT.md). Efterdebitering och juridiska kreditfakturor återstår.
 
 ## Månad och låsning
 
