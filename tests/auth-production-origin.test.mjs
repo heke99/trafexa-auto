@@ -16,13 +16,13 @@ test('development and preview allow only explicit valid origins without credenti
  for(const value of ['https://review.vercel.app','http://localhost:3000','http://127.0.0.1:3010']){process.env.NEXT_PUBLIC_APP_URL=value;assert.equal(get(),value);}
  for(const value of ['http://attacker.invalid','https://user:password@app.trafexa.com','https://app.trafexa.com/?next=bad','https://app.trafexa.com/#bad','ftp://localhost:3000']){process.env.NEXT_PUBLIC_APP_URL=value;assert.equal(get(),'https://app.trafexa.com');}
 });
-test('actual signup and recovery send production callbacks preserving admin and password destinations',async()=>{
+test('closed signup has no Auth call while recovery retains its production password destination',async()=>{
  process.env.VERCEL_ENV='production';process.env.NEXT_PUBLIC_APP_URL='http://localhost:3000';const calls=[];
  const loader=await createSourceLoader({'next/navigation':{redirect(url){const e=new Error('redirect');e.url=url;throw e;}},'next/headers':{cookies:()=>assert.fail('No cookies in signup/recovery')},'next/cache':{revalidatePath:()=>assert.fail('No business mutation')},'./company-context':{getCompanySession:()=>assert.fail('No membership')},'@/lib/supabase/server':{createServerSupabaseClient:async()=>({auth:{signUp:async data=>{calls.push(data.options.emailRedirectTo);return{error:null};},resetPasswordForEmail:async(_email,options)=>{calls.push(options.redirectTo);return{error:null};}}})}});
  const actions=loader.load('@/lib/data/actions');const form=new FormData();form.set('email','owner@example.invalid');form.set('password','long-private-fixture-password');form.set('acknowledgement','yes');form.set('next','/admin');
- await assert.rejects(actions.signupAction(form),e=>e.url.startsWith('/login?'));await assert.rejects(actions.forgotPasswordAction(form),e=>e.url.startsWith('/forgot-password?'));
+ await assert.rejects(actions.signupAction(form),e=>e.url==='https://trafexa.com/#kontakt');assert.deepEqual(calls,[]);await assert.rejects(actions.forgotPasswordAction(form),e=>e.url.startsWith('/forgot-password?'));
  for(const value of calls){const url=new URL(value);assert.equal(url.origin,'https://app.trafexa.com');assert.equal(url.pathname,'/auth/callback');}
- assert.equal(new URL(calls[0]).searchParams.get('next'),'/admin');const reset=new URL(new URL(calls[1]).searchParams.get('next'),'https://app.trafexa.com');assert.equal(reset.pathname,'/reset-password');assert.equal(reset.searchParams.get('next'),'/admin');
+ assert.equal(calls.length,1);const reset=new URL(new URL(calls[0]).searchParams.get('next'),'https://app.trafexa.com');assert.equal(reset.pathname,'/reset-password');assert.equal(reset.searchParams.get('next'),'/admin');
 });
 test('actual callback exchanges a code only on the server then redirects safely to production',async()=>{
  process.env.VERCEL_ENV='production';process.env.NEXT_PUBLIC_APP_URL='http://localhost:3000';let exchanges=0;

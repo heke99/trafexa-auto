@@ -45,21 +45,9 @@ export async function loginAction(form:FormData) {
  if(failed)redirect(`/login?${new URLSearchParams({next:nextPath,error:'Inloggningen misslyckades. Kontrollera e-post och lösenord.'})}`);
  redirect(await getAuthenticatedLandingPath(nextPath));
 }
-export async function signupAction(form:FormData) {
- const nextPath=safeNextPath(form.get('next'));
- const errorPath=`/register?${new URLSearchParams({next:nextPath})}`;
- const email=authEmail(form,errorPath),password=authPassword(form,errorPath,12);
- if(form.get('acknowledgement')!=='yes')outcome(errorPath,'error','Godkänn villkoren och bekräfta att du har läst integritetsinformationen.');
- const callback=new URL('/auth/callback',getAuthAppOrigin());
- if(nextPath!=='/dashboard')callback.searchParams.set('next',nextPath);
- let failed=false;
- try {
-  const db=await createServerSupabaseClient();
-  const {error}=await db.auth.signUp({email,password,options:{emailRedirectTo:callback.toString()}});
-  failed=Boolean(error);
- } catch {failed=true;}
- if(failed)redirect(`/register?${new URLSearchParams({next:nextPath,error:'Kontot kunde inte skapas. Försök igen senare.'})}`);
- redirect(`/login?${new URLSearchParams({next:nextPath,success:'Kontrollera din e-post och bekräfta kontot innan du loggar in.'})}`);
+export async function signupAction(_form:FormData) {
+ // Keep stale form submissions safe after open registration has been closed.
+ redirect('https://trafexa.com/#kontakt');
 }
 export async function signOutAction(form?:FormData) {const nextPath=safeNextPath(form?.get('next'));const db=await createServerSupabaseClient();await db.auth.signOut();(await cookies()).delete('trafexa-company');redirect(nextPath==='/dashboard'?'/login':`/login?${new URLSearchParams({next:nextPath})}`);}
 async function context() {

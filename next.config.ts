@@ -15,7 +15,9 @@ const nextConfig: NextConfig = {
     { source: '/api/public-stores/:path*', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'Cache-Control', value: 'no-store, max-age=0' }] },
     { source: '/api/internal/advertising/blocket/:path*', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'Cache-Control', value: 'private, no-store, max-age=0' }] },
     { source: '/handlare/:path*', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'Cache-Control', value: 'no-store, max-age=0' }] },
-    { source: '/api/dealer-companies', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] }];
+    { source: '/api/dealer-companies', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] },
+    { source: '/auth/invitation', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'Cache-Control', value: 'private, no-store' }] },
+    { source: '/activate-account', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'Cache-Control', value: 'private, no-store' }] }];
   }
 };
 export default nextConfig;

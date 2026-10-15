@@ -1,6 +1,8 @@
 # Trafexas autentiseringsmejl
 
-Mallarna utvecklas och versionshanteras i projektet. **Supabase Auth skickar mejlen och måste ha mallarna sparade i sitt hosted projekt.** En Git-/Vercel-publicering ändrar inte Supabases Site URL, redirectlista eller mejlmallar.
+Mallarna utvecklas och versionshanteras i projektet. **Lösenordsåterställning och andra befintliga Supabase Auth-mejl kräver mallarna i hosted Supabase och fungerande SMTP där.** En Git-/Vercel-publicering ändrar inte Supabases Site URL, redirectlista eller mejlmallar. En `RESEND_API_KEY` i Vercel konfigurerar inte Supabases SMTP.
+
+Öppen registrering är stängd. Nya konton får en personlig kontoinbjudan först efter granskad webbansökan i superadmin. Just denna inbjudan genereras av Supabase Auth men skickas via projektets Resend-kod och mall i `src/lib/email/account-invitation-content.ts`; den behöver inte Supabases Invite user-mall eller SMTP. Se [kontokontraktet](ACCOUNT_APPROVAL_CONTRACT.md). Inbjudans adress är alltid `https://app.trafexa.com/auth/invitation`; länken förbrukas först när kunden skickar lösenordsformuläret.
 
 ## 1. Rätta produktionsadressen
 
@@ -35,7 +37,7 @@ En gammal redan skickad mejllänk ändras inte när inställningarna sparas. Beg
 | Magic link | `magic_link.html` | Din inloggningslänk till Trafexa |
 | Reauthentication | `reauthentication.html` | Din verifieringskod för Trafexa |
 
-Prioritera **Confirm sign up** och **Reset password** för det aktuella registrerings- och återställningsflödet. De andra mallarna är förberedda och aktiverar inte nya funktioner i Trafexas gränssnitt. Inbjudningsmallen lovar inga särskilda företags- eller administratörsbehörigheter.
+Prioritera **Reset password** för befintliga användare. Confirm sign up bevaras för historiska Auth-flöden; webbplatsen erbjuder ingen öppen registrering. De andra mallarna är förberedda och aktiverar inte nya funktioner i Trafexas gränssnitt. Hosted Invite user-mallen används inte av det nya granskade ansökningsflödet.
 
 Behåll `{{ .ConfirmationURL }}` exakt i länkarnas href och länktext. Supabase fyller själv i verifieringslänk och den tillåtna callbackadressen. Mallarna konstruerar inga egna tokens eller hashfragment. Reauthentication använder i stället `{{ .Token }}` som kod; Change email address använder `{{ .NewEmail }}`. Mallarna visar inga påhittade giltighetstider och läser ingen användarmetadata.
 
@@ -44,7 +46,7 @@ Behåll `{{ .ConfirmationURL }}` exakt i länkarnas href och länktext. Supabase
 Redigera källan i `scripts/render-auth-emails.mjs`, kör `node scripts/render-auth-emails.mjs` och checka in både källa och genererad HTML. `subjects.json` innehåller ämnesraderna för samma version. Kopiera sedan uppdateringarna till hosted Supabase. Ingen automatisk synkronisering är installerad; använd inte en allmän `supabase config push` som kan skriva över andra Auth-/SMTP-inställningar.
 
 - Kontrollera i Supabases förhandsvisning att layout, knapp och ämnesrad visas korrekt.
-- Med ett avsett testkonto: registrera via `app.trafexa.com`, öppna ett **nytt** bekräftelsemejl i samma webbläsare som startade registreringen och verifiera att callback landar på rätt interna sida. PKCE kräver webbläsarens verifierare.
+- Med en avsedd testansökan: öppna Ansökningar i superadmin, granska och bekräfta kontoinbjudan, öppna mejlet, välj lösenord och verifiera inloggningen. `/register` ska leda till webbansökan och direkt offentlig signup ska nekas.
 - Begär lösenordsåterställning, öppna det **nya** mejlet och verifiera att ett nytt lösenord kan sparas och användas. Kontrollera även utgången eller redan använd länk.
 - Verifiera att mejlen inte längre innehåller en localhost-redirect. Testerna i repo kontrollerar HTML-layout och providerplatshållare; de bevisar inte hosted konfiguration eller faktisk leverans.
 

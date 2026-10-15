@@ -1,5 +1,13 @@
 # Implementationsstatus
 
+## Stängd registrering och granskade kontoinbjudningar, 15 oktober 2026
+
+Nya användare ansöker via webbplatsen. Superadmin granskar ansökans verkliga uppgifter, motiverar godkännandet och bekräftar en personlig kontoinbjudan. UI erbjuder **Ansök om tillgång**; `/register` och gamla signup-åtgärder leder till ansökan. Databasens uppskjutna Auth-trigger nekar offentlig kontoskapning och kräver serverägd inbjudan kopplad till en aktuell privat granskning. E-postverifiering och privat godkännande krävs fortfarande för systemåtkomst. Ett tidigare öppet registrerat, obekräftat och aldrig inloggat e-postkonto kan efter uttrycklig granskning tas in i samma flöde; dess tidigare lösenord och sessioner rensas atomiskt före godkännandet.
+
+Kontoinbjudans svenska mall finns i projektet och skickas med Resend från `kundtjanst@trafexa.com`; Supabase Auth genererar länken utan ett andra mejlutskick. Aktiveringen använder en HttpOnly-cookie, ren formuläradress och POST-verifiering så att en mejlskanner inte förbrukar länken vid GET. Kunden väljer lösenord och loggas därefter ut globalt före sin första vanliga inloggning. Krypterad servicebegränsad leveranspost, lås, beständiga begärans-ID och idempotens begränsar dubletter; okänt utfall skickas inte automatiskt om. Se [kontokontrakt](ACCOUNT_APPROVAL_CONTRACT.md) och [Auth-mejlens separata driftkonfiguration](AUTH_EMAIL_SETUP.md).
+
+Integrerad verifiering och publiceringsbevis förs in efter slutkörningen. Ingen riktig kundinbjudan skickas i testerna. Automatisk förnyelse av utgångna inbjudningslänkar ingår inte; dessa hanteras av administratören. Befintlig lösenordsåterställning använder fortfarande Supabase Auths separata SMTP-konfiguration.
+
 
 ## Granskade fakturamejl, 15 oktober 2026 — kod och databas verifierade
 

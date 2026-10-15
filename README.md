@@ -1,5 +1,7 @@
 # Trafexa Dealer
 
+Nya konton följer **webbansökan → superadmins godkännande → personlig kontoinbjudan**. Öppen registrering är stängd. Se [kontogodkännande och aktivering](docs/ACCOUNT_APPROVAL_CONTRACT.md) samt [skillnaden mellan kontoinbjudan via Resend och lösenordsåterställning via Supabase SMTP](docs/AUTH_EMAIL_SETUP.md).
+
 [Blocket gruppanslutning V5](docs/BLOCKET_GROUP_SETUP.md) och [publika Trafexa-butiker](docs/PUBLIC_DEALER_STORES.md) är implementerade och verifierade inför publicering. Handlaren granskar profil och väljer vilka annonser som får synas publikt. Blocket kräver separat verifierad partneråtkomst; inga tokens eller verkliga utskick aktiveras av förberedelsen.
 
 [Granskade fakturamejl](docs/ADVERTISING_INVOICE_EMAIL_CONTRACT.md) binder original eller kreditfaktura, sparad faktureringsadress och exakt PDF till en separat utskickskö. Superadmin bekräftar utskicket; leverantörsacceptans, leverans, studs och klagomål visas separat. Återförsök och signerad återhämtning efter avbrott förhindrar dubbel sändning. Produktionsflaggorna är aktiverade enligt användarens önskemål; tre serverhemligheter och Resend-webhook läggs in separat före verklig leverans. Nästa ekonomisteg är betalningsavstämning.
