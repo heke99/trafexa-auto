@@ -23,8 +23,9 @@ before(async () => {
   bundle = resolve(directory, 'fixture.js');
   styles = await readFile(resolve(repo, 'src/app/globals.css'), 'utf8');
   const config = { mode: 'development', target: 'web', devtool: false, context: repo,
-    entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js' },
-    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/advertising/billing-actions': resolve(helpers,'actions.js'), '@': resolve(repo,'src') } },
+    entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js', publicPath: '' },
+    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/advertising/correction-actions': resolve(repo, 'tests/helpers/advertising-corrections-ui/actions.js'), '@/lib/advertising/billing-actions': resolve(helpers,'actions.js'), '@': resolve(repo,'src') } },
+    plugins: [new webpack.optimize.LimitChunkCountPlugin({ maxChunks: 1 })],
     module: { rules: [{ test: /\.tsx?$/, use: resolve(repo, 'tests/helpers/advertising-usage-ui/swc-loader.cjs') }] } };
   await new Promise((resolveBuild, reject) => { const compiler = webpack(config); compiler.run((error, stats) => compiler.close(() => { if (error || stats.hasErrors()) reject(error ?? new Error(stats.toString({ all: false, errors: true }))); else resolveBuild(); })); });
   browser = await playwright.launch({ executablePath: await Chromium.executablePath(), args: Chromium.args.filter(argument => argument !== '--single-process'), headless: true });
@@ -83,3 +84,22 @@ test('unpriced publications, ongoing months and entirely untracked months cannot
 test('authorization revoked during price mutation removes prices and review',async()=>{const page=await setup();try{
  await page.getByLabel('Överenskommet styckpris, kronor exkl. moms').fill('49,00');await page.getByRole('button',{name:'Granska nytt kanalpris',exact:true}).click();await page.getByRole('checkbox',{name:'Jag har granskat företaget, kanalen, perioden och prisöverenskommelsen.'}).check();await page.evaluate(()=>window.billingMutationResponses.push({ok:false,code:'access_denied',message:'Administratörsåtkomsten har återkallats'}));await page.getByRole('button',{name:'Bekräfta och spara priset'}).click();await expect(page.getByRole('alert')).toHaveText('Administratörsåtkomsten har återkallats');await expect(page.getByRole('heading',{name:'Gällande kanalpriser'})).toHaveCount(0);await expect(page.getByRole('region',{name:'Granska ändring'})).toHaveCount(0);
 }finally{await page.close();}});
+
+test('locked billing opens actual lazy corrections only on request and child denial clears the parent financial view',async()=>{
+ const item={publicationId:id(55),listingId:id(56),channel:'blocket',publishedAt:'2026-09-17T12:00:00Z',unitPriceOre:'12500',priceSource:'rate',rateVersion:1};
+ const original={id:id(50),lockedAt:'2026-10-01T12:00:00Z',totalOre:'12500',count:1,reviewToken:'b'.repeat(64),partialCoverageAcknowledged:true,items:[item]};
+ const page=await setup({unpricedCount:0,totalOre:'12500',locked:original});
+ try{
+  await page.evaluate(({original})=>{window.correctionCalls=[];window.corrections={companyId:window.billing.companyId,actorUserId:window.billing.actorUserId,actorRole:'platform_admin',month:window.billing.month,original,adjustments:[],reductionTotalOre:'0',netTotalOre:'12500',reviewToken:'c'.repeat(64),canonicalSnapshot:'unused-by-client'};},{original});
+  assert.equal(await page.evaluate(()=>window.correctionCalls.length),0);
+  await page.getByRole('button',{name:'Visa rättelser av låst underlag'}).click();
+  await expect(page.getByRole('heading',{name:'Rättelser av låst månadsunderlag'})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Hämta rättelseunderlag som CSV'})).toHaveAttribute('href',`/api/advertising/billing/2026-09/corrections/csv?companyId=${COMPANY}`);
+  assert.deepEqual(await page.evaluate(()=>window.correctionCalls[0]),{kind:'read',companyId:COMPANY,month:'2026-09',platform:true});
+  await page.evaluate(()=>{window.correctionResponses=[{ok:false,code:'access_denied',message:'Återkallad rättelseåtkomst'}];});
+  await page.getByRole('button',{name:'Uppdatera rättelseunderlag'}).click();
+  await expect(page.getByRole('alert')).toHaveText('Återkallad rättelseåtkomst');
+  await expect(page.getByRole('heading',{name:'Gällande kanalpriser'})).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'Rättelser av låst månadsunderlag'})).toHaveCount(0);
+ }finally{await page.close();}
+});

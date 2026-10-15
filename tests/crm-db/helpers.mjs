@@ -30,7 +30,15 @@ export async function createDatabase({ includeSigningArchive=true, approveEstabl
  `);
  const directory=new URL('../../supabase/migrations/',import.meta.url);
  for(const filename of (await readdir(directory)).filter(name=>name.endsWith('.sql') && (includeSigningArchive || !name.endsWith('_signing_ledger.sql') && !name.endsWith('_offer_document_archive.sql'))).sort()) {
-  await db.exec(await readFile(new URL(filename,directory),'utf8'));
+  let source = await readFile(new URL(filename,directory),'utf8');
+  if (filename.endsWith('_reservation_expiry_scheduler.sql')) {
+   // PGlite cannot install pg_cron. Keep every real reservation function;
+   // scheduler setup and concurrent sessions have their own PostgreSQL suite.
+   const boundary = source.indexOf('-- Explicitly approved background job.');
+   if (boundary < 0) throw new Error('Unknown scheduler migration layout');
+   source = source.slice(0,boundary) + 'commit;';
+  }
+  await db.exec(source);
  }
  // Established-fixture approval is TEST ONLY. The dedicated approval suite opts out.
  // Production migrations deliberately contain neither this trigger nor a backfill.

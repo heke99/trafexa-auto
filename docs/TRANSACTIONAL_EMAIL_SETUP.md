@@ -14,7 +14,7 @@ Avsändare: **Trafexa <kundtjanst@trafexa.com>**. Svar går till **info@trafexa.
 
 ## Aktivering
 
-Den första transporten använder Resends API. Verifiera `trafexa.com` med de DNS-poster leverantören anger och stäng av länk-/öppningsspårning. Avsändardomänen `trafexa.com` har lagts till i Resend i region `eu-west-1`, med framtvingad TLS och utan länk-/öppningsspårning. Den inväntar DNS-verifiering. Ingen API-nyckel eller SMTP-transport är ännu konfigurerad för appen, och inga faktiska mejl har skickats. DNS-posterna behöver läggas till hos domänens DNS-leverantör; ersätt inte befintliga SPF-/DMARC-poster utan att kombinera dem korrekt.
+Den första transporten använder Resends API. Verifiera `trafexa.com` med de DNS-poster leverantören anger och stäng av länk-/öppningsspårning. Avsändardomänen `trafexa.com` har lagts till i Resend i region `eu-west-1`, med framtvingad TLS och utan länk-/öppningsspårning. Återläsning 2026-10-15 visar verified för domänen och samtliga DKIM-/SPF-poster. Produktionsnyckel och separat Auth SMTP är ännu inte verifierade som konfigurerade för appen; faktisk leverans är inte verifierad. Ersätt inte befintliga SPF-/DMARC-poster utan att kombinera dem korrekt.
 
 Sätt servermiljövariabler i produktionsprojektet, aldrig i publika variabler eller Git:
 
@@ -46,4 +46,4 @@ Resend-domänen skapades 2026-10-14 i EU-regionen eu-west-1, med tvingad TLS och
 | TXT | send | v=spf1 include:amazonses.com ~all | — |
 | CNAME | rsend | send.forge.rmta.net | — |
 
-Starta sedan domänverifieringen i Resend. Konfigurera produktionsnyckeln i Vercel utan att dela den i chatten. Supabase Auth behöver separat SMTP-konfiguration med samma verifierade avsändare. Domänskapandet aktiverar inte utskick och bevisar inte leverans.
+Domänverifieringen är bekräftad 2026-10-15. Konfigurera produktionsnyckeln i Vercel utan att dela den i chatten. Supabase Auth behöver separat SMTP-konfiguration med samma verifierade avsändare. Domänskapandet aktiverar inte utskick och bevisar inte leverans.

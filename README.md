@@ -6,7 +6,7 @@ Etappen 15 oktober inför [serverstyrda lager-, kund- och affärsregister](docs/
 
 [Annonsstatistik och antalunderlag](docs/ADVERTISING_USAGE_CONTRACT.md) räknar en unik verifierad annons per kanal och visar månadens enheter separat från jobbstatus. Superadmin väljer företag under Företag → Annonsunderlag; företagets ägare, administratör och ekonomiansvarig hittar samma statistik under Annonsering. Privat antal-CSV finns. Priser och låsta original hanteras i månadsunderlaget; fakturautställning återstår; Blocket/Wayke är fortsatt inaktiva utan partneråtkomst.
 
-[Transaktionsmejl](docs/TRANSACTIONAL_EMAIL_SETUP.md) har sex svenska mallar, privat utskickskö och superadminstatus. Ansökningar, kontogodkännande och signeringshändelser kopplas till serverbundna mottagare. Resend-domänen är förberedd; DNS, produktionsnyckel och Supabase Auth SMTP behöver konfigureras innan riktiga utskick aktiveras.
+[Transaktionsmejl](docs/TRANSACTIONAL_EMAIL_SETUP.md) har sex svenska mallar, privat utskickskö och superadminstatus. Ansökningar, kontogodkännande och signeringshändelser kopplas till serverbundna mottagare. Resend-domänens DNS är verifierad. Produktionsnyckel, Supabase Auth SMTP och faktisk leverans behöver kontrolleras innan utskicken redovisas som fungerande.
 
 Företagets avtalsmallar har separat granskning och godkännande. Privata, oföränderliga avtalsutkast skapas från exakt accepterad offert och en godkänd mallversion; originalvillkor, kund/bil/pris, moms och eventuellt inbyte återges i osignerad PDF. Avtalshistorik och mallfamiljer är sidindelade. Den selektiva [DocuSeal-portningen](docs/DOCUSEAL_SELECTIVE_PORT.md) använder låst källversion och namnteckningsfältets lokala formkontroll. [Tvåpartssignering](docs/CONTRACT_SIGNING_CONTRACT.md) binder kundens och bolagets underskrifter till samma avtalsinnehåll. Färdigsignerade avtal ger privat PDF och signeringsbevis; originalfilsarkiv återstår.
 
@@ -150,3 +150,5 @@ Reservationsutgång sker vid relevanta lageroperationer och genom det uttrycklig
 `vercel.json` använder Next.js och region `arn1`. Domänrouting skiljer publik webb från handlarapp; appdomänens rot leder mot `/dashboard`, och skyddade sidor kräver session och företagskontext. Appen ersätter den tidigare statiska webbplatsen som ett sammanhängande Next.js-projekt. Publicering måste verifiera både den publika sidan och handlarappen.
 
 Fortsatt byggordning, beroenden och leveranskrav finns i [MASTERPLAN](docs/MASTERPLAN.md). Där anges vilka delar som återhämtats från originalplanen och vilka som rekonstruerats från fragment och kod.
+
+Rättelser av låsta annonsunderlag: separata granskade nedsättningar, oförändrat original och privat rättelse-CSV beskrivs i [rättelsekontraktet](docs/ADVERTISING_CORRECTIONS_CONTRACT.md).

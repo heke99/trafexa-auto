@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { listAdvertisingBillingAction, getPlatformAdvertisingBillingAction, saveAdvertisingChannelRateAction, reconcileAdvertisingBillingAction, lockAdvertisingBillingPeriodAction } from '@/lib/advertising/billing-actions';
 import type { AdvertisingBillingPage } from '@/lib/advertising/billing-types';
 import type { AdvertisingChannel } from '@/lib/advertising/database.types';
 import { formatOre, kronorToOre } from '@/lib/calculations/vehicle-calculation';
 
+const AdvertisingBillingCorrectionsPanel = dynamic(() => import('./advertising-billing-corrections-panel').then(module => module.AdvertisingBillingCorrectionsPanel), { loading: () => <p role="status">Läser in rättelser…</p> });
 const channels: AdvertisingChannel[] = ['blocket', 'wayke'];
 const names = { blocket: 'Blocket', wayke: 'Wayke' };
 const date = (value: string) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Stockholm', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
@@ -16,6 +18,7 @@ type Props = { companyId: string; userId: string; role?: string; superadmin?: bo
 export function AdvertisingBillingPanel(props: Props) { return <Billing key={`${props.companyId}:${props.userId}:${props.role}:${props.superadmin}`} {...props}/>; }
 function Billing({ companyId, userId, role = 'platform_admin', superadmin = false, onDenied }: Props) {
   const [month, setMonth] = useState(previousMonth);
+  const [showCorrections, setShowCorrections] = useState(false);
   const [page, setPage] = useState<AdvertisingBillingPage | null>(null);
   const [channel, setChannel] = useState<AdvertisingChannel>('blocket');
   const [price, setPrice] = useState('');
@@ -41,7 +44,7 @@ function Billing({ companyId, userId, role = 'platform_admin', superadmin = fals
   }
   function scoped(result: AdvertisingBillingPage) { return result.companyId === companyId && result.actorUserId === userId && result.actorRole === (superadmin ? 'platform_admin' : role) && result.month === month; }
   useEffect(() => {
-    const request = ++generation.current; setPage(null); setReview(null);
+    const request = ++generation.current; setPage(null); setReview(null); setShowCorrections(false);
     if (denied || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) { setLoading(false); return; }
     setLoading(true); setError('');
     void (superadmin ? getPlatformAdvertisingBillingAction : listAdvertisingBillingAction)({ companyId, month }).then(result => {
@@ -117,6 +120,8 @@ function Billing({ companyId, userId, role = 'platform_admin', superadmin = fals
         {review.kind === 'lock' && page.coverage === 'partial' && <label style={{ display: 'flex', alignItems: 'start', gap: 10 }}><input type="checkbox" checked={review.coverageConfirmed} disabled={busy} style={{ width: 'auto' }} onChange={event => setReview({ ...review, coverageConfirmed: event.target.checked })}/><span>Jag har granskat den ofullständiga historiken och godkänner att låsa det registrerade underlaget.</span></label>}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><button type="button" className="button button-green" disabled={busy || !review.confirmed || (review.kind === 'lock' && page.coverage === 'partial' && !review.coverageConfirmed)} onClick={() => void confirm()}>{review.kind === 'lock' ? 'Bekräfta och lås underlaget' : 'Bekräfta och spara priset'}</button><button type="button" className="button button-outline" disabled={busy} onClick={() => setReview(null)}>Avbryt granskning</button></div>
       </section>}
+      {page.locked && !review && <button type="button" className="button button-outline" style={{ marginTop: 20 }} aria-expanded={showCorrections} onClick={() => setShowCorrections(value => !value)}>{showCorrections ? 'Dölj rättelser' : 'Visa rättelser av låst underlag'}</button>}
+      {page.locked && showCorrections && <AdvertisingBillingCorrectionsPanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={page.month} originalId={page.locked.id} onDenied={message => failure({ code: 'access_denied', message })}/>}
     </>}
   </div></section>;
 }

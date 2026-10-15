@@ -1,0 +1,24 @@
+import { createHash } from 'node:crypto';
+import type { AdvertisingBillingPage, AdvertisingBillingLock } from './billing-types';
+import type { AdvertisingCorrectionsPage, AdvertisingReduction } from './correction-types';
+import { BILLING_UUID, BILLING_MONTH, BILLING_TOKEN, record, ore, parseBillingPage } from './billing-validation.ts';
+export { BILLING_UUID, BILLING_MONTH, BILLING_TOKEN };
+function uuid(v:unknown):string{if(typeof v!=='string'||!BILLING_UUID.test(v))throw Error('Invalid identity');return v.toLowerCase();}
+export function reductionAmount(v:unknown):string{const n=ore(v);if(n==='0')throw Error('Positive reduction required');return n;}
+export function reductionReason(v:unknown):string{if(typeof v!=='string'||v.trim()!==v||Array.from(v).length<1||Array.from(v).length>500||/[\x00-\x1f\x7f]/.test(v))throw Error('Invalid reason');return v;}
+function parseOriginal(value:unknown,companyId:string,month:string,actor:string,role:AdvertisingBillingPage['actorRole']):AdvertisingBillingLock|null{
+ if(value===null)return null;const original=record(value);
+ const page=parseBillingPage({companyId,month,actorUserId:actor,actorRole:role,periodStart:original.periodStart,periodEnd:original.periodEnd,trackingStartedAt:original.trackingStartedAt,coverage:original.coverage,legacyPublishedJobs:original.legacyPublishedJobs,rates:[],items:original.items,count:original.count,unpricedCount:0,totalOre:original.totalOre,reviewToken:original.reviewToken,locked:original,hasChangesSinceLock:false,ended:true},companyId,month,actor,role);
+ return page.locked;
+}
+export function parseAdvertisingCorrectionsPage(value:unknown,companyId:string,month:string,actorUserId:string,actorRole:AdvertisingBillingPage['actorRole']):AdvertisingCorrectionsPage{
+ const r=record(value);if(!BILLING_UUID.test(companyId)||!BILLING_MONTH.test(month)||!BILLING_UUID.test(actorUserId)||!['platform_admin','owner','admin','finance'].includes(actorRole)||r.companyId!==companyId||r.actorUserId!==actorUserId||r.actorRole!==actorRole||r.month!==month)throw Error('Invalid corrections scope');
+ const original=parseOriginal(r.original,companyId,month,actorUserId,actorRole);if(!Array.isArray(r.adjustments)||r.adjustments.length>2000)throw Error('Invalid corrections count');
+ const originals=new Map(original?.items.map(x=>[x.publicationId,x])??[]),used=new Map<string,bigint>(),seen=new Set<string>();
+ const adjustments:AdvertisingReduction[]=r.adjustments.map(value=>{const a=record(value),id=uuid(a.id),publicationId=uuid(a.publicationId),amountOre=reductionAmount(a.amountOre),reason=reductionReason(a.reason);if(seen.has(id)||!originals.has(publicationId)||a.createdBy!=='Superadmin'||typeof a.createdAt!=='string'||!/^\d{4}-\d\d-\d\dT/.test(a.createdAt)||!Number.isFinite(Date.parse(a.createdAt))||original&&Date.parse(a.createdAt)<Date.parse(original.lockedAt))throw Error('Invalid reduction');seen.add(id);const sum=(used.get(publicationId)??0n)+BigInt(amountOre);if(sum>BigInt(originals.get(publicationId)!.unitPriceOre!))throw Error('Reduction exceeds original');used.set(publicationId,sum);return{id,publicationId,amountOre,reason,createdAt:a.createdAt,createdBy:'Superadmin'};});
+ const reductionTotalOre=ore(r.reductionTotalOre),sum=adjustments.reduce((n,a)=>n+BigInt(a.amountOre),0n);if(sum.toString()!==reductionTotalOre||original===null&&(adjustments.length!==0||r.netTotalOre!==null)||original!==null&&(r.netTotalOre===null||ore(r.netTotalOre)!==(BigInt(original.totalOre)-sum).toString()))throw Error('Invalid reduction sums');
+ if(typeof r.reviewToken!=='string'||!BILLING_TOKEN.test(r.reviewToken)||typeof r.canonicalSnapshot!=='string'||r.canonicalSnapshot.length>4000000||createHash('sha256').update(r.canonicalSnapshot,'utf8').digest('hex')!==r.reviewToken)throw Error('Invalid corrections digest');
+ const canonical=record(JSON.parse(r.canonicalSnapshot));if(Object.keys(canonical).sort().join(',')!==['companyId','month','originalId','originalReviewToken','adjustments','reductionTotalOre','netTotalOre'].sort().join(',')||canonical.companyId!==companyId||canonical.month!==month||canonical.originalId!==(original?.id??null)||canonical.originalReviewToken!==(original?.reviewToken??null)||canonical.reductionTotalOre!==reductionTotalOre||canonical.netTotalOre!==r.netTotalOre||!Array.isArray(canonical.adjustments)||canonical.adjustments.length!==adjustments.length)throw Error('Invalid corrections provenance');
+ for(let i=0;i<adjustments.length;i++){const raw=record(canonical.adjustments[i]),parsed=adjustments[i];if(Object.keys(raw).sort().join(',')!==Object.keys(parsed).sort().join(',')||Object.entries(parsed).some(([k,v])=>raw[k]!==v))throw Error('Changed canonical correction');}
+ return{companyId,actorUserId,actorRole,month,original,adjustments,reductionTotalOre,netTotalOre:original===null?null:ore(r.netTotalOre),reviewToken:r.reviewToken,canonicalSnapshot:r.canonicalSnapshot};
+}
