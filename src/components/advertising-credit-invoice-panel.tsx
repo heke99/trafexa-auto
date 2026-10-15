@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { configureAdvertisingCreditSeriesAction, getPlatformAdvertisingCreditPageAction, issueAdvertisingCreditInvoiceAction, listAdvertisingCreditPageAction } from '@/lib/advertising/credit-actions';
 import type { AdvertisingCreditPage } from '@/lib/advertising/credit-types';
 import { formatOre } from '@/lib/calculations/vehicle-calculation';
+
+const AdvertisingInvoiceEmailPanel = dynamic(() => import('./advertising-invoice-email-panel').then(module => module.AdvertisingInvoiceEmailPanel), { loading: () => <p role="status">Läser in mejlutskick…</p> });
 
 type Props = { companyId: string; userId: string; role: string; superadmin?: boolean; originalInvoiceId: string; onDenied?: (message: string) => void };
 type SeriesFields = { prefix: string; firstNumber: string; sellerRegisteredSeat: string; reason: string };
@@ -23,6 +26,7 @@ export function AdvertisingCreditInvoicePanel(props: Props) {
   return <Credit key={`${props.companyId}:${props.userId}:${props.role}:${props.superadmin}:${props.originalInvoiceId}`} {...props}/>;
 }
 function Credit({ companyId, userId, role, superadmin = false, originalInvoiceId, onDenied }: Props) {
+  const [showEmail, setShowEmail] = useState(false);
   const [page, setPage] = useState<AdvertisingCreditPage | null>(null);
   const [editor, setEditor] = useState<SeriesFields | null>(null), [reason, setReason] = useState(''), [review, setReview] = useState<Review | null>(null);
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [denied, setDenied] = useState(false), [refresh, setRefresh] = useState(0);
@@ -33,10 +37,10 @@ function Credit({ companyId, userId, role, superadmin = false, originalInvoiceId
   useEffect(() => { if (review) heading.current?.focus(); }, [review?.kind]);
   function failure(result: { code?: string; message: string }) {
     setError(result.message);
-    if (result.code === 'access_denied' || result.code === 'unauthenticated') { ++generation.current; setPage(null); setEditor(null); setReview(null); setReason(''); setNotice(''); setDenied(true); deniedCallback.current?.(result.message); }
+    if (result.code === 'access_denied' || result.code === 'unauthenticated') { ++generation.current; setPage(null); setShowEmail(false); setEditor(null); setReview(null); setReason(''); setNotice(''); setDenied(true); deniedCallback.current?.(result.message); }
   }
   useEffect(() => {
-    const scope = ++generation.current; setPage(null); setReview(null); setEditor(null); setReason('');
+    const scope = ++generation.current; setPage(null); setShowEmail(false); setReview(null); setEditor(null); setReason('');
     if (denied) { setLoading(false); return; }
     setLoading(true); setError('');
     void (superadmin ? getPlatformAdvertisingCreditPageAction : listAdvertisingCreditPageAction)({ companyId, originalInvoiceId }).then(result => {
@@ -71,22 +75,22 @@ function Credit({ companyId, userId, role, superadmin = false, originalInvoiceId
     try {
       const result = review.kind === 'series' ? await configureAdvertisingCreditSeriesAction({ ...input, requestId } as Parameters<typeof configureAdvertisingCreditSeriesAction>[0]) : await issueAdvertisingCreditInvoiceAction({ ...input, requestId } as Parameters<typeof issueAdvertisingCreditInvoiceAction>[0]);
       if (!alive.current || generation.current !== scope) return;
-      if (!result.ok) { failure(result); if (result.code === 'conflict') { setPage(null); setReview(null); setEditor(null); setNotice('Nummer, datum eller kreditering har ändrats. Granska de senaste uppgifterna innan du fortsätter.'); setRefresh(value => value + 1); } return; }
+      if (!result.ok) { failure(result); if (result.code === 'conflict') { setPage(null); setShowEmail(false); setReview(null); setEditor(null); setNotice('Nummer, datum eller kreditering har ändrats. Granska de senaste uppgifterna innan du fortsätter.'); setRefresh(value => value + 1); } return; }
       const receipt = result.receipt;
       if (receipt.companyId !== companyId || receipt.actorUserId !== userId || receipt.requestId !== requestId || receipt.originalInvoiceId !== originalInvoiceId || receipt.originalSourceHash !== review.originalSourceHash) { failure({ code: 'access_denied', message: 'Kvittot kunde inte verifieras för aktuellt företag och originalfaktura.' }); return; }
-      setPage(null); setReview(null); setEditor(null); setReason(''); setNotice(review.kind === 'series' ? 'Nummerserien är konfigurerad. Granska kreditfakturan innan den utfärdas.' : 'Kreditfakturan är utfärdad och bevarad. Originalfakturan finns kvar.'); setRefresh(value => value + 1);
+      setPage(null); setShowEmail(false); setReview(null); setEditor(null); setReason(''); setNotice(review.kind === 'series' ? 'Nummerserien är konfigurerad. Granska kreditfakturan innan den utfärdas.' : 'Kreditfakturan är utfärdad och bevarad. Originalfakturan finns kvar.'); setRefresh(value => value + 1);
     } catch { if (alive.current && generation.current === scope) setError('Åtgärdens resultat är okänt. Försök samma bekräftelse igen för att kontrollera den sparade begäran.'); }
     finally { inFlight.current = false; if (alive.current) setBusy(false); }
   }
   const original = page?.originalInvoice, amounts = original?.snapshot;
   return <section className="surface" aria-label="Kreditering av faktura" style={{ padding: 18, marginTop: 20, minWidth: 0 }}>
     <h4>Kreditering av faktura</h4><p>En helkreditering vänder originalfakturans exakta belopp och moms. Originalet och kreditfakturan bevaras med egna nummer. Återbetalning och utskick hanteras separat.</p>
-    <button type="button" className="button button-outline" disabled={loading || busy || denied} onClick={() => { setPage(null); setReview(null); setEditor(null); setNotice(''); setRefresh(value => value + 1); }}>Uppdatera kreditering</button>
+    <button type="button" className="button button-outline" disabled={loading || busy || denied} onClick={() => { setPage(null); setShowEmail(false); setReview(null); setEditor(null); setNotice(''); setRefresh(value => value + 1); }}>Uppdatera kreditering</button>
     {loading && <p role="status">Verifierar kreditering…</p>}{error && <p role="alert" className="form-error">{error}</p>}{notice && <p role="status">{notice}</p>}
     {page && original && amounts && <><p>Originalfaktura: <strong>{original.invoiceNumber}</strong><br/>Fakturadatum: {original.invoiceDate}<br/>Originalets köpare: {amounts.assessment.snapshot.draft.snapshot.buyerProfile.fields.legalName}<br/>Säljare: {amounts.assessment.snapshot.draft.snapshot.sellerProfile.fields.legalName}</p>
       <dl className="detail-list"><div><dt>Kreditering exklusive moms</dt><dd>{creditAmount(amounts.netTotalOre)}</dd></div><div><dt>Krediterad moms</dt><dd>{creditAmount(amounts.vatTotalOre)}</dd></div><div><dt>Kreditering inklusive moms</dt><dd>{creditAmount(amounts.grossTotalOre)}</dd></div></dl>
       {page.blockers.length > 0 && <ul>{page.blockers.map(value => <li key={value}>{blockers[value] ?? 'En uppgift behöver kontrolleras innan kreditering.'}</li>)}</ul>}
-      {page.credit ? <section aria-label="Utfärdad kreditfaktura"><h5>Kreditfaktura {page.credit.creditNumber} · Utfärdad</h5><p>Kreditdatum: {page.credit.creditDate}<br/>Avser hela originalfaktura {original.invoiceNumber}</p><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>Motivering: {page.credit.snapshot.reason}</p><a className="text-link" href={`/api/advertising/credits/${encodeURIComponent(page.credit.id)}/pdf${superadmin ? `?companyId=${encodeURIComponent(companyId)}` : ''}`}>Hämta PDF av kreditfaktura {page.credit.creditNumber}</a></section> : <>
+      {page.credit ? <section aria-label="Utfärdad kreditfaktura"><h5>Kreditfaktura {page.credit.creditNumber} · Utfärdad</h5><p>Kreditdatum: {page.credit.creditDate}<br/>Avser hela originalfaktura {original.invoiceNumber}</p><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>Motivering: {page.credit.snapshot.reason}</p><a className="text-link" href={`/api/advertising/credits/${encodeURIComponent(page.credit.id)}/pdf${superadmin ? `?companyId=${encodeURIComponent(companyId)}` : ''}`}>Hämta PDF av kreditfaktura {page.credit.creditNumber}</a><button type="button" className="button button-outline" onClick={() => setShowEmail(value => !value)}>{showEmail ? 'Dölj kreditfakturans mejlutskick' : 'Visa kreditfakturans mejlutskick'}</button>{showEmail && <AdvertisingInvoiceEmailPanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} documentKind="credit" documentId={page.credit.id} onDenied={message => failure({ code: 'access_denied', message })}/>}</section> : <>
         {superadmin && page.canConfigureSeries && !editor && !review && <button type="button" className="button button-outline" disabled={busy} onClick={() => setEditor({ prefix: '', firstNumber: '', sellerRegisteredSeat: '', reason: '' })}>Konfigurera nummerserie för kreditåret</button>}
         {editor && !review && <section className="workspace-form" aria-label="Nummerserie för kreditåret"><h5>Konfigurera nummerserie för {page.currentYear}</h5><p>Serien är gemensam för säljarbolagets fakturor och kreditfakturor. Kontrollera numren mot övriga faktureringssystem.</p><label>Prefix för kreditårets fakturanummer<input value={editor.prefix} maxLength={12} disabled={busy} onChange={event => setEditor({ ...editor, prefix: event.target.value })}/></label><label>Första löpnummer för kreditåret<input inputMode="numeric" value={editor.firstNumber} maxLength={9} disabled={busy} onChange={event => setEditor({ ...editor, firstNumber: event.target.value })}/></label><label>Säljarbolagets registrerade säte för kreditåret<input value={editor.sellerRegisteredSeat} maxLength={160} disabled={busy} onChange={event => setEditor({ ...editor, sellerRegisteredSeat: event.target.value })}/></label><label>Motivering till kreditårets nummerserie<textarea value={editor.reason} maxLength={500} disabled={busy} onChange={event => setEditor({ ...editor, reason: event.target.value })}/></label><button type="button" className="button button-outline" disabled={busy} onClick={prepareSeries}>Granska kreditårets nummerserie</button><button type="button" className="button button-outline" disabled={busy} onClick={() => setEditor(null)}>Avbryt konfiguration</button></section>}
         {page.preview && <section aria-label="Förhandsgranskning av kreditfaktura"><h5>Förhandsgranskning av kreditfaktura</h5><p>Kreditfakturanummer: {page.preview.creditNumber}<br/>Kreditdatum: {page.preview.creditDate}<br/>Hänvisning: {original.invoiceNumber}, {original.invoiceDate}</p></section>}

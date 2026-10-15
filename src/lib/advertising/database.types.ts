@@ -1,6 +1,14 @@
 import type { Database, Json } from '@/lib/supabase/database.types';
 
 type AdvertisingFunctions = {
+  get_platform_advertising_invoice_email_page: { Args: { p_company_id: string; p_document_kind: string; p_document_id: string }; Returns: Json };
+  list_advertising_invoice_email_page: { Args: { p_company_id: string; p_document_kind: string; p_document_id: string }; Returns: Json };
+  queue_advertising_invoice_email: { Args: { p_company_id: string; p_document_kind: string; p_document_id: string; p_expected_document_source_hash: string; p_expected_review_token: string; p_review_acknowledged: boolean; p_request_id: string }; Returns: Json };
+  claim_advertising_invoice_email: { Args: { p_company_id: string; p_email_id: string }; Returns: Json };
+  bind_advertising_invoice_email: { Args: { p_company_id: string; p_email_id: string; p_lease_id: string; p_payload_hash: string; p_pdf_sha256: string }; Returns: Json };
+  check_advertising_invoice_email: { Args: { p_company_id: string; p_email_id: string; p_lease_id: string; p_payload_hash: string; p_pdf_sha256: string }; Returns: Json };
+  finish_advertising_invoice_email: { Args: { p_company_id: string; p_email_id: string; p_lease_id: string; p_actor_user_id: string; p_payload_hash: string; p_pdf_sha256: string; p_outcome: string; p_provider_id: string|null }; Returns: Json };
+  apply_advertising_invoice_email_event: { Args: { p_event_id: string; p_provider_id: string; p_event_type: string; p_event_at: string; p_recipient_hash: string; p_email_id?: string|null }; Returns: Json };
   get_platform_advertising_credit_page: { Args: { p_company_id: string; p_original_invoice_id: string }; Returns: Json };
   list_advertising_credit_page: { Args: { p_company_id: string; p_original_invoice_id: string }; Returns: Json };
   get_platform_advertising_credit_invoice: { Args: { p_company_id: string; p_id: string }; Returns: Json };

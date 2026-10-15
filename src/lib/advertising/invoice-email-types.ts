@@ -1,0 +1,13 @@
+import type {AdvertisingResult} from './database.types';
+import type {AdvertisingBillingPage} from './billing-types';
+import type {AdvertisingIssuedInvoice} from './issuance-types';
+import type {AdvertisingCreditInvoice} from './credit-types';
+export type AdvertisingInvoiceEmailKind='invoice'|'credit';
+export type AdvertisingInvoiceEmailStatus='pending'|'processing'|'accepted'|'rejected'|'unknown'|'cancelled';
+export type AdvertisingInvoiceEmail={id:string;companyId:string;documentKind:AdvertisingInvoiceEmailKind;documentId:string;documentSourceHash:string;documentNumber:string;recipient:string;status:AdvertisingInvoiceEmailStatus;attempts:number;createdAt:string;nextAttemptAt:string|null;acceptedAt:string|null;deliveredAt:string|null;bouncedAt:string|null;complainedAt:string|null};
+export type AdvertisingInvoiceEmailSnapshot={companyId:string;documentKind:AdvertisingInvoiceEmailKind;documentId:string;documentSourceHash:string;documentNumber:string;currency:'SEK';netTotalOre:string;vatTotalOre:string;grossTotalOre:string;recipient:string;templateVersion:1;document:AdvertisingIssuedInvoice|AdvertisingCreditInvoice};
+export type AdvertisingInvoiceEmailJob=AdvertisingInvoiceEmail&{sourceHash:string;canonicalSnapshot:string;snapshot:AdvertisingInvoiceEmailSnapshot;leaseId:string;leaseUntil:string;firstAttemptAt:string;payloadHash:string|null;pdfSha256:string|null};
+export type AdvertisingInvoiceEmailPage={companyId:string;actorUserId:string;actorRole:AdvertisingBillingPage['actorRole'];documentKind:AdvertisingInvoiceEmailKind;documentId:string;documentSourceHash:string;documentNumber:string;currency:'SEK';netTotalOre:string;vatTotalOre:string;grossTotalOre:string;recipient:string|null;email:AdvertisingInvoiceEmail|null;preview:{reviewToken:string;canonicalSnapshot:string}|null;blockers:string[];canQueue:boolean};
+export type AdvertisingInvoiceEmailPageResult=AdvertisingResult<{page:AdvertisingInvoiceEmailPage}>;
+export type AdvertisingInvoiceEmailReceipt={emailId:string;companyId:string;actorUserId:string;requestId:string;documentKind:AdvertisingInvoiceEmailKind;documentId:string;documentSourceHash:string;reviewToken:string};
+export type AdvertisingInvoiceEmailQueueResult=AdvertisingResult<{email:AdvertisingInvoiceEmail;receipt:AdvertisingInvoiceEmailReceipt}>;
