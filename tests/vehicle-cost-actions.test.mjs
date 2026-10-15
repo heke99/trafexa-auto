@@ -17,7 +17,7 @@ function cost(number, overrides = {}) {
 async function fixture(overrides = {}) {
   const state = {
     user: { id: USER, email: 'costs@example.invalid', email_confirmed_at: '2026-10-15T09:00:00Z', user_metadata: { company_id: OTHER, role: 'owner' } },
-    membership: { company_id: COMPANY, user_id: USER, role: 'sales', status: 'active', companies: { id: COMPANY, status: 'active' } },
+    membership: { company_id: COMPANY, user_id: USER, role: 'finance', status: 'active', companies: { id: COMPANY, status: 'active' } },
     approval: 'approved', stock: { id: STOCK, company_id: COMPANY }, costs: [cost(1)],
     cap: 1000, queries: [], authCalls: 0, approvalCalls: 0, costPages: 0, stockReads: 0, ...overrides,
   };
@@ -66,13 +66,22 @@ test('targeted cost read uses real fresh CRM/account checks and scopes both stoc
   const { state, load } = await fixture();
   const result = await load(input);
   assert.equal(result.ok, true); assert.equal(result.stockItemId, STOCK);
-  assert.equal(result.companyId, COMPANY); assert.equal(result.actorId, USER); assert.equal(result.role, 'sales');
+  assert.equal(result.companyId, COMPANY); assert.equal(result.actorId, USER); assert.equal(result.role, 'finance');
   assert.deepEqual(result.costs.map((row) => row.amount_ore), [110]);
   assert.equal(state.authCalls, 4); assert.equal(state.approvalCalls, 2); assert.equal(state.stockReads, 2);
   const costs = state.queries.filter((query) => query.table === 'vehicle_costs');
   assert.equal(costs.length, 1); assert.equal(costs[0].count, 'exact');
   assert.deepEqual(costs[0].filters, { company_id: COMPANY, stock_item_id: STOCK });
   assert.equal('company_id' in result.costs[0], false);
+});
+
+test('internal cost reads permit only actual owner/admin/finance roles before any stock or cost query', async()=>{
+  for(const role of ['owner','admin','finance','sales','viewer']){
+    const {state,load}=await fixture({membership:{company_id:COMPANY,user_id:USER,role,status:'active',companies:{id:COMPANY,status:'active'}}});
+    const result=await load(input);
+    assert.equal(result.ok,['owner','admin','finance'].includes(role));
+    if(!result.ok){assert.equal(state.stockReads,0);assert.equal(state.costPages,0);assert.equal('costs'in result,false);}
+  }
 });
 
 test('all 1203 costs are loaded beyond 500, including a Data API cap of only 127 records', async () => {

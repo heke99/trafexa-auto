@@ -1,7 +1,7 @@
 export const MAX_AMOUNT_ORE = 9223372036854775807n;
 export const MAX_TOTAL_ORE = 10n ** 38n - 1n;
 export type VatScheme = 'standard' | 'vmb' | 'unknown';
-export type InventoryDashboardTotals = { companyId: string; activeStockCount: string; availableStockCount: string; purchaseValueOre: string; activeDealCount: string; reservedDealCount: string; customerCount: string };
+export type InventoryDashboardTotals = { companyId: string; activeStockCount: string; availableStockCount: string; purchaseValueOre: string | null; activeDealCount: string; reservedDealCount: string; customerCount: string };
 export type CalculationCost = { id: string; description: string; grossOre: string; deductibleVatOre: string | null };
 export type VehicleCalculationSource = {
   companyId: string; stockItemId: string; version: string; purchaseGrossOre: string; saleGrossOre: string;

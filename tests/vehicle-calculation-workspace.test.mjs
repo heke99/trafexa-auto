@@ -3,15 +3,16 @@ import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createSourceLoader } from './helpers/source-loader.mjs';
-const COMPANY='10000000-0000-4000-8000-000000000001', OTHER='10000000-0000-4000-8000-000000000002';
+const COMPANY='10000000-0000-4000-8000-000000000001', OTHER='10000000-0000-4000-8000-000000000002', USER='10000000-0000-4000-8000-000000000003';
 const organization={id:COMPANY,name:'Fixture dealer',organisation_number:'1234567890'};
 const membership={company_id:COMPANY,role:'owner',companies:organization};
 const totals={companyId:COMPANY,activeStockCount:'900',availableStockCount:'750',purchaseValueOre:'9007199254740993',activeDealCount:'700',reservedDealCount:'510',customerCount:'800'};
-const stock=Array.from({length:501},(_,index)=>({id:`stock-${index}`,company_id:COMPANY,status:'available',acquired_on:'2026-10-13',purchase_price_ore:10000,asking_price_ore:20000,vat_scheme:'unknown',vehicles:{id:`vehicle-${index}`,make:'Fixture',model:'Vehicle',registration_number:`FIX${index}`,model_year:2020,mileage_km:0,fuel:'petrol',gearbox:'automatic'}}));
+const stock=Array.from({length:501},(_,index)=>({id:`20000000-0000-4000-8000-${String(index+1).padStart(12,'0')}`,company_id:COMPANY,status:'available',acquired_on:'2026-10-13',purchase_price_ore:10000,asking_price_ore:20000,vat_scheme:'unknown',vehicles:{id:`30000000-0000-4000-8000-${String(index+1).padStart(12,'0')}`,company_id:COMPANY,make:'Fixture',model:'Vehicle',registration_number:`FIX${index}`,model_year:2020,mileage_km:0,fuel:'petrol',gearbox:'automatic'}}));
 async function harness({data=totals,error=null}={}) {
  const calls=[];
- const db={rpc:async(name,args)=>{calls.push({name,args});return {data,error};},from(table){let cap=Infinity;const query={select(){return query;},eq(key,value){assert.equal(value,COMPANY);return query;},order(){return query;},limit(value){cap=value;return query;},range(){return query;},then(resolve,reject){return Promise.resolve({data:table==='stock_items'?stock.slice(0,cap):[],error:null}).then(resolve,reject);}};return query;}};
- const loader=await createSourceLoader({'./company-context':{getCompanySession:async()=>({db,user:{id:'verified-user',email:'fixture@example.test'},membership,memberships:[membership]})},
+ const db={rpc:async(name,args)=>{calls.push({name,args});return name==='get_workspace_inventory'?{data:{companyId:COMPANY,actorId:USER,role:'owner',rows:stock.slice(0,500)},error:null}:{data,error};},from(table){const query={select(){assert.notEqual(table,'stock_items','SSR must use the authorized stock projection RPC');return query;},eq(key,value){assert.equal(value,COMPANY);return query;},order(){return query;},limit(){return query;},then(resolve,reject){return Promise.resolve({data:[],error:null}).then(resolve,reject);}};return query;}};
+ const loader=await createSourceLoader({'./company-context':{getCompanySession:async()=>({db,user:{id:USER,email:'fixture@example.test'},membership,memberships:[membership]})},
+  '@/lib/crm/context':{requireCrmContext:async()=>({db,companyId:COMPANY,userId:USER,role:'owner'})},'@/lib/account-access/context':{requireApprovedAccountAccess:async()=>({userId:USER})},
   'next/dynamic':loader=>function DynamicSlot(props){return loader.toString().includes('advertising-workspace')?createElement('section',{'data-advertising-company':props.companyId,'data-advertising-role':props.role,'data-demo':String(props.demo)}):null;},
   'next/link':props=>createElement('a',props,props.children), '@/lib/data/actions':{}, './stock-import':{StockImport:()=>null}, './deal-offers':{DealOffers:()=>null}, './customer-leads':{CustomerLeads:()=>null},
  });
@@ -20,7 +21,7 @@ async function harness({data=totals,error=null}={}) {
 test('real snapshot includes typed full-company RPC totals while table samples remain capped at500',async()=>{
  const {workspace,calls}=await harness();const snapshot=await workspace.getWorkspaceSnapshot();
  assert.equal(snapshot.inventory.length,500);assert.deepEqual(snapshot.dashboardTotals,totals);
- assert.deepEqual(calls,[{name:'inventory_dashboard_totals',args:{p_company_id:COMPANY}}]);
+ assert.deepEqual(calls,[{name:'get_workspace_inventory',args:{p_company_id:COMPANY}},{name:'inventory_dashboard_totals',args:{p_company_id:COMPANY}}]);
 });
 test('actual live dashboard renders authoritative counts and exact ore instead of sampled rows',async()=>{
  const {workspace,DealerWorkspace}=await harness();const snapshot=await workspace.getWorkspaceSnapshot();

@@ -1,19 +1,18 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { stripTypeScriptTypes } from 'node:module';
 import { test } from 'node:test';
+import { createSourceLoader } from './helpers/source-loader.mjs';
 
 const uuid = (n) => `45150000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const COMPANY = uuid(1), ACTOR = uuid(2), FOREIGN = uuid(3);
 const DATE = '2026-10-15T08:30:00.123456+00:00';
 const vehicle = (n = 10) => ({ id: uuid(n + 1000), company_id: COMPANY, registration_number: `REG${n}`, make: 'Volvo', model: 'V60', model_year: 2022, mileage_km: 50123, fuel: 'hybrid', gearbox: 'automatic' });
-const stock = (n = 10) => ({ id: uuid(n), company_id: COMPANY, status: 'available', created_at: DATE, acquired_on: '2026-10-15', purchase_price_ore: '12500029', asking_price_ore: '15900009', vat_scheme: 'unknown', vehicles: vehicle(n) });
+const stock = (n = 10) => ({ id: uuid(n), company_id: COMPANY, status: 'available', created_at: DATE, acquired_on: '2026-10-15', purchase_price_ore: null, asking_price_ore: '15900009', vat_scheme: 'unknown', vehicles: vehicle(n) });
 const customer = (n = 20) => ({ id: uuid(n), company_id: COMPANY, name: 'Buyer', kind: 'person', email: null, phone: '0701234567', address: null, notes: null, created_at: DATE });
 const deal = () => ({ id: uuid(30), company_id: COMPANY, status: 'draft', sale_price_ore: '15900009', customer_id: uuid(2000), stock_item_id: uuid(3000), created_at: DATE, customer: customer(2000), stockItem: stock(3000) });
-let sequence = 0;
 const counts = (kind, n) => kind === 'inventory' ? { all: String(n), available: String(n), reserved: '0', sold: '0', archived: '0' } : kind === 'customers' ? { all: String(n), person: String(n), business: '0' } : { all: String(n), draft: String(n), reserved: '0', cancelled: '0' };
 function page(args, role = 'sales') {
   const rows = args.p_kind === 'inventory' ? [stock()] : args.p_kind === 'customers' ? [customer()] : [deal()];
+  if (['owner', 'admin', 'finance'].includes(role)) for (const row of rows) { if ('stockItem' in row) row.stockItem.purchase_price_ore = '12500029'; else if ('purchase_price_ore' in row) row.purchase_price_ore = '12500029'; }
   return { kind: args.p_kind, companyId: COMPANY, actorId: ACTOR, role, options: args.p_options, rows, totalCount: '600', filteredCount: '1', counts: counts(args.p_kind, 600), selected: args.p_selected_id ? args.p_kind === 'inventory' ? stock(Number(args.p_selected_id.slice(-12))) : customer(Number(args.p_selected_id.slice(-12))) : null, nextCursor: null };
 }
 function cursor(args, last = stock(59), role = 'sales') {
@@ -22,21 +21,17 @@ function cursor(args, last = stock(59), role = 'sales') {
 async function actions({ role = 'sales', response = (args) => page(args, role), error = null, failContextAt = 0, changedActor = false, changedRole = false, activeCompany = COMPANY } = {}) {
   const calls = [], contexts = []; let contextCalls = 0;
   const db = { async rpc(name, args) { calls.push([name, args]); return { data: response(args), error }; } };
-  const token = `registerActionTest${sequence++}`;
-  globalThis[token] = { async requireCrmContext(companyId) {
+  const loader = await createSourceLoader({ '@/lib/crm/context': { async requireCrmContext(companyId) {
     contextCalls++; contexts.push(companyId);
     if (companyId !== activeCompany || failContextAt === contextCalls) throw new Error('private session detail');
     return { db, companyId, userId: changedActor && contextCalls > 1 ? FOREIGN : ACTOR, role: changedRole && contextCalls > 1 ? 'owner' : role };
-  } };
-  let source = stripTypeScriptTypes(await readFile(new URL('../src/lib/data/register-actions.ts', import.meta.url), 'utf8'));
-  source = source.replace(/import\s*\{\s*requireCrmContext[^}]*\}\s*from\s*['"]@\/lib\/crm\/context['"];?/, `const {requireCrmContext}=globalThis.${token};`);
-  const module = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
-  delete globalThis[token]; return { module, calls, contexts };
+  } } });
+  return { module: loader.load('src/lib/data/register-actions.ts'), calls, contexts };
 }
 const input = (patch = {}) => ({ kind: 'inventory', expectedCompanyId: COMPANY, ...patch });
 
 test('register action sends normalized literal search and returns exact full-company totals and öre', async () => {
-  const { module, calls, contexts } = await actions();
+  const { module, calls, contexts } = await actions({ role: 'owner' });
   const result = await module.loadDealerRegisterPage(input({ query: '  Volvo   V60  ', status: 'available', sort: 'price_asc' }));
   assert.equal(result.ok, true);
   assert.deepEqual(calls, [['dealer_register_page', { p_company_id: COMPANY, p_kind: 'inventory', p_query: 'Volvo V60', p_status: 'available', p_sort: 'price_asc', p_cursor: null, p_options: false, p_selected_id: null }]]);
@@ -58,6 +53,21 @@ test('all established reading roles including finance and viewer retain register
     const { module } = await actions({ role });
     assert.equal((await module.loadDealerRegisterPage(input({ kind: 'customers' }))).page.role, role);
     assert.equal((await module.searchDealOptions(input())).page.role, role);
+  }
+});
+
+test('sales/viewer stock, nested deal and selected-option DTOs retain selling fields with exact null purchase prices', async () => {
+  for (const role of ['sales', 'viewer']) {
+    const { module } = await actions({ role });
+    const stockPage = await module.loadDealerRegisterPage(input());
+    const dealPage = await module.loadDealerRegisterPage(input({kind:'deals'}));
+    const options = await module.searchDealOptions(input({selectedId:uuid(5000)}));
+    assert.equal(stockPage.page.rows[0].purchase_price_ore,null);
+    assert.equal(dealPage.page.rows[0].stockItem.purchase_price_ore,null);
+    assert.equal(options.page.rows[0].purchase_price_ore,null);assert.equal(options.page.selected.purchase_price_ore,null);
+    assert.equal(stockPage.page.rows[0].asking_price_ore,15900009);
+    const bad = await actions({role,response:args=>({...page(args,role),rows:[{...stock(),purchase_price_ore:'12500029'}]})});
+    assert.equal((await bad.module.loadDealerRegisterPage(input())).ok,false);
   }
 });
 

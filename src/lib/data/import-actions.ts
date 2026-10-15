@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getActiveCompanyContext } from './company-context';
+import { canManageStockIntake } from '@/lib/access/dealer-capabilities';
 import { MAX_IMPORT_BYTES, parseStockCsv, validateStockRows, type ImportIssue, type StockMapping } from './stock-import.mjs';
 
 export type StockImportResult = { ok: boolean; message: string; count?: number; issues?: ImportIssue[] };
@@ -19,7 +20,8 @@ export async function reviewStockImportAction(form: FormData): Promise<StockImpo
   const parsed = parseStockCsv(text), checked = validateStockRows(parsed, mapping);
   if (!checked.canImport) return { ok: false, message: 'Rätta radfelen innan du fortsätter.', issues: checked.issues };
   try {
-    const { db, company } = await getActiveCompanyContext();
+    const { db, company, role } = await getActiveCompanyContext();
+    if (!canManageStockIntake(role)) return { ok: false, message: 'Endast företagets ägare och administratörer kan granska lagerimporter.' };
     if (company.toLowerCase() !== expectedCompany.toLowerCase()) return { ok: false, message: 'Det aktiva företaget har ändrats. Öppna lagerimporten igen.' };
     const { data, error } = await db.rpc('stock_import_duplicate_registrations', { company, registrations: checked.rows.map((row) => row.registration_number) });
     if (error) return { ok: false, message: 'Befintligt lager kunde inte kontrolleras. Försök igen.' };
@@ -48,7 +50,7 @@ export async function importStockAction(form: FormData): Promise<StockImportResu
   if (!checked.canImport) return { ok: false, message: 'Rätta radfelen innan du importerar. Inga bilar har sparats.', issues: checked.issues };
   try {
     const { db, company, role } = await getActiveCompanyContext();
-    if (!['owner', 'admin', 'sales'].includes(role)) return { ok: false, message: 'Din roll har läsbehörighet till lagerimporten.' };
+    if (!canManageStockIntake(role)) return { ok: false, message: 'Endast företagets ägare och administratörer kan importera lagerinköp.' };
     if (company.toLowerCase() !== expectedCompany.toLowerCase()) return { ok: false, message: 'Det aktiva företaget har ändrats. Öppna lagerimporten igen.' };
     const registrations = checked.rows.map((row) => row.registration_number);
     const { data: existing, error: lookupError } = await db.rpc('stock_import_duplicate_registrations', { company, registrations });

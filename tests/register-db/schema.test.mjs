@@ -17,13 +17,13 @@ test('hosted-safe rollback proof traverses all registers beyond 500 and verifies
   assert.equal((await db.query('select count(*)::int n from private.account_approvals')).rows[0].n, 0);
 });
 
-test('read-only public invoker and guarded private definer use stable reads, fixed paths and authenticated-only execute', async () => {
+test('read-only public invoker and guarded private definer use fresh locked reads, fixed paths and authenticated-only execute', async () => {
   const row = (await db.query("select prosecdef,provolatile,proconfig,has_function_privilege('authenticated',oid,'execute') authenticated,has_function_privilege('anon',oid,'execute') anon,has_function_privilege('service_role',oid,'execute') service from pg_proc where oid='public.dealer_register_page(uuid,text,text,text,text,jsonb,boolean,uuid)'::regprocedure")).rows[0];
-  assert.equal(row.prosecdef, false); assert.equal(row.provolatile, 's');
+  assert.equal(row.prosecdef, false); assert.equal(row.provolatile, 'v');
   assert.ok(row.proconfig.some((setting) => setting.startsWith('search_path=')));
   assert.equal(row.authenticated, true); assert.equal(row.anon, false); assert.equal(row.service, false);
   const helper = (await db.query("select prosecdef,provolatile,proconfig,has_function_privilege('anon',oid,'execute') anon,has_function_privilege('service_role',oid,'execute') service from pg_proc where oid='private.dealer_register_page(uuid,text,text,text,text,jsonb,boolean,uuid)'::regprocedure")).rows[0];
-  assert.equal(helper.prosecdef, true); assert.equal(helper.provolatile, 's');
+  assert.equal(helper.prosecdef, true); assert.equal(helper.provolatile, 'v');
   assert.ok(helper.proconfig.some((setting) => setting.startsWith('search_path=')));
   assert.equal(helper.anon, false); assert.equal(helper.service, false);
 });

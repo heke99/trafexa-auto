@@ -23,6 +23,35 @@ Vid företagsväxling ska företagsbundna listor, cache, formulär och mutations
 
 Rollerna är `owner`, `admin`, `sales`, `finance` och `viewer`. Befintliga per-tabell-policyer och grants ska återanvändas; rollnamnet i sig tilldelar inga nya befogenheter.
 
+### Kontrollerad rollmatris 2026-10-15
+
+Matrisen sammanfattar kontrakten efter RBAC-granskningen och användarens beslut att begränsa intern fordonsekonomi till ägare, administratör och finansansvarig. Den ger inga nya skrivrättigheter till finansrollen. Aktivt och godkänt konto, aktivt företag och aktuellt medlemskap krävs där respektive serverkontrakt anger det.
+
+| Funktion | Ägare | Administratör | Säljare | Finansansvarig | Läsbehörighet |
+| --- | --- | --- | --- | --- | --- |
+| Läsa allmänna lageruppgifter och försäljningspris | Ja | Ja | Ja | Ja | Ja |
+| Läsa inköpspris, inköpsmoms, interna fordonskostnader och vinstkalkyl | Ja | Ja | Nej | Ja | Nej |
+| Registrera bil med inköpsuppgifter och importera lager | Ja | Ja | Nej | Nej | Nej |
+| Ändra interna fordonskostnader och kalkylmetadata | Ja | Ja | Nej | Nej | Nej |
+| Ändra utpris, kunder och affärer | Ja | Ja | Ja | Nej | Nej |
+| Skapa finansintresseanmälan | Ja | Ja | Ja | Ja | Nej |
+| Läsa privata avtal och signeringsunderlag | Ja | Ja | Nej | Ja | Nej |
+| Hantera butik, personal och annonsanslutningar | Ja | Ja | Nej | Nej | Nej |
+| Ändra annonser | Ja | Ja | Ja | Nej | Nej |
+| Plattformens konto-/företagsadministration | Separat behörighet | Separat behörighet | Separat behörighet | Separat behörighet | Separat behörighet |
+
+Finansärenden har en ytterligare läsgräns: säljaren läser sina egna ärenden, finansansvarig företagets ärenden. Ägarbyte följer det separata tvåpartsflödet; personaladministration och plattformsadministration får inte användas för att direkt tilldela en ägarroll.
+
+Användaren har uttryckligen beslutat att säljare och läsare inte får läsa intern fordonsekonomi. Skyddet ska gälla direkta kolumnfrågor och relationsfrågor, register och valalternativ, serverrenderad data, dashboardsummor, kostnader och kalkylfunktioner. Dolda inköpsbelopp representeras med `null`, aldrig ett påhittat nollbelopp. Gränssnittet får inte montera privata ekonomipaneler för dessa roller. Lagerintag/import kräver inköpsuppgifter och begränsas därför till ägare och administratör; säljarens utpris, foton, annonser, kunder, affärer och finansintresseanmälan behålls.
+
+Kundens avtalade försäljningsvillkor, inklusive inbytesvärde och mellanskillnad, bevaras i offerter och avtal. Ett inbytesvärde kan senare motsvara den nya lagerbilens inköpspris och därmed redan vara känt genom kundaffären. Policyn skyddar interna lager-/kostnadsfält; den förvanskar inte historiska kundavtal eller utlovar att redan kända affärsvillkor kan göras okända. Annonskanalens granskade publiceringsavgift och kundens finansieringsbelopp är egna försäljnings-/publiceringsvillkor och döljs inte som intern fordonskostnad.
+
+Befintlig finansbehörighet i privata inköps-/skickunderlag behålls. Ekonomiläsning innebär inte ny generell skrivrätt i lager, CRM eller kalkylmetadata. Alla företagsroller är separata från plattformens privata administratörsregister.
+
+Äldre formulär för ny bil, ny kund och finansintresseanmälan skickar nu `expected_company_id`. Servern jämför det med aktuell vald företagskontext före affärsskrivning. Saknat eller avvikande företags-ID avvisas; ett öppet formulär för A får inte efter företagsbyte skriva i B. RLS och serverns aktuella rollkontroll avgör fortsatt behörigheten till målföretaget.
+
+Nästa steg i RBAC-arbetet är gemensamt namngivna rättigheter för UI och server, med tester som jämför dem mot SQL:s slutliga auktorisering. Separata plattformsroller för exempelvis support och ekonomi är ett nytt behörighetskontrakt och ingår inte i denna matris.
+
 | Operation i avtalsdelen | Tillåten gräns |
 | --- | --- |
 | Läsa/införa grunddokument | `owner/admin/finance` enligt den färska metadataauditen |

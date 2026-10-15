@@ -1,8 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { requireCrmContext } from '../crm/context';
-import { requireApprovedAccountAccess } from '../account-access/context';
+import { requireInternalFinanceContext } from '@/lib/access/internal-finance-context';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../supabase/database.types';
 import type { VehicleCost } from './workspace';
@@ -11,7 +10,7 @@ import type { DealerRegisterScope } from '../registers/types';
 export type VehicleCostsInput = { stockItemId: string; expectedCompanyId: string };
 export type VehicleCostsResult = ({ ok: true; stockItemId: string; costs: VehicleCost[] } & DealerRegisterScope) | { ok: false; error: string };
 const inputSchema = z.object({ stockItemId: z.string().uuid(), expectedCompanyId: z.string().uuid() }).strict();
-const roleSchema = z.enum(['owner', 'admin', 'sales', 'finance', 'viewer']);
+const roleSchema = z.enum(['owner', 'admin', 'finance']);
 const rowSchema = z.object({
   id: z.string().uuid(), company_id: z.string().uuid(), stock_item_id: z.string().uuid(),
   category: z.enum(['repair', 'transport', 'inspection', 'finance', 'other']),
@@ -20,10 +19,7 @@ const rowSchema = z.object({
 });
 const failure = (): VehicleCostsResult => ({ ok: false, error: 'Bilens kostnader kunde inte verifieras. Kontrollera ditt företagsval och försök igen.' });
 async function freshScope(companyId: string) {
-  const current = await requireCrmContext(companyId);
-  // Approval is checked without the request's React company-session cache.
-  const access = await requireApprovedAccountAccess();
-  if (access.userId !== current.userId) throw new Error('Scope changed');
+  const current = await requireInternalFinanceContext(companyId);
   return { ...current, role: roleSchema.parse(current.role), db: current.db as unknown as SupabaseClient<Database> };
 }
 

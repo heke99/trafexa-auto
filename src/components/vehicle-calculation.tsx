@@ -8,7 +8,7 @@ import { calculateVehicle, formatOre, kronorToOre, type VehicleCalculationSource
 const VMB_SOURCE = 'https://www.skatteverket.se/foretag/moms/sarskildamomsregler/vinstmarginalbeskattningavbegagnadevarormedmera.4.58d555751259e4d6616800010756.html';
 const NORMAL_SOURCE = 'https://www.skatteverket.se/foretagorganisationer/moms/sarskildareglerforvissavarortjanster/bilarmoms.4.58d555751259e4d6616800010628.html';
 function kronor(ore: string | null) { if (ore === null) return ''; const value = BigInt(ore); return `${value / 100n},${(value % 100n).toString().padStart(2, '0')}`; }
-function demoOre(value: number) { if (!Number.isSafeInteger(value) || value < 0) throw new Error(); return String(value); }
+function demoOre(value: number | null) { if (value === null || !Number.isSafeInteger(value) || value < 0) throw new Error(); return String(value); }
 
 export function VehicleCalculation({ item, costs, canEdit, demo }: { item: InventoryItem; costs: VehicleCost[]; canEdit: boolean; demo: boolean }) {
   const fieldId = useId();

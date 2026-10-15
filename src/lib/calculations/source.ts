@@ -1,4 +1,5 @@
 import { calculateVehicle, parseOre, MAX_TOTAL_ORE, type VehicleCalculationSource, type InventoryDashboardTotals } from './vehicle-calculation';
+import { canReadInternalFinance } from '@/lib/access/dealer-capabilities';
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function uuid(value: unknown): string { if (typeof value !== 'string' || !UUID.test(value)) throw new Error('Ogiltig referens.'); return value.toLowerCase(); }
 export function object(value: unknown): Record<string, unknown> {
@@ -6,10 +7,12 @@ export function object(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 export function keys(value: Record<string, unknown>, allowed: string[]) { if (Object.keys(value).some(key => !allowed.includes(key))) throw new Error('Okända uppgifter.'); }
-export function parseInventoryDashboardTotals(value: unknown, companyId: string): InventoryDashboardTotals {
+export function parseInventoryDashboardTotals(value: unknown, companyId: string, role: string): InventoryDashboardTotals {
   const row = object(value); if (uuid(row.companyId) !== companyId) throw new Error('Totalsiffrorna hör till ett annat företag.');
   const totals: InventoryDashboardTotals = { companyId, activeStockCount: '', availableStockCount: '', purchaseValueOre: '', activeDealCount: '', reservedDealCount: '', customerCount: '' };
-  for (const key of ['activeStockCount', 'availableStockCount', 'purchaseValueOre', 'activeDealCount', 'reservedDealCount', 'customerCount'] as const) totals[key] = parseOre(row[key], MAX_TOTAL_ORE).toString();
+  for (const key of ['activeStockCount', 'availableStockCount', 'activeDealCount', 'reservedDealCount', 'customerCount'] as const) totals[key] = parseOre(row[key], MAX_TOTAL_ORE).toString();
+  if (canReadInternalFinance(role)) totals.purchaseValueOre = parseOre(row.purchaseValueOre, MAX_TOTAL_ORE).toString();
+  else { if (row.purchaseValueOre !== null) throw new Error('Inköpsvärdet får inte lämnas ut för den här rollen.'); totals.purchaseValueOre = null; }
   if (BigInt(totals.availableStockCount) > BigInt(totals.activeStockCount) || BigInt(totals.reservedDealCount) > BigInt(totals.activeDealCount)) throw new Error('Totalsiffrorna stämmer inte.');
   return totals;
 }
