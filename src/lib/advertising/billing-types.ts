@@ -1,0 +1,7 @@
+import type { AdvertisingChannel, AdvertisingResult } from './database.types';
+export type AdvertisingChannelRate = { id:string; channel:AdvertisingChannel; version:number; unitPriceOre:string; effectiveAt:string };
+export type AdvertisingBillingItem = { publicationId:string; listingId:string; channel:AdvertisingChannel; publishedAt:string; unitPriceOre:string|null; priceSource:'rate'|'review'|null; rateVersion:number|null };
+export type AdvertisingBillingLock = { id:string; lockedAt:string; totalOre:string; count:number; reviewToken:string; partialCoverageAcknowledged:boolean; companyId:string; month:string; periodStart:string; periodEnd:string; trackingStartedAt:string; coverage:'full'|'partial'; legacyPublishedJobs:number; canonicalSnapshot:string; items:AdvertisingBillingItem[] };
+export type AdvertisingBillingPage = { companyId:string; actorUserId:string; actorRole:'platform_admin'|'owner'|'admin'|'finance'; month:string; periodStart:string; periodEnd:string; ended:boolean; trackingStartedAt:string; coverage:'full'|'partial'; legacyPublishedJobs:number; rates:AdvertisingChannelRate[]; items:AdvertisingBillingItem[]; count:number; unpricedCount:number; totalOre:string|null; reviewToken:string; locked:AdvertisingBillingLock|null; hasChangesSinceLock:boolean };
+export type AdvertisingBillingResult = AdvertisingResult<{page:AdvertisingBillingPage}>;
+export type AdvertisingRateResult = AdvertisingResult<{rate:AdvertisingChannelRate}>;

@@ -24,7 +24,7 @@ before(async () => {
   styles = await readFile(resolve(repo, 'src/app/globals.css'), 'utf8');
   const config = { mode: 'development', target: 'web', devtool: false, context: repo,
     entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js' },
-    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/advertising/actions': resolve(repo, 'tests/helpers/advertising-ui/actions.js'), '@/lib/advertising/usage-actions': resolve(helpers, 'actions.js'), '@/components/vehicle-photo-gallery': resolve(repo, 'src/components/vehicle-photo-gallery.tsx'), '@/lib/vehicle-photos/actions': resolve(helpers, 'photos.js'), '@/lib/vehicle-photos/types': resolve(repo, 'src/lib/vehicle-photos/types.ts') } },
+    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/advertising/billing-actions': resolve(repo, 'tests/helpers/advertising-billing-ui/actions.js'), '@/lib/calculations/vehicle-calculation': resolve(repo, 'src/lib/calculations/vehicle-calculation.ts'), '@/lib/advertising/actions': resolve(repo, 'tests/helpers/advertising-ui/actions.js'), '@/lib/advertising/usage-actions': resolve(helpers, 'actions.js'), '@/components/vehicle-photo-gallery': resolve(repo, 'src/components/vehicle-photo-gallery.tsx'), '@/lib/vehicle-photos/actions': resolve(helpers, 'photos.js'), '@/lib/vehicle-photos/types': resolve(repo, 'src/lib/vehicle-photos/types.ts') } },
     module: { rules: [{ test: /\.tsx?$/, use: resolve(helpers, 'swc-loader.cjs') }] } };
   await new Promise((resolveBuild, reject) => { const compiler = webpack(config); compiler.run((error, stats) => compiler.close(() => { if (error || stats.hasErrors()) reject(error ?? new Error(stats.toString({ all: false, errors: true }))); else resolveBuild(); })); });
   browser = await playwright.launch({ executablePath: await Chromium.executablePath(), args: Chromium.args.filter(argument => argument !== '--single-process'), headless: true });
@@ -38,7 +38,7 @@ async function setup(responses=[]) {
  await page.evaluate(({responses})=>{
   const states={queued:2,dispatching:1,outcomeUnknown:3,submitted:7,published:20,rejected:1,retryable:2,newPublications:4};
   window.calls=[];window.responses=responses;
-  window.usage={ok:true,companyId:'10000000-0000-4000-8000-000000000001',actorUserId:'10000000-0000-4000-8000-000000000002',actorRole:'owner',timeZone:'Europe/Stockholm',month:'2026-10',trackingStartedAt:'2026-10-14T00:00:00Z',legacyPublishedJobs:2,totals:{drafts:5,ready:3,...states},channels:[{channel:'blocket',...states},{channel:'wayke',...states,newPublications:0}],billing:{status:'unconfigured',unitPriceOre:null,totalOre:null,unpricedPublications:4}};
+  window.usage={ok:true,companyId:'10000000-0000-4000-8000-000000000001',actorUserId:'10000000-0000-4000-8000-000000000002',actorRole:'owner',timeZone:'Europe/Stockholm',month:'2026-10',trackingStartedAt:'2026-10-14T00:00:00Z',legacyPublishedJobs:2,totals:{drafts:5,ready:3,...states},channels:[{channel:'blocket',...states},{channel:'wayke',...states,newPublications:0}],billing:{status:'quantity_only',unitPriceOre:null,totalOre:null,unpricedPublications:4}};
  },{responses});
  await page.addScriptTag({path:bundle});
  await page.evaluate(props=>window.mountUsage(props),{companyId:COMPANY,userId:USER,role:'owner'});
@@ -49,7 +49,7 @@ test('real mobile usage component separates monthly unique publications from all
  const page=await setup();try{
   await page.setViewportSize({width:390,height:844});
   await expect(page.getByText('Unika publiceringar under vald månad',{exact:true})).toBeVisible();
-  await expect(page.getByText('4 publiceringar saknar pris. Underlaget är ingen faktura.')).toBeVisible();
+  await expect(page.getByText('Antalsstatistiken visar verifierade publiceringar.',{exact:false})).toBeVisible();
   await expect(page.getByText('Nuvarande status för samtliga leveransjobb, oavsett månad. Jobbantalet är inte debiteringsgrund.')).toBeVisible();
   await page.getByLabel('Faktureringsmånad').fill('2026-09');
   await expect(page.getByText('Debiteringsgrund för 2026-09')).toBeVisible();

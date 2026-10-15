@@ -26,7 +26,7 @@ before(async () => {
   const config = {
     plugins: [new LimitChunkCountPlugin({maxChunks:1})], mode: 'development', target: 'web', devtool: false, context: repo,
     entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js', publicPath: '' },
-    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/advertising/usage-actions': resolve(repo, 'tests/helpers/advertising-usage-ui/actions.js'), '@/lib/advertising/actions': resolve(repo, 'tests/helpers/advertising-ui/actions.js'), '@/lib/platform-admin/actions': resolve(helpers, 'actions.js'), 'next/navigation': resolve(helpers, 'navigation.js'), '@/lib/platform-admin/overview-actions': resolve(helpers, 'overview-actions.js'), '@/lib/platform-admin/account-actions': resolve(helpers, 'account-actions.js') } },
+    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/advertising/billing-actions': resolve(repo, 'tests/helpers/advertising-billing-ui/actions.js'), '@/lib/calculations/vehicle-calculation': resolve(repo, 'src/lib/calculations/vehicle-calculation.ts'), '@/lib/advertising/usage-actions': resolve(repo, 'tests/helpers/advertising-usage-ui/actions.js'), '@/lib/advertising/actions': resolve(repo, 'tests/helpers/advertising-ui/actions.js'), '@/lib/platform-admin/actions': resolve(helpers, 'actions.js'), 'next/navigation': resolve(helpers, 'navigation.js'), '@/lib/platform-admin/overview-actions': resolve(helpers, 'overview-actions.js'), '@/lib/platform-admin/account-actions': resolve(helpers, 'account-actions.js') } },
     module: { rules: [{ test: /\.tsx?$/, use: resolve(helpers, 'swc-loader.cjs') }] },
   };
   await new Promise((resolveBuild, reject) => {
@@ -270,7 +270,7 @@ test('superadmin opens selected company advertising basis lazily and revoked acc
   await page.evaluate(()=>{
    window.calls=[];window.responses=[];
    const counts={queued:1,dispatching:0,outcomeUnknown:0,submitted:1,published:2,rejected:0,retryable:0,newPublications:1};
-   window.usage={ok:true,companyId:'10000000-0000-4000-8000-000000000001',actorUserId:'30000000-0000-4000-8000-000000000001',actorRole:'platform_admin',timeZone:'Europe/Stockholm',trackingStartedAt:'2026-10-14T00:00:00Z',legacyPublishedJobs:0,totals:{drafts:1,ready:1,...counts},channels:[{channel:'blocket',...counts}],billing:{status:'unconfigured',unitPriceOre:null,totalOre:null,unpricedPublications:1}};
+   window.usage={ok:true,companyId:'10000000-0000-4000-8000-000000000001',actorUserId:'30000000-0000-4000-8000-000000000001',actorRole:'platform_admin',timeZone:'Europe/Stockholm',trackingStartedAt:'2026-10-14T00:00:00Z',legacyPublishedJobs:0,totals:{drafts:1,ready:1,...counts},channels:[{channel:'blocket',...counts}],billing:{status:'quantity_only',unitPriceOre:null,totalOre:null,unpricedPublications:1}};
   });
   assert.equal(await page.evaluate(()=>window.calls.length),0);
   await page.getByRole('button',{name:'Annonsunderlag för Fixture AB'}).click();
