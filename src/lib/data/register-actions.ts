@@ -1,6 +1,7 @@
 'use server';
 
 import { requireCrmContext, type CrmContext } from '@/lib/crm/context';
+import { canReadInternalFinance } from '@/lib/access/dealer-capabilities';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Json } from '@/lib/supabase/database.types';
 import type { Customer, InventoryItem, Vehicle } from './workspace';
@@ -73,7 +74,9 @@ function inventory(value: unknown, ctx: CrmContext): InventoryItem {
   const row = companyRow(value, ctx);
   if (!statuses.inventory.slice(1).includes(String(row.status)) || !['standard', 'vmb', 'unknown'].includes(String(row.vat_scheme))) throw new Error('invalid stock');
   timestamp(row.created_at);
-  return { id: id(row.id), status: row.status as string, acquired_on: date(row.acquired_on), purchase_price_ore: integer(row.purchase_price_ore), asking_price_ore: integer(row.asking_price_ore), vat_scheme: row.vat_scheme as string, vehicles: vehicle(row.vehicles, ctx) };
+  const purchase = canReadInternalFinance(ctx.role) ? integer(row.purchase_price_ore) : null;
+  if (!canReadInternalFinance(ctx.role) && row.purchase_price_ore !== null) throw new Error('invalid financial visibility');
+  return { id: id(row.id), status: row.status as string, acquired_on: date(row.acquired_on), purchase_price_ore: purchase, asking_price_ore: integer(row.asking_price_ore), vat_scheme: row.vat_scheme as string, vehicles: vehicle(row.vehicles, ctx) };
 }
 function customer(value: unknown, ctx: CrmContext): Customer {
   const row = companyRow(value, ctx);

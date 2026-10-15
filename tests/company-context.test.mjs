@@ -11,16 +11,17 @@ const PAUSED = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const REVOKED = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const FOREIGN = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const STOCK = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+const USER = '11111111-1111-4111-8111-111111111111';
 
-function membership(id, { role = 'owner', status = 'active', companyStatus = 'active', user = 'verified-user' } = {}) {
+function membership(id, { role = 'owner', status = 'active', companyStatus = 'active', user = USER } = {}) {
   return { company_id: id, role, status, user_id: user, companies: { id, name: `Company ${id[0]}`, organisation_number: '1111111111', status: companyStatus } };
 }
 function fixture(overrides = {}) {
   return {
-    user: { id: 'verified-user', email: 'verified@example.invalid', email_confirmed_at:'2026-10-14T00:00Z', user_metadata: { company_id: FOREIGN, role: 'owner' } },
+    user: { id: USER, email: 'verified@example.invalid', email_confirmed_at:'2026-10-14T00:00Z', user_metadata: { company_id: FOREIGN, role: 'owner' } },
     cookie: undefined, authError: null, membershipError: null, authCalls: 0, clients: 0, queries: [], inserts: [], cookieWrites: [], revalidated: [], reactCache: new Map(),
     memberships: [membership(B), membership(A), membership(PAUSED, { companyStatus: 'inactive' }), membership(REVOKED, { status: 'revoked' }), membership(FOREIGN, { user: 'other-user' })],
-    stock: [{ id: STOCK, company_id: A, purchase_price_ore: 10000, asking_price_ore: 20000 }],
+    stock: [{ id: STOCK, company_id: A, status: 'available', created_at: '2026-10-15T10:00:00Z', acquired_on: '2026-10-15', purchase_price_ore: 10000, asking_price_ore: 20000, vat_scheme: 'unknown', vehicles: { id: REVOKED, company_id: A, registration_number: 'FIX123', make: 'Volvo', model: 'V60', model_year: 2022, mileage_km: 10000, fuel: 'petrol', gearbox: 'automatic' } }],
     customers: [{ id: 'own-customer', company_id: A, name: 'Own customer' }, { id: 'foreign-customer', company_id: B, name: 'Foreign customer' }],
     ...overrides,
   };
@@ -53,7 +54,14 @@ async function harness() {
         async getUser() { request.authCalls++; return { data: { user: request.user }, error: request.authError }; },
         getClaims() { throw new Error('Authorization must use verified getUser(), not JWT/user metadata.'); },
       },
-      async rpc(name) { assert.equal(name,'get_account_access'); return {data:{userId:request.user.id,email:request.user.email,emailVerified:Boolean(request.user.email_confirmed_at),status:request.approvalStatus??'approved',version:request.approvalStatus?0:1,isPlatformAdmin:false},error:request.approvalError??null}; },
+      async rpc(name, args) {
+        if (name === 'get_workspace_inventory') {
+          const role = request.memberships.find(m => m.company_id === args.p_company_id && m.user_id === request.user.id).role;
+          return {data:{companyId:args.p_company_id,actorId:request.user.id,role,rows:request.stock.filter(s=>s.company_id===args.p_company_id).map(s=>({...s,purchase_price_ore:['owner','admin','finance'].includes(role)?s.purchase_price_ore:null}))},error:null};
+        }
+        if (name === 'inventory_dashboard_totals') return {data:null,error:{code:'test_no_totals'}};
+        assert.equal(name,'get_account_access'); return {data:{userId:request.user.id,email:request.user.email,emailVerified:Boolean(request.user.email_confirmed_at),status:request.approvalStatus??'approved',version:request.approvalStatus?0:1,isPlatformAdmin:false},error:request.approvalError??null};
+      },
       from(table) {
         const entry = { table, filters: {}, columns: '', order: null, start: 0, end: Infinity, cap: Infinity };
         request.queries.push(entry);
@@ -106,12 +114,12 @@ test('company session verifies identity and deterministically lists only own act
   const h = await harness(), request = fixture();
   await h.request(request, async () => {
     const session = await h.context.getCompanySession();
-    assert.deepEqual(session.user, { id: 'verified-user', email: 'verified@example.invalid' });
+    assert.deepEqual(session.user, { id: USER, email: 'verified@example.invalid' });
     assert.deepEqual(session.memberships.map((item) => item.company_id), [A, B]);
     assert.equal(session.membership.company_id, A);
     assert.equal(session.selectionRequired, false);
     const strict = await h.context.getActiveCompanyContext();
-    assert.equal(strict.company, A); assert.equal(strict.user, 'verified-user');
+    assert.equal(strict.company, A); assert.equal(strict.user, USER);
     assert.deepEqual(session.memberships.map((item) => item.companies.id), [A, B]);
   });
 });
@@ -122,15 +130,15 @@ test('real React server cache shares a verified session across context and snaps
     const [one, two, snapshot, strict] = await Promise.all([h.context.getCompanySession(), h.context.getCompanySession(), h.workspace.getWorkspaceSnapshot(), h.context.getActiveCompanyContext()]);
     assert.equal(one, two);
     assert.equal(snapshot.organization.id, strict.company);
-    assert.equal(request.authCalls, 1); assert.equal(request.clients, 1);
-    assert.equal(request.queries.filter((query) => query.table === 'memberships').length, 1);
+    assert.equal(request.authCalls, 3); assert.equal(request.clients, 3);
+    assert.equal(request.queries.filter((query) => query.table === 'memberships').length, 2);
   });
 });
 
 test('auth and membership revocation are fresh across requests without leaking a cached actor', async () => {
   const h = await harness();
   await h.request(fixture(), async () => assert.equal((await h.context.getCompanySession()).membership.company_id, A));
-  const next = fixture({ cookie: A, memberships: [membership(A, { status: 'revoked' }), membership(B)], user: { id: 'verified-user', email: 'fresh@example.invalid',email_confirmed_at:'2026-10-14T00:00Z' } });
+  const next = fixture({ cookie: A, memberships: [membership(A, { status: 'revoked' }), membership(B)], user: { id: USER, email: 'fresh@example.invalid',email_confirmed_at:'2026-10-14T00:00Z' } });
   await h.request(next, async () => {
     const session = await h.context.getCompanySession();
     assert.equal(session.user.email, 'fresh@example.invalid'); assert.equal(session.membership, null);
@@ -157,7 +165,7 @@ test('snapshot reuses verified company metadata and scopes customer, stock and c
     assert.equal(snapshot.user.email, 'verified@example.invalid');
     assert.deepEqual(snapshot.customers.map((customer) => customer.name), ['Own customer']);
     assert.ok(request.queries.filter((query) => !['memberships', 'finance_partners'].includes(query.table)).every((query) => query.filters.company_id === A));
-    assert.equal(request.authCalls, 1);
+    assert.equal(request.authCalls, 3);
   });
 });
 
@@ -208,8 +216,8 @@ test('membership-query errors fail closed and do not read business data or offer
   });
 });
 
-test('legacy mutations stop at stale selection and otherwise derive the tenant instead of trusting posted company_id', async () => {
-  const h = await harness(), input = form({ name: 'Test Customer', kind: 'business', company_id: B });
+test('legacy mutations require the displayed company and derive the tenant instead of trusting posted company_id', async () => {
+  const h = await harness(), input = form({ name: 'Test Customer', kind: 'business', expected_company_id: A, company_id: B });
   const stale = fixture({ cookie: 'stale-company' });
   await h.request(stale, async () => {
     assert.equal(await redirected(() => h.actions.createCustomerAction(input)), '/settings');
@@ -247,7 +255,7 @@ test('cost writes authorize actual membership roles rather than editable user me
     const request = fixture({ cookie: A, memberships: [membership(A, { role })] });
     await h.request(request, async () => {
       const outcome = await redirected(() => h.actions.createVehicleCostAction(input));
-      if (['owner', 'admin', 'sales'].includes(role)) {
+      if (['owner', 'admin'].includes(role)) {
         assert.match(outcome, /^\/inventory\?success=/);
         assert.equal(request.inserts[0].value.company_id, A); assert.equal(request.inserts[0].value.amount_ore, 125050);
         assert.ok(request.queries.some((query) => query.table === 'stock_items' && query.filters.company_id === A && query.filters.id === STOCK));

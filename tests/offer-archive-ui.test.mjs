@@ -34,6 +34,7 @@ before(async () => {
       '@/lib/data/trade-in-actions':actions,'@/lib/data/offer-actions': actions, '@/lib/data/offer-archive-actions': actions, '@/lib/data/actions': actions,
       '@/lib/data/register-actions': actions, '@/lib/data/vehicle-cost-actions': actions,
       '@/lib/calculations/vehicle-calculation': resolve(repo, 'src/lib/calculations/vehicle-calculation.ts'),
+      '@/lib/access/dealer-capabilities': resolve(repo, 'src/lib/access/dealer-capabilities.ts'),
       'next/link': unrelated, 'next/navigation': unrelated,
       [resolve(repo, 'src/components/deal-cancellation')]: unrelated,
       [resolve(repo, 'src/components/deal-trade-ins')]: unrelated,
@@ -75,7 +76,7 @@ function workspace(role, companyId = company) {
   const membership = { company_id: companyId, role, companies: organization };
   return { user: { id: '50000000-0000-4000-8000-000000000001', email: 'fixture@example.test' }, organization,
     membership, memberships: [membership],
-    inventory: [{id:'fixture-stock',status:'available',acquired_on:'2026-10-13',purchase_price_ore:20000000,asking_price_ore:25000000,vat_scheme:'standard',vehicles:{id:'fixture-vehicle',registration_number:'FIX123',make:'Fixture',model:'Vehicle',model_year:2022,mileage_km:50000,fuel:'petrol',gearbox:'automatic'}}],
+    inventory: [{id:'fixture-stock',status:'available',acquired_on:'2026-10-13',purchase_price_ore:['owner','admin','finance'].includes(role)?20000000:null,asking_price_ore:25000000,vat_scheme:'standard',vehicles:{id:'fixture-vehicle',registration_number:'FIX123',make:'Fixture',model:'Vehicle',model_year:2022,mileage_km:50000,fuel:'petrol',gearbox:'automatic'}}],
     vehicle_costs: [], customers: [{id:'fixture-customer',name:'Fixturekund',email:'fixture@example.invalid',phone:null,kind:'person',address:null,notes:null,created_at:'2026-10-13T12:00:00Z'}],
     deals: [{ id: deal, status: 'draft', sale_price_ore: 25000000, customer_id: 'fixture-customer', stock_item_id: 'fixture-stock', created_at: '2026-10-13T12:00:00Z' }],
     finance_applications: [], documents: [], activities: [], finance_partners: [], dealer_approvals: [], integrations: [] };
@@ -113,15 +114,20 @@ test('actual vehicle panel binds purchase underlay to current company user role 
     await page.evaluate(() => { window.fixture = {offers:[],listCalls:[],archiveCalls:[]}; });
     await page.addScriptTag({path:bundle});
     for (const role of ['owner','admin','finance','sales','viewer']) {
-      const snapshot = workspace(role); snapshot.inventory = [stock]; snapshot.user.id = `user-${role}`;
+      const snapshot = workspace(role); snapshot.inventory = [{...stock,purchase_price_ore:['owner','admin','finance'].includes(role)?stock.purchase_price_ore:null}]; snapshot.user.id = `user-${role}`;
       await page.evaluate(snapshot => window.mountArchiveFixture({workspace:true,snapshot,section:'inventory'}), snapshot);
       await expect(page.locator('[data-purchase-stock]')).toHaveCount(0);
       await page.getByRole('button', {name:'Volvo V60',exact:true}).click();
       const panel = page.locator('[data-purchase-stock]');
-      await expect(panel).toHaveAttribute('data-purchase-stock', stock.id);
-      await expect(panel).toHaveAttribute('data-company', company);
-      await expect(panel).toHaveAttribute('data-user', `user-${role}`);
-      await expect(panel).toHaveAttribute('data-role', role);
+      if (['owner','admin','finance'].includes(role)) {
+        await expect(panel).toHaveAttribute('data-purchase-stock', stock.id);
+        await expect(panel).toHaveAttribute('data-company', company);
+        await expect(panel).toHaveAttribute('data-user', `user-${role}`);
+        await expect(panel).toHaveAttribute('data-role', role);
+      } else {
+        await expect(panel).toHaveCount(0);
+        await expect(page.getByText('Inköpspris', {exact:true})).toHaveCount(0);
+      }
       await page.getByRole('button', {name:'Stäng',exact:true}).click();
     }
     const snapshot = workspace('owner',otherCompany); snapshot.inventory = [{...stock,id:'71000000-0000-4000-8000-000000000002'}];
