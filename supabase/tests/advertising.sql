@@ -31,11 +31,11 @@ do $$declare f text;t text;r text;begin
  assert not has_function_privilege('service_role','private.company_team_identity(boolean)','EXECUTE'),'Old helper widened';
  assert not has_table_privilege('authenticated','public.memberships','UPDATE'),'Membership direct writes widened';
  -- Hosted Supabase grants object-table DML globally; bucket authorization is RLS.
- -- This release has only scoped SELECT/INSERT policies. A future client policy
- -- for UPDATE/DELETE/ALL requires review against both advertising buckets.
+ -- A permissive client UPDATE/DELETE/ALL policy can grant access and requires review.
+ -- Restrictive guards for other private buckets only remove access.
  assert(select relrowsecurity from pg_class where oid='storage.objects'::regclass),'Storage object RLS required';
  assert not exists(select 1 from pg_policies where schemaname='storage' and tablename='objects'
-  and cmd in ('UPDATE','DELETE','ALL') and roles && array['public','anon','authenticated']::name[]),'Advertising images must have no client overwrite/delete policy';
+  and permissive='PERMISSIVE' and cmd in ('UPDATE','DELETE','ALL') and roles && array['public','anon','authenticated']::name[]),'Advertising images must have no permissive client overwrite/delete policy';
  assert not exists(select 1 from pg_policies where schemaname='storage' and tablename='objects'
   and roles && array['public','anon','authenticated']::name[] and (coalesce(qual,'')||coalesce(with_check,'')) like '%ads-export-media%'),'Export bucket must have no client policy';
  assert(select public=false and file_size_limit=10485760 from storage.buckets where id='ads-vehicle-photos'),'Photo bucket must be private';

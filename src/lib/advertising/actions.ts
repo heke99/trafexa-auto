@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { AdvertisingError, requireAdvertisingContext } from './context';
-import type { AdvertisingChannel, AdvertisingConnection, AdvertisingJob, AdvertisingJobStatus, AdvertisingListing, AdvertisingListingReceipt, AdvertisingPhoto, AdvertisingResult, AdvertisingScope, AdvertisingSendReceipt, AdvertisingSnapshot, AdvertisingStock, AdvertisingStockPage, AdvertisingWorkspacePage, StockAdvertisingDetails } from './database.types';
+import type { AdvertisingChannel, AdvertisingConnection, AdvertisingJob, AdvertisingJobStatus, AdvertisingListing, AdvertisingListingReceipt, AdvertisingPhoto, AdvertisingResult, AdvertisingScope, AdvertisingSendQuote, AdvertisingSendReceipt, AdvertisingSnapshot, AdvertisingStock, AdvertisingStockPage, AdvertisingWorkspacePage, StockAdvertisingDetails } from './database.types';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 class ActionError extends Error { constructor(readonly code: 'invalid_input' | 'conflict' | 'not_found' | 'connection_required' | 'unavailable' | 'access_denied') { super('Advertising action failed'); } }
@@ -29,6 +29,37 @@ function money(value: unknown): string {
   return value;
 }
 function channel(value: unknown): AdvertisingChannel { if (value !== 'blocket' && value !== 'wayke') throw new ActionError('invalid_input'); return value; }
+function selectedChannels(value: unknown): AdvertisingChannel[] {
+  if (!Array.isArray(value) || !value.length || value.length > 2) throw new ActionError('invalid_input');
+  const channels = value.map(channel).sort();
+  if (new Set(channels).size !== channels.length) throw new ActionError('invalid_input');
+  return channels;
+}
+function quoteToken(value: unknown): string {
+  if (typeof value !== 'string' || !/^[0-9a-f]{64}$/.test(value)) throw new ActionError('invalid_input');
+  return value;
+}
+function sendQuote(value: unknown, companyId: string, userId: string, listingId: string, version: number, channels: AdvertisingChannel[]): AdvertisingSendQuote {
+  const row = object(value);
+  if (uuid(row.companyId) !== companyId || uuid(row.actorUserId) !== userId || uuid(row.listingId) !== listingId || integer(row.listingVersion) !== version || row.currency !== 'SEK' || row.taxBasis !== 'exclusive' || row.billingUnit !== 'unique_publication') throw new ActionError('unavailable');
+  if (JSON.stringify(row.channels) !== JSON.stringify(channels) || !Array.isArray(row.items) || row.items.length !== channels.length) throw new ActionError('unavailable');
+  const items = row.items.map((value, index) => {
+    const item = object(value), requestedChannel = channel(item.channel);
+    if (requestedChannel !== channels[index]) throw new ActionError('unavailable');
+    const alreadyPublished = bool(item.alreadyPublished), publicationId = item.publicationId === null ? null : uuid(item.publicationId);
+    if (!alreadyPublished && publicationId !== null) throw new ActionError('unavailable');
+    const rateId = item.rateId === null ? null : uuid(item.rateId);
+    const rateVersion = item.rateVersion === null ? null : integer(item.rateVersion);
+    const unitPriceOre = item.unitPriceOre === null ? null : money(item.unitPriceOre);
+    if ((rateId === null) !== (rateVersion === null) || (rateId === null) !== (unitPriceOre === null)) throw new ActionError('unavailable');
+    const chargeOre = item.chargeOre === null ? null : money(item.chargeOre);
+    if (chargeOre !== (rateId === null ? null : alreadyPublished ? '0' : unitPriceOre)) throw new ActionError('unavailable');
+    return { channel: requestedChannel, rateId, rateVersion, unitPriceOre, chargeOre, alreadyPublished, publicationId };
+  });
+  const sum = items.some(item => item.chargeOre === null) ? null : items.reduce((total, item) => total + BigInt(item.chargeOre!), BigInt(0)).toString();
+  if (row.totalOre !== sum) throw new ActionError('unavailable');
+  return { companyId, actorUserId: userId, listingId, listingVersion: version, channels, currency: 'SEK', taxBasis: 'exclusive', billingUnit: 'unique_publication', items, totalOre: sum, reviewToken: quoteToken(row.reviewToken) };
+}
 function jobStatus(value: unknown): AdvertisingJobStatus {
   if (value !== 'queued' && value !== 'dispatching' && value !== 'outcome_unknown' && value !== 'submitted' && value !== 'published' && value !== 'rejected' && value !== 'retryable') throw new ActionError('unavailable');
   return value;
@@ -219,14 +250,12 @@ export async function requestAdvertisingConnectionAction(value: unknown): Promis
 
 export async function sendAdvertisingListingAction(value: unknown): Promise<AdvertisingResult<{ receipt: AdvertisingSendReceipt }>> {
   try {
-    const row = input(value, ['companyId', 'listingId', 'expectedVersion', 'channels', 'requestId']), companyId = uuid(row.companyId), listingId = uuid(row.listingId), expectedVersion = integer(row.expectedVersion), requestId = uuid(row.requestId);
-    if (!Array.isArray(row.channels) || !row.channels.length || row.channels.length > 2) throw new ActionError('invalid_input');
-    const channels = row.channels.map(channel).sort();
-    if (new Set(channels).size !== channels.length) throw new ActionError('invalid_input');
+    const row = input(value, ['companyId', 'listingId', 'expectedVersion', 'channels', 'requestId', 'expectedQuoteToken']), companyId = uuid(row.companyId), listingId = uuid(row.listingId), expectedVersion = integer(row.expectedVersion), requestId = uuid(row.requestId);
+    const channels = selectedChannels(row.channels), expectedQuoteToken = quoteToken(row.expectedQuoteToken);
     const context = await requireAdvertisingContext(companyId, 'write');
     // SQL requires current private verified account bindings and a fresh heartbeat
     // written by a trusted, configured worker, before it queues any selected channel.
-    const result = await context.db.rpc('send_vehicle_advertisement', { p_company_id: companyId, p_listing_id: listingId, p_expected_version: expectedVersion, p_channels: channels, p_request_id: requestId });
+    const result = await context.db.rpc('send_vehicle_advertisement_priced', { p_company_id: companyId, p_listing_id: listingId, p_expected_version: expectedVersion, p_channels: channels, p_request_id: requestId, p_expected_quote_token: expectedQuoteToken });
     rpcError(result.error);
     const receipt = output(() => {
       const row = object(result.data); receiptActor(row, context.userId, requestId);
@@ -239,9 +268,23 @@ export async function sendAdvertisingListingAction(value: unknown): Promise<Adve
       if (row.status !== 'queued' || row.jobs.length !== channels.length) throw new Error();
       const jobs = row.jobs.map(value => job(value, companyId));
       if (new Set(jobs.map(item => item.id)).size !== jobs.length || new Set(jobs.map(item => item.channel)).size !== jobs.length || jobs.some(item => item.stockId !== sent.stockId || item.listingId !== listingId || item.listingVersion !== expectedVersion || item.status !== 'queued' || !channels.includes(item.channel) || JSON.stringify(item.snapshot) !== JSON.stringify(sent.snapshot))) throw new Error();
-      return { status: 'queued' as const, jobs, listing: sent };
+      const quote = sendQuote(row.quote, companyId, context.userId, listingId, expectedVersion, channels);
+      if (quote.reviewToken !== expectedQuoteToken || quote.totalOre === null || quote.items.some(item => item.rateId === null)) throw new Error();
+      return { status: 'queued' as const, jobs, listing: sent, quote };
     });
     if (!receipt) throw new ActionError('connection_required');
     refresh(); return { ok: true, receipt };
+  } catch (error) { return failure(error); }
+}
+
+export async function getAdvertisingSendQuoteAction(value: unknown): Promise<AdvertisingResult<AdvertisingScope & { quote: AdvertisingSendQuote }>> {
+  try {
+    const row = input(value, ['companyId', 'listingId', 'expectedVersion', 'channels']);
+    const companyId = uuid(row.companyId), listingId = uuid(row.listingId), expectedVersion = integer(row.expectedVersion), channels = selectedChannels(row.channels);
+    const context = await requireAdvertisingContext(companyId, 'write');
+    const result = await context.db.rpc('get_advertising_send_quote', { p_company_id: companyId, p_listing_id: listingId, p_expected_version: expectedVersion, p_channels: channels });
+    rpcError(result.error);
+    const quote = output(() => sendQuote(result.data, companyId, context.userId, listingId, expectedVersion, channels));
+    return { ok: true, ...scope(context), quote };
   } catch (error) { return failure(error); }
 }

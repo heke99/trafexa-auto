@@ -47,3 +47,17 @@ export async function requestAdvertisingConnectionAction(input) {
   window.fixture.channels = [...window.fixture.channels.filter(item => item.channel !== input.channel), connection];
   return { ok: true, connection };
 }
+
+export async function getAdvertisingSendQuoteAction(input) {
+  window.fixture.quoteCalls.push({ ...input });
+  let response = take(window.fixture.quoteResponses);
+  if (response?.delay) { await new Promise(resolve => window.resolveAdvertisingQuote = resolve); response = response.result; }
+  if (response) return response;
+  const items = [...input.channels].sort().map(channel => {
+    const unit = window.fixture.prices[channel] ?? null;
+    const alreadyPublished = window.fixture.alreadyPublished.includes(channel);
+    return { channel, rateId: unit === null ? null : '10000000-0000-4000-8000-000000000010', rateVersion: unit === null ? null : 1, unitPriceOre: unit, chargeOre: unit === null ? null : alreadyPublished ? '0' : unit, alreadyPublished, publicationId: alreadyPublished ? '10000000-0000-4000-8000-000000000011' : null };
+  });
+  const quote = { companyId: input.companyId, actorUserId: window.fixture.userId, listingId: input.listingId, listingVersion: input.expectedVersion, channels: [...input.channels].sort(), currency: 'SEK', taxBasis: 'exclusive', billingUnit: 'unique_publication', items, totalOre: items.some(item => item.chargeOre === null) ? null : items.reduce((sum, item) => sum + BigInt(item.chargeOre), 0n).toString(), reviewToken: window.fixture.quoteToken };
+  return { ok: true, ...scope(), quote };
+}

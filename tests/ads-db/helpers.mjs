@@ -32,7 +32,14 @@ export async function createDatabase({ includeSigningArchive=true }={}) {
  `);
  const directory=new URL('../../supabase/migrations/',import.meta.url);
  for(const filename of (await readdir(directory)).filter(name=>name.endsWith('.sql') && (includeSigningArchive || !name.endsWith('_signing_ledger.sql') && !name.endsWith('_offer_document_archive.sql'))).sort()) {
-  await db.exec(await readFile(new URL(filename,directory),'utf8'));
+  let source=await readFile(new URL(filename,directory),'utf8');
+  if(filename.endsWith('_reservation_expiry_scheduler.sql')){
+   // Keep actual expiry functions; pg_cron scheduling requires the native PG suite.
+   const boundary=source.indexOf('-- Explicitly approved background job.');
+   if(boundary<0)throw new Error('Unknown scheduler migration layout');
+   source=source.slice(0,boundary)+'commit;';
+  }
+  await db.exec(source);
  }
  // Preserve the existing privileged worker contract without granting the archive
  // table or private storage catalogs to ordinary authenticated users.

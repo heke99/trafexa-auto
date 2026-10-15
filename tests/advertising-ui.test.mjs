@@ -40,8 +40,8 @@ async function setup({ strict = false, demo = false, role = 'owner', ...override
     Object.defineProperty(crypto, 'randomUUID', { configurable: true, value: () => `20000000-0000-4000-8000-${String(++ids).padStart(12, '0')}` });
     window.fixture = { companyId: '10000000-0000-4000-8000-000000000001', userId: '10000000-0000-4000-8000-000000000002', role,
       stock: [{ id: '10000000-0000-4000-8000-000000000003', make: 'Volvo', model: 'V60', year: 2022, priceGrossOre: '28900000', status: 'available' }],
-      listings: [], jobs: [], channels: [], photos: [], listCalls: [], stockCalls: [], detailCalls: [], photoCalls: [], createCalls: [], saveCalls: [], readyCalls: [], sendCalls: [], connectionCalls: [],
-      listResponses: [], detailResponses: [], createResponses: [], saveResponses: [], readyResponses: [], sendResponses: [], connectionResponses: [], ...overrides };
+      listings: [], jobs: [], channels: [], photos: [], listCalls: [], stockCalls: [], detailCalls: [], photoCalls: [], createCalls: [], saveCalls: [], readyCalls: [], sendCalls: [], connectionCalls: [], quoteCalls: [],
+      listResponses: [], detailResponses: [], createResponses: [], saveResponses: [], readyResponses: [], sendResponses: [], connectionResponses: [], quoteResponses: [], prices: { blocket: '14950', wayke: '9950' }, quoteToken: 'a'.repeat(64), alreadyPublished: [], ...overrides };
   }, { role, overrides });
   await page.addScriptTag({ path: bundle });
   await page.evaluate(props => window.mountAdvertisingFixture(props), { strict, demo, companyId: COMPANY, role, userId: USER });
@@ -100,7 +100,9 @@ test('send freezes exact version and channels, keeps UUID after unknown response
     await expect(page.getByRole('cell', { name: 'Publicerad', exact: true })).toHaveCount(0);
     const calls = await page.evaluate(() => window.fixture);
     assert.deepEqual(calls.sendCalls[0], calls.sendCalls[1]);
-    assert.deepEqual(Object.keys(calls.sendCalls[0]).sort(), ['channels', 'companyId', 'expectedVersion', 'listingId', 'requestId']);
+    assert.equal(calls.sendCalls[0].expectedQuoteToken, 'a'.repeat(64));
+    assert.equal(calls.quoteCalls.length, 2, 'retry must preserve reviewed quote instead of silently refreshing it');
+    assert.deepEqual(Object.keys(calls.sendCalls[0]).sort(), ['channels', 'companyId', 'expectedQuoteToken', 'expectedVersion', 'listingId', 'requestId']);
     assert.equal(calls.sendCalls[0].expectedVersion, 3); assert.deepEqual(calls.sendCalls[0].channels, ['blocket']); assert.equal(calls.listCalls.length, 2);
     const imageSources = await page.locator('img').evaluateAll(images => images.map(image => image.getAttribute('src')));
     assert.equal(imageSources.every(source => source.startsWith('/api/vehicle-photos/')), true);
@@ -172,6 +174,117 @@ test('demo performs no read or write and a stale heartbeat cannot be presented a
     await page.getByRole('button', { name: 'Förbered kanalutskick', exact: true }).click();
     await expect(page.getByLabel('Blocket · leverans ej aktiverad', { exact: true })).toBeDisabled();
     await expect(page.getByText('Kanalleverans ej aktiverad', { exact: true })).toBeVisible();
+    assert.equal(await page.evaluate(() => window.fixture.sendCalls.length), 0);
+  } finally { await page.close(); }
+});
+
+
+const readyChannels = ['blocket', 'wayke'].map(channel => ({ channel, status: 'verified', accountReference: `dealer-${channel}`, dispatcherAvailable: true }));
+async function openSend(page) { await chooseStock(page); await page.getByRole('button', { name: 'Förbered kanalutskick', exact: true }).click(); await expect(page.getByText('Verifierar kanalpriser…', { exact: true })).toHaveCount(0); }
+
+test('sales sees both per-channel prices, selected exact total and a fresh final price before explicit send', async () => {
+  const page = await setup({ role: 'sales', listings: [listing()], photos: [photo()], channels: readyChannels });
+  try {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openSend(page);
+    await expect(page.getByText('149,50 kr exkl. moms per unik publicering', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Blocket', { exact: true })).toHaveAccessibleDescription('149,50 kr exkl. moms per unik publicering');
+    await expect(page.getByText('99,50 kr exkl. moms per unik publicering', { exact: true })).toBeVisible();
+    await page.getByLabel('Blocket', { exact: true }).check();
+    await page.getByLabel('Wayke', { exact: true }).check();
+    await expect(page.getByText('Summa för valda kanaler: 249,00 kr exkl. moms', { exact: true })).toBeVisible();
+    await page.evaluate(() => { window.fixture.prices = { blocket: '19950', wayke: '10000' }; window.fixture.quoteToken = 'b'.repeat(64); });
+    await page.getByRole('button', { name: 'Fortsätt till bekräftelse', exact: true }).click();
+    await expect(page.getByText('199,50 kr exkl. moms per unik publicering', { exact: true })).toBeVisible();
+    await expect(page.getByText('Summa för valda kanaler: 299,50 kr exkl. moms', { exact: true })).toBeVisible();
+    assert.equal(await page.evaluate(() => window.fixture.sendCalls.length), 0);
+    await expect(page.getByRole('button', { name: 'Visa statistik och faktureringsunderlag' })).toHaveCount(0);
+    await page.evaluate(() => { window.fixture.prices.blocket = '30000'; });
+    await page.getByRole('button', { name: 'Bekräfta kanalutskick', exact: true }).click();
+    const calls = await page.evaluate(() => window.fixture);
+    assert.deepEqual(calls.quoteCalls.map(call => call.channels), [['blocket', 'wayke'], ['blocket', 'wayke']]);
+    assert.equal(calls.sendCalls[0].expectedQuoteToken, 'b'.repeat(64));
+    assert.deepEqual(calls.sendCalls[0].channels, ['blocket', 'wayke']);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= 390));
+    await expect(page.getByRole('status')).toContainText('299,50 kr');
+  } finally { await page.close(); }
+});
+
+test('missing price disables even an already registered channel while explicit zero remains selectable', async () => {
+  const page = await setup({ listings: [listing()], photos: [photo()], channels: readyChannels, prices: { blocket: null, wayke: '0' }, alreadyPublished: ['blocket'] });
+  try {
+    await openSend(page);
+    await expect(page.getByLabel('Blocket', { exact: true })).toBeDisabled();
+    await expect(page.getByText('Pris saknas · kanalen kan inte väljas', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Wayke', { exact: true })).toBeEnabled();
+    await expect(page.getByText('0,00 kr exkl. moms per unik publicering', { exact: true })).toBeVisible();
+    await page.getByLabel('Wayke', { exact: true }).check();
+    await page.getByRole('button', { name: 'Fortsätt till bekräftelse', exact: true }).click();
+    await page.getByRole('button', { name: 'Bekräfta kanalutskick', exact: true }).click();
+    const calls = await page.evaluate(() => window.fixture);
+    assert.deepEqual(calls.quoteCalls[1].channels, ['wayke']);
+    assert.deepEqual(calls.sendCalls[0].channels, ['wayke']);
+  } finally { await page.close(); }
+});
+
+test('already registered publication with a valid price basis shows no new charge', async () => {
+  const page = await setup({ listings: [listing()], photos: [photo()], channels: readyChannels, prices: { blocket: '14950', wayke: '9950' }, alreadyPublished: ['blocket'] });
+  try {
+    await openSend(page);
+    await expect(page.getByText('Ingen ny avgift · publiceringen är redan registrerad', { exact: true })).toBeVisible();
+    await page.getByLabel('Blocket', { exact: true }).check();
+    await expect(page.getByText('Summa för valda kanaler: 0,00 kr exkl. moms', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Fortsätt till bekräftelse', exact: true }).click();
+    await page.getByRole('button', { name: 'Bekräfta kanalutskick', exact: true }).click();
+    assert.equal(await page.evaluate(() => window.fixture.sendCalls.length), 1);
+  } finally { await page.close(); }
+});
+
+test('a SQL price conflict discards confirmation and requires a new visible quote and nonce', async () => {
+  const page = await setup({ listings: [listing()], photos: [photo()], channels: readyChannels, sendResponses: [{ ok: false, code: 'conflict', message: 'Conflict' }] });
+  try {
+    await openSend(page);
+    await page.getByLabel('Blocket', { exact: true }).check();
+    await page.getByRole('button', { name: 'Fortsätt till bekräftelse', exact: true }).click();
+    await page.getByRole('button', { name: 'Bekräfta kanalutskick', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('granska priset igen');
+    await expect(page.getByRole('button', { name: 'Bekräfta kanalutskick', exact: true })).toHaveCount(0);
+    await page.evaluate(() => { window.fixture.prices.blocket = '25000'; window.fixture.quoteToken = 'c'.repeat(64); });
+    await page.getByRole('button', { name: 'Förbered kanalutskick', exact: true }).click();
+    await page.getByLabel('Blocket', { exact: true }).check();
+    await page.getByRole('button', { name: 'Fortsätt till bekräftelse', exact: true }).click();
+    await expect(page.getByText('250,00 kr exkl. moms per unik publicering', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Bekräfta kanalutskick', exact: true }).click();
+    const sends = await page.evaluate(() => window.fixture.sendCalls);
+    assert.notEqual(sends[0].requestId, sends[1].requestId);
+    assert.equal(sends[1].expectedQuoteToken, 'c'.repeat(64));
+  } finally { await page.close(); }
+});
+
+test('denied or cross-actor quotes clear private content and never enable confirmation', async () => {
+  for (const response of [{ ok: false, code: 'access_denied', message: 'Åtkomst återkallad' }, { ok: true, companyId: COMPANY, actorUserId: id(99), actorRole: 'owner', quote: {} }]) {
+    const page = await setup({ listings: [listing()], photos: [photo()], channels: readyChannels, quoteResponses: [response] });
+    try {
+      await openSend(page);
+      await expect(page.getByRole('alert')).toBeVisible();
+      await expect(page.getByText(listing().snapshot.title, { exact: true })).toHaveCount(0);
+      await expect(page.locator('img')).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Fortsätt till bekräftelse', exact: true })).toHaveCount(0);
+      assert.equal(await page.evaluate(() => window.fixture.sendCalls.length), 0);
+    } finally { await page.close(); }
+  }
+});
+
+test('late quote after company change cannot restore previous tenant prices or confirmation', async () => {
+  const page = await setup({ listings: [listing()], photos: [photo()], channels: readyChannels, quoteResponses: [{ delay: true, result: { ok: false, code: 'unavailable', message: 'OLD QUOTE' } }] });
+  try {
+    await chooseStock(page);
+    await page.getByRole('button', { name: 'Förbered kanalutskick', exact: true }).click();
+    await expect(page.getByText('Verifierar kanalpriser…', { exact: true })).toBeVisible();
+    await page.evaluate(({ companyId, userId }) => { window.fixture.companyId = companyId; window.fixture.listings = []; window.fixture.stock = []; window.mountAdvertisingFixture({ companyId, userId, role: 'owner' }); window.resolveAdvertisingQuote(); }, { companyId: id(90), userId: USER });
+    await expect(page.getByText('OLD QUOTE', { exact: true })).toHaveCount(0);
+    await expect(page.getByText(listing().snapshot.title, { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Bekräfta kanalutskick', exact: true })).toHaveCount(0);
     assert.equal(await page.evaluate(() => window.fixture.sendCalls.length), 0);
   } finally { await page.close(); }
 });

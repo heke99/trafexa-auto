@@ -10,7 +10,7 @@ SQL-funktionerna och serveråtgärderna kontrollerar aktuell Auth och kontogodk�
 
 ## Pris och publicering
 
-Varje företag och kanal har versionshanterade priser. Aktiveringstid bestäms av servern när priset sparas. Ett nytt pris gäller endast framtida verifierade publiceringar, aldrig automatiskt historiken. Publiceringen kopierar då gällande prisversion och belopp till ett oföränderligt kvitto. Prisaktivering, publicering, granskning och periodlåsning samordnas med samma företagslås.
+Varje företag och kanal har versionshanterade priser. Aktiveringstid bestäms av servern när priset sparas. För nya [granskade sändningar](ADVERTISING_REVIEWED_SEND_CONTRACT.md) fryser den första accepterade sändningen prisversion och belopp per företag, annons och kanal. Varje leveransjobb binds till det priset och första verifierade publicering använder den accepterade prisgrunden, även efter ett senare kanalprisbyte. Äldre jobb och identiteter utan ny prisbindning behåller den tidigare regeln med då gällande pris vid verifierad publicering. Ett nytt pris skriver aldrig automatiskt om historik eller redan accepterade sändpriser. Prisaktivering, prisaccept, publicering, granskning och periodlåsning samordnas med samma företagslås.
 
 Explicit noll är ett giltigt beslutat pris. Avsaknad av pris är null och blockerar ett slutligt underlag; den tolkas aldrig som gratis. Tidigare oprissatta publiceringar kan ges ett uttryckligen granskat pris per vald kanal och månad, med motivering och exakt aktuell underlagskontroll. Detta ändrar inga redan prissatta rader. Separata granskade nedsättningar av låsta original beskrivs i [rättelsekontraktet](ADVERTISING_CORRECTIONS_CONTRACT.md). Efterdebitering och juridiska kreditfakturor återstår.
 
@@ -32,4 +32,4 @@ Nuvarande gräns är 2 000 publiceringar per månadsunderlag och högst 9 223 37
 
 ## Nästa steg
 
-Fakturautställning kräver separat nummer-/versionshantering, kund- och säljaruppgifter, skatteregler, betalningsvillkor, rättelser/kreditering och bokföringskoppling. Externa Blocket-/Wayke- och bankkopplingar förblir inaktiva tills respektive partneråtkomst och verkliga leveranskontrakt är verifierade. Inga externa annonser, fakturor, betalningar eller mejl skickas av detta pris- och periodsteg.
+[Fakturautställning](ADVERTISING_INVOICE_ISSUANCE_CONTRACT.md) har ett separat granskat flöde med nummer-/versionshantering, parter, datum och privat PDF. Kredit/rättelser av utfärdade dokument, betalningsavstämning och bokföringskoppling återstår. Externa Blocket-/Wayke- och bankkopplingar förblir inaktiva tills respektive partneråtkomst och verkliga leveranskontrakt är verifierade. Inga externa annonser, fakturor, betalningar eller mejl skickas av detta pris- och periodsteg.

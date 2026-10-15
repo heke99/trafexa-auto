@@ -22,14 +22,18 @@ type Options = {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function providerFor(job: AdvertisingWorkerJob, options: Options, now: Date) {
-  const provider = options.providers.find((item) => item.channel === job.channel && item.dispatcherId === job.dispatcherId);
-  const binding = provider?.verifiedBinding;
-  if (!provider || !binding || binding.companyId !== job.companyId || binding.connectionId !== job.connectionId
-    || binding.connectionVersion !== job.connectionVersion || binding.accountReference !== job.accountReference
-    || !Number.isFinite(Date.parse(binding.validUntil)) || Date.parse(binding.validUntil) <= now.getTime()) {
+  const matches = options.providers.filter((item) => {
+    const binding = item.verifiedBinding;
+    return item.channel === job.channel && item.dispatcherId === job.dispatcherId && binding
+      && binding.companyId === job.companyId && binding.connectionId === job.connectionId
+      && binding.connectionVersion === job.connectionVersion && binding.accountReference === job.accountReference
+      && Number.isFinite(Date.parse(binding.validUntil)) && Date.parse(binding.validUntil) > now.getTime();
+  });
+  // One dispatcher may serve several dealers; only one exact, live binding may send.
+  if (matches.length !== 1) {
     throw new Error('advertising_connection_unavailable');
   }
-  return provider;
+  return matches[0];
 }
 
 function validateSnapshot(job: AdvertisingWorkerJob) {
@@ -100,21 +104,31 @@ async function payloadFor(job: AdvertisingWorkerJob, options: Options): Promise<
     ...(job.snapshot.includeRegistrationNumber && job.snapshot.registrationNumber ? { registrationNumber: job.snapshot.registrationNumber } : {}), photos };
 }
 
-function safeOutcome(channel: AdvertisingWorkerJob['channel'], outcome: AdvertisingProviderOutcome): AdvertisingProviderOutcome {
+function validProviderId(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 200 && !/[\x00-\x1f\x7f-\x9f]/.test(value);
+}
+
+function safeOutcome(job: AdvertisingWorkerJob, value: unknown): AdvertisingProviderOutcome {
+  // SQL requires the established identity on every later save, even a rejection.
+  const knownIdentity = job.providerAdId === null ? {} : { providerAdId: job.providerAdId };
+  const invalid = () => ({ status: 'outcome_unknown' as const, errorCode: 'invalid_provider_evidence', ...knownIdentity });
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return invalid();
+  const outcome = value as Record<string, unknown>;
+  const suppliedId = outcome.providerAdId;
+  if (suppliedId !== undefined && (!validProviderId(suppliedId)
+    || (job.providerAdId !== null && suppliedId !== job.providerAdId))) return invalid();
   if (outcome.status === 'published') {
-    if (!outcome.providerAdId || outcome.providerAdId.length > 200
-      || (outcome.providerUrl !== null && !isAdvertisingProviderUrl(channel, outcome.providerUrl))) {
-      return { status: 'outcome_unknown', errorCode: 'invalid_provider_evidence' };
-    }
-    return { status: 'published', providerAdId: outcome.providerAdId, providerUrl: outcome.providerUrl };
+    if (!validProviderId(suppliedId) || (outcome.providerUrl !== null
+      && (typeof outcome.providerUrl !== 'string' || !isAdvertisingProviderUrl(job.channel, outcome.providerUrl)))) return invalid();
+    return { status: 'published', providerAdId: suppliedId, providerUrl: outcome.providerUrl };
   }
-  if (!['submitted', 'outcome_unknown', 'rejected', 'retryable'].includes(outcome.status)) {
-    return { status: 'outcome_unknown', errorCode: 'invalid_provider_evidence' };
-  }
+  if (outcome.status !== 'submitted' && outcome.status !== 'outcome_unknown'
+    && outcome.status !== 'rejected' && outcome.status !== 'retryable') return invalid();
   // Raw partner errors can contain credentials, signed image URLs or customer data.
   const errorCode = 'errorCode' in outcome && typeof outcome.errorCode === 'string' && /^[a-z][a-z0-9_]{0,79}$/.test(outcome.errorCode)
     ? outcome.errorCode : 'provider_status_pending';
-  return { status: outcome.status, errorCode };
+  return { status: outcome.status, errorCode, ...knownIdentity,
+    ...(outcome.status === 'submitted' && validProviderId(suppliedId) ? { providerAdId: suppliedId } : {}) };
 }
 
 export function createAdvertisingWorker(options: Options) {
@@ -135,10 +149,11 @@ export function createAdvertisingWorker(options: Options) {
         let outcome: AdvertisingProviderOutcome;
         try { outcome = await provider.reconcile({ sourceId: job.listingId, listingVersion: job.listingVersion, accountReference: job.accountReference }); }
         catch { outcome = { status: 'outcome_unknown', errorCode: 'provider_reconciliation_unavailable' }; }
-        const sanitized = safeOutcome(job.channel, outcome);
+        const sanitized = safeOutcome(job, outcome);
         // Reconciliation never grants permission to issue a fresh POST, even after a 404.
         if (sanitized.status === 'retryable' || sanitized.status === 'outcome_unknown'
-          || (job.status === 'submitted' && sanitized.status === 'submitted')) return job;
+          || (job.status === 'submitted' && sanitized.status === 'submitted'
+            && (sanitized.providerAdId ?? null) === job.providerAdId)) return job;
         return options.store.saveJob(job.id, job.version, null, sanitized);
       }
       if (job.status !== 'queued' && job.status !== 'retryable') throw new Error('invalid_advertising_job_status');
@@ -154,15 +169,18 @@ export function createAdvertisingWorker(options: Options) {
         || job.connectionId !== original.connectionId || job.connectionVersion !== original.connectionVersion
         || job.accountReference !== original.accountReference || job.listingId !== original.listingId
         || job.listingVersion !== original.listingVersion || job.dispatcherId !== original.dispatcherId
+        || job.providerAdId !== original.providerAdId || job.providerUrl !== original.providerUrl
         || job.channel !== original.channel || JSON.stringify(job.snapshot) !== JSON.stringify(original.snapshot)) {
         throw new Error('invalid_advertising_claim');
       }
-      providerFor(job, options, options.now?.() ?? new Date());
+      if (providerFor(job, options, options.now?.() ?? new Date()) !== provider) {
+        throw new Error('advertising_connection_unavailable');
+      }
       let outcome: AdvertisingProviderOutcome;
       try { outcome = await provider.submit(payload); }
       catch { outcome = { status: 'outcome_unknown', errorCode: 'provider_outcome_unknown' }; }
       // If recording fails, the lease expires into unknown. No network resend on the next run.
-      return options.store.saveJob(job.id, job.version, job.claimToken, safeOutcome(job.channel, outcome));
+      return options.store.saveJob(job.id, job.version, job.claimToken, safeOutcome(job, outcome));
     },
   };
 }
