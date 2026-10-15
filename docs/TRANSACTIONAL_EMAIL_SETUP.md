@@ -47,3 +47,7 @@ Resend-domänen skapades 2026-10-14 i EU-regionen eu-west-1, med tvingad TLS och
 | CNAME | rsend | send.forge.rmta.net | — |
 
 Domänverifieringen är bekräftad 2026-10-15. Konfigurera produktionsnyckeln i Vercel utan att dela den i chatten. Supabase Auth behöver separat SMTP-konfiguration med samma verifierade avsändare. Domänskapandet aktiverar inte utskick och bevisar inte leverans.
+
+## Fakturamejl
+
+Granskade faktura- och kreditmejl har nu en separat kö, exakt PDF-bilaga och signerade leveranshändelser enligt [ADVERTISING_INVOICE_EMAIL_CONTRACT](ADVERTISING_INVOICE_EMAIL_CONTRACT.md). De använder en egen aktiveringsflagga och aktiverar inte de generella konto-/avtalsutskicken automatiskt. Servernycklar och Resend-webhook måste finnas; verklig leverans provas separat.

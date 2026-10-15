@@ -1,5 +1,7 @@
 # Trafexa Dealer – fortsättningsplan
 
+[Granskade fakturamejl](ADVERTISING_INVOICE_EMAIL_CONTRACT.md) binder original eller kreditfaktura, sparad faktureringsadress och exakt PDF till en separat utskickskö. Superadmin bekräftar utskicket; leverantörsacceptans, leverans, studs och klagomål visas separat. Återförsök och signerad återhämtning efter avbrott förhindrar dubbel sändning. Produktionsflaggorna är aktiverade enligt användarens önskemål; tre serverhemligheter och Resend-webhook läggs in separat före verklig leverans. Nästa ekonomisteg är betalningsavstämning.
+
 ## Filialer — pågående organisationsetapp
 
 Från PR #33 byggs ett [internt filialregister](COMPANY_BRANCHES.md) för försäljningsställen inom samma juridiska företag. Ägare och administratörer ska kunna skapa och redigera adresser och kontaktuppgifter samt arkivera och återaktivera poster. Första nyttan är ett gemensamt adressregister; lagerkoppling och filialfilter är separata nästa steg. Företagsbehörighet, annonser, butiksprofil och externa partnerexporter ändras inte. Etappens kod och databas är verifierade inför publicering: **1023/1023 appfall** utan fel, avbrutna, överhoppade eller todo, samt produktionsbygge inklusive TypeScript passerar. Migration `20261015180528_company_branches` är applicerad och hosted rollback med nio nollställda efterkontroller passerar. PR, main och produktionsdeployment för filialetappen återstår att verifiera.
@@ -16,7 +18,7 @@ Aktuell annonsetapp 15 oktober från main `20cb4d`/PR #28, integrerad med faktur
 
 ## Momsfortsättning 15 oktober
 
-[Momsberäkning version 2](ADVERTISING_VAT_ALLOCATION_CONTRACT.md) kompletterar fakturautställningen med avrundning på totalnettot och deterministisk fördelning av ören efter decimalrest/UUID. Nya underlag granskas uttryckligen i v2; v1-data och PDF bevaras. Full kreditering finns i ett separat granskningsflöde. Nästa ekonomietapper är kontrollerade fakturamejl och betalnings-/bokföringsavstämning. Ingen ekonomileverantör är vald.
+[Momsberäkning version 2](ADVERTISING_VAT_ALLOCATION_CONTRACT.md) kompletterar fakturautställningen med avrundning på totalnettot och deterministisk fördelning av ören efter decimalrest/UUID. Nya underlag granskas uttryckligen i v2; v1-data och PDF bevaras. Full kreditering finns i ett separat granskningsflöde. Granskade fakturamejl har ett separat flöde. Nästa ekonomietapper är betalnings-/bokföringsavstämning. Ingen ekonomileverantör är vald.
 
 ## Faktureringsfortsättning 15 oktober
 

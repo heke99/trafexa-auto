@@ -1,0 +1,17 @@
+begin;
+create function public.claim_advertising_invoice_email(p_company_id uuid,p_email_id uuid) returns jsonb language sql security invoker set search_path='' as $$select private.claim_advertising_invoice_email(p_company_id,p_email_id)$$;
+revoke all on function public.claim_advertising_invoice_email(uuid,uuid) from public,anon,authenticated,service_role;
+grant execute on function public.claim_advertising_invoice_email(uuid,uuid) to authenticated;
+create function public.bind_advertising_invoice_email(p_company_id uuid,p_email_id uuid,p_lease_id uuid,p_payload_hash text,p_pdf_sha256 text) returns jsonb language sql security invoker set search_path='' as $$select private.check_advertising_invoice_email(p_company_id,p_email_id,p_lease_id,p_payload_hash,p_pdf_sha256,true)$$;
+revoke all on function public.bind_advertising_invoice_email(uuid,uuid,uuid,text,text) from public,anon,authenticated,service_role;
+grant execute on function public.bind_advertising_invoice_email(uuid,uuid,uuid,text,text) to authenticated;
+create function public.check_advertising_invoice_email(p_company_id uuid,p_email_id uuid,p_lease_id uuid,p_payload_hash text,p_pdf_sha256 text) returns jsonb language sql security invoker set search_path='' as $$select private.check_advertising_invoice_email(p_company_id,p_email_id,p_lease_id,p_payload_hash,p_pdf_sha256,false)$$;
+revoke all on function public.check_advertising_invoice_email(uuid,uuid,uuid,text,text) from public,anon,authenticated,service_role;
+grant execute on function public.check_advertising_invoice_email(uuid,uuid,uuid,text,text) to authenticated;
+create function public.finish_advertising_invoice_email(p_company_id uuid,p_email_id uuid,p_lease_id uuid,p_actor_user_id uuid,p_payload_hash text,p_pdf_sha256 text,p_outcome text,p_provider_id text) returns jsonb language sql security invoker set search_path='' as $$select private.finish_advertising_invoice_email(p_company_id,p_email_id,p_lease_id,p_actor_user_id,p_payload_hash,p_pdf_sha256,p_outcome,p_provider_id)$$;
+revoke all on function public.finish_advertising_invoice_email(uuid,uuid,uuid,uuid,text,text,text,text) from public,anon,authenticated,service_role;
+grant execute on function public.finish_advertising_invoice_email(uuid,uuid,uuid,uuid,text,text,text,text) to service_role;
+create function public.apply_advertising_invoice_email_event(p_event_id text,p_provider_id text,p_event_type text,p_event_at timestamptz,p_recipient_hash text,p_email_id uuid default null) returns jsonb language sql security invoker set search_path='' as $$select private.apply_advertising_invoice_email_event(p_event_id,p_provider_id,p_event_type,p_event_at,p_recipient_hash,p_email_id)$$;
+revoke all on function public.apply_advertising_invoice_email_event(text,text,text,timestamptz,text,uuid) from public,anon,authenticated,service_role;
+grant execute on function public.apply_advertising_invoice_email_event(text,text,text,timestamptz,text,uuid) to service_role;
+commit;

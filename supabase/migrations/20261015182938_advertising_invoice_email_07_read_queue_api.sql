@@ -1,0 +1,11 @@
+begin;
+create function public.get_platform_advertising_invoice_email_page(p_company_id uuid,p_document_kind text,p_document_id uuid) returns jsonb language sql security invoker set search_path='' as $$select private.advertising_invoice_email_page(p_company_id,p_document_kind,p_document_id,true)$$;
+revoke all on function public.get_platform_advertising_invoice_email_page(uuid,text,uuid) from public,anon,authenticated,service_role;
+grant execute on function public.get_platform_advertising_invoice_email_page(uuid,text,uuid) to authenticated;
+create function public.list_advertising_invoice_email_page(p_company_id uuid,p_document_kind text,p_document_id uuid) returns jsonb language sql security invoker set search_path='' as $$select private.advertising_invoice_email_page(p_company_id,p_document_kind,p_document_id,false)$$;
+revoke all on function public.list_advertising_invoice_email_page(uuid,text,uuid) from public,anon,authenticated,service_role;
+grant execute on function public.list_advertising_invoice_email_page(uuid,text,uuid) to authenticated;
+create function public.queue_advertising_invoice_email(p_company_id uuid,p_document_kind text,p_document_id uuid,p_expected_document_source_hash text,p_expected_review_token text,p_review_acknowledged boolean,p_request_id uuid) returns jsonb language sql security invoker set search_path='' as $$select private.queue_advertising_invoice_email(p_company_id,p_document_kind,p_document_id,p_expected_document_source_hash,p_expected_review_token,p_review_acknowledged,p_request_id)$$;
+revoke all on function public.queue_advertising_invoice_email(uuid,text,uuid,text,text,boolean,uuid) from public,anon,authenticated,service_role;
+grant execute on function public.queue_advertising_invoice_email(uuid,text,uuid,text,text,boolean,uuid) to authenticated;
+commit;
