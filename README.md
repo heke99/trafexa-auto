@@ -1,6 +1,8 @@
 # Trafexa Dealer
 
-[Överlåtelse av företagets ägarroll](docs/COMPANY_OWNERSHIP_TRANSFER.md) är implementerad och verifierad inför publicering som nästa organisationsetapp. Nuvarande ägare väljer en befintlig administratör som själv granskar och accepterar inom 24 timmar; därefter växlas rollerna tillsammans. Det gäller Trafexas företagsbehörighet. Verifieringsstatus följs separat i [IMPLEMENTATION_STATUS](docs/IMPLEMENTATION_STATUS.md).
+[Internt filialregister](docs/COMPANY_BRANCHES.md) är implementerat och verifierat inför publicering: adresser och kontaktuppgifter för försäljningsställen inom samma företag, hanterade av ägare och administratörer. Lagerkoppling och filialfilter följer separat.
+
+[Överlåtelse av företagets ägarroll](docs/COMPANY_OWNERSHIP_TRANSFER.md) är publicerad via [PR #33](https://github.com/heke99/trafexa-auto/pull/33) på main `0b041063`. Nuvarande ägare väljer en befintlig administratör som själv granskar och accepterar inom 24 timmar; därefter växlas rollerna tillsammans. Det gäller Trafexas företagsbehörighet. Verifieringsstatus följs separat i [IMPLEMENTATION_STATUS](docs/IMPLEMENTATION_STATUS.md).
 
 [Full kreditfaktura](docs/ADVERTISING_CREDIT_INVOICE_CONTRACT.md) byggs från en utfärdad annonsfakturas exakta frysta belopp och moms. Superadmin granskar orsak och kredit innan numrering; företaget får privat läsåtkomst. Originalet bevaras och dubbel kreditering blockeras. Mejlleverans och betalningsavstämning är följande ekonomisteg. Verifieringsstatus redovisas separat.
 
