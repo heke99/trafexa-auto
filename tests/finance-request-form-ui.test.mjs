@@ -19,7 +19,7 @@ test('remote choice beyond 500 uses search and paging, distinguishes identical c
  const form=p.getByRole('form',{name:'Anmäl finansbehov',exact:true});await form.getByLabel('Önskat finansbelopp, kr').fill('123456.78');await form.getByLabel('Kontantinsats, kr').fill('10000');await form.getByLabel('Önskad löptid, månader',{exact:false}).fill('36');await form.getByLabel('Beskriv behovet').fill('Fiktivt behov');await form.getByLabel('Vad gäller behovet?').selectOption('stock');
  assert.equal(await p.locator('form form').count(),0);
  await form.getByRole('button',{name:'Skicka intresseanmälan'}).click();await p.waitForFunction(()=>window.fixture.writes.length===1);
- const submitted=await p.evaluate(()=>window.fixture.writes[0]);assert.equal(submitted.kind,'createFinanceRequest');assert.deepEqual(submitted.input,{expected_company_id:COMPANY,deal_id:second.id,product:'stock',requested_amount:'123456.78',deposit:'10000',term_months:'36',note:'Fiktivt behov'});
+ const submitted=await p.evaluate(()=>window.fixture.writes[0]);assert.equal(submitted.kind,'createFinanceIntakeRequest');assert.match(submitted.input.requestId,/^[a-f0-9-]{36}$/);const {requestId,...payload}=submitted.input;assert.deepEqual(payload,{companyId:COMPANY,dealId:second.id,product:'stock',requestedAmount:'123456.78',deposit:'10000',termMonths:'36',note:'Fiktivt behov'});
  const calls=await p.evaluate(()=>window.fixture.reads);assert.equal(calls[1].input.cursor,'qa:next');
  }finally{await p.close();}
 });

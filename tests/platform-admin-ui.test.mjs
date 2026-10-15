@@ -461,3 +461,24 @@ test('mobile dealer and account actions remain inside their visible cards withou
   const fits=await page.getByLabel('Visa konton').evaluate(element=>element.clientWidth>=180&&element.getBoundingClientRect().right<=innerWidth);assert.equal(fits,true);assert.equal(await page.evaluate(()=>document.body.scrollWidth<=innerWidth),true);
  }finally{await page.close();}
 });
+
+test('account email search retains applied query for pagination and resets cursor when search or status changes',async()=>{
+ const a=makeAccount({email:'one@example.test'}),b=makeAccount({userId:NEXT,email:'two@example.test'});
+ const page=await setup({accountRows:[a,b]});try{
+  await page.getByRole('button',{name:'Konton',exact:true}).click();await page.getByLabel('Sök kontots e-post').fill(' EXAMPLE.TEST ');
+  await page.evaluate(a=>window.fixture.accountResponses.push({ok:true,accounts:[a],nextPageKey:'bound-cursor'}),a);
+  await page.getByRole('button',{name:'Uppdatera konton',exact:true}).click();await expect(page.getByRole('button',{name:'Läs in fler konton'})).toBeVisible();
+  await page.getByLabel('Sök kontots e-post').fill('unsubmitted');await page.evaluate(b=>window.fixture.accountResponses.push({ok:true,accounts:[b],nextPageKey:null}),b);await page.getByRole('button',{name:'Läs in fler konton'}).click();
+  let calls=await page.evaluate(()=>window.fixture.accountListCalls);assert.equal(calls.at(-1).search,'example.test');assert.equal(calls.at(-1).pageKey,'bound-cursor');
+  await page.getByLabel('Visa konton').selectOption('all');await expect(page.getByText('Inga konton i denna vy',{exact:true})).toBeVisible();calls=await page.evaluate(()=>window.fixture.accountListCalls);assert.equal(calls.at(-1).filter,'all');assert.equal(calls.at(-1).search,'unsubmitted');assert.equal(calls.at(-1).pageKey,null);
+  await page.getByLabel('Sök kontots e-post').fill('ONE@EXAMPLE');await page.getByRole('button',{name:'Uppdatera konton',exact:true}).click();await expect(page.getByRole('button',{name:'Visa företag för one@example.test',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Visa företag för two@example.test',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Företag',exact:true}).click();await page.getByRole('button',{name:'Konton',exact:true}).click();await expect(page.getByLabel('Visa konton')).toHaveValue('all');await expect(page.getByLabel('Sök kontots e-post')).toHaveValue('one@example');calls=await page.evaluate(()=>window.fixture.accountListCalls);assert.equal(calls.at(-1).search,'one@example');assert.equal(calls.at(-1).pageKey,null);
+ }finally{await page.close();}
+});
+
+test('mobile application cards retain table semantics and exactly one visible detail action per application',async()=>{
+ const application={...invitationApplication,name:'Sökande med långt namn',email:'mycket.langt.kontonamn.som.maste.brytas@example.test',company:'Bilföretag med mycket långt företagsnamn och verksamhetsbeskrivning'};
+ const page=await setup({application,contactResponses:[{ok:true,requests:[application],nextPageKey:null}]});try{
+  await page.setViewportSize({width:320,height:900});await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();const table=page.getByRole('table',{name:'Ansökningar till Trafexa'});assert.equal(await table.getByRole('columnheader').count(),6);assert.equal(await table.getByRole('row').count(),2);assert.equal(await table.getByRole('cell').count(),6);await expect(table.getByRole('button',{name:/Visa ansökan/})).toHaveCount(1);const rect=await table.getByRole('button').boundingBox();assert.ok(rect.x>=0&&rect.x+rect.width<=320);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await table.getByRole('button').click();await expect(page.getByRole('heading',{name:'Ansökan från Sökande med långt namn'})).toBeVisible();
+ }finally{await page.close();}
+});

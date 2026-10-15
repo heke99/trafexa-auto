@@ -1,0 +1,44 @@
+import{test}from'node:test';
+import assert from'node:assert/strict';
+import{readFile}from'node:fs/promises';
+import{createDatabase,asRole}from'./company-team-db/helpers.mjs';
+import{networkPageSchema}from'../src/lib/dealer-network/validation.ts';
+const id=n=>`fd210000-0000-4000-8000-${String(n).padStart(12,'0')}`;
+test('dealer network explicitly publishes only reviewed public fields, scopes contacts, replays requests and hides stale/sold inventory',async()=>{
+ const db=await createDatabase();try{
+ await db.exec('drop trigger test_established_account_approval on auth.users');
+ const source=await readFile(new URL('../supabase/tests/internal_vehicle_financial_visibility.sql',import.meta.url),'utf8');await db.exec(source.split('-- BEGIN INTERNAL FINANCE FIXTURES')[1].split('-- END INTERNAL FINANCE FIXTURES')[0]);
+ const call=(user,name,args)=>asRole(db,'authenticated',id(user),async tx=>(await tx.query(`select public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')})data`,args)).rows[0].data);
+ const page=(user,company=101,q='')=>call(user,'dealer_network_page',[id(company),q,0]);
+ const mutate=(user,company,nonce,payload)=>call(user,'dealer_network_mutate',[id(company),id(nonce),payload]);
+ assert.equal((await page(7,102)).items.length,0);
+ const initial=await page(2);assert.equal(initial.own.length,1);assert.equal(initial.own[0].published,false);
+ const payload={action:'publish',stockId:id(302),version:0,source:initial.own[0].source,consent:true};
+ for(const user of[4,5,6])await assert.rejects(()=>mutate(user,101,1000+user,payload),/Network denied/);
+ await assert.rejects(()=>mutate(2,101,1010,{...payload,consent:false}),/Review current/);
+ const receipt=await mutate(2,101,1011,payload);assert.deepEqual(await mutate(2,101,1011,payload),receipt);
+ await assert.rejects(()=>mutate(2,101,1011,{...payload,version:1}),/Request conflict/);
+ const other=await page(7,102);networkPageSchema.parse(other);assert.equal(other.items.length,1);const listing=other.items[0];
+ assert.deepEqual(Object.keys(listing.vehicle).sort(),['currency','fuel','gearbox','make','mileageKm','model','priceOre','seller','year']);
+ assert.equal(JSON.stringify(other.items).includes('13700000'),false);assert.equal(JSON.stringify(other.items).includes('ABC123'),false);
+ assert.equal((await page(7,102,'Volvo')).items.length,1);assert.equal((await page(7,102,'no-match')).items.length,0);
+ const interest={action:'inquire',listingId:listing.id,version:listing.version,message:'Är bilen tillgänglig?',consent:true};
+ await assert.rejects(()=>mutate(7,102,1020,{...interest,consent:false}),/consent missing/);
+ const sent=await mutate(7,102,1021,interest);assert.deepEqual(await mutate(7,102,1021,interest),sent);
+ await assert.rejects(()=>mutate(7,102,1022,interest),/Inquiry already exists/);
+ const inbox=await page(4);networkPageSchema.parse(inbox);assert.equal(inbox.threads.length,1);assert.equal(inbox.threads[0].senderEmail,'internal-finance-7@fixture.invalid');assert.equal((await page(5)).threads.length,0);assert.equal((await page(6)).threads.length,0);
+ await mutate(4,101,1023,{action:'reply',inquiryId:sent.receipt.id,message:'Ja, kontakta oss.'});assert.equal((await page(7,102)).threads[0].messages.length,2);
+ await db.query('insert into private.dealer_network_messages(inquiry_id,company_id,message) select $1,$2,\'Synthetic bounded history \'||n from generate_series(1,101)n',[sent.receipt.id,id(101)]);
+ const bounded=(await page(7,102)).threads[0];assert.equal(bounded.messages.length,100);assert.equal(bounded.hasOlderMessages,true);
+ await assert.rejects(()=>mutate(5,101,1024,{action:'reply',inquiryId:sent.receipt.id,message:'Nej'}),/Network denied/);
+ await db.exec(`update public.stock_items set asking_price_ore=26000000 where id='${id(302)}'`);assert.equal((await page(7,102)).items.length,0);assert.equal((await page(2)).own[0].live,false);
+ let own=(await page(2)).own[0];await mutate(2,101,1025,{...payload,source:own.source,version:own.version});assert.equal((await page(7,102)).items.length,1);
+ await db.exec(`update public.stock_items set status='reserved' where id='${id(302)}'`);assert.equal((await page(7,102)).items.length,0);
+ await db.exec(`update public.stock_items set status='sold' where id='${id(302)}'`);assert.equal((await page(7,102)).items.length,0);
+ own=(await page(2)).own[0];await mutate(2,101,1026,{action:'withdraw',stockId:id(302),version:own.version});assert.equal((await page(7,102)).items.length,0);
+ await assert.rejects(()=>asRole(db,'authenticated',id(7),tx=>tx.query('select * from private.dealer_network_inquiries')),/permission denied/);
+ await assert.rejects(()=>page(7,101),/Network denied/);
+ await db.exec(`update public.memberships set status='suspended' where user_id='${id(7)}' and company_id='${id(102)}'`);await assert.rejects(()=>page(7,102),/Network denied/);
+ }finally{await db.close();}
+});
+test('dealer network hosted rollback proof passes on complete migrated schema and leaves eleven zero counters',async()=>{const db=await createDatabase();try{await db.exec(await readFile(new URL('../supabase/tests/dealer_network_opt_in.sql',import.meta.url),'utf8'));const result=await db.query(await readFile(new URL('../supabase/tests/dealer_network_opt_in_cleanup.sql',import.meta.url),'utf8'));const counters=Object.values(result.rows[0])[0];assert.equal(Object.keys(counters).length,11);assert.ok(Object.values(counters).every(n=>n===0),JSON.stringify(counters));}finally{await db.close();}});

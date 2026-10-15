@@ -19,14 +19,25 @@ function rpcError(error:{code?:string}|null){if(error)throw new ActionError(erro
 function failure(error:unknown):AdminResult<never>{const code=error instanceof PlatformAdminError?(error.code==='unavailable'?'unavailable':'access_denied'):error instanceof ActionError?error.code:'unavailable';const messages={invalid_input:'Kontrollera uppgifterna och ange en motivering.',unavailable:'Kontot kunde inte verifieras. Försök igen med samma uppgifter.',access_denied:'Du har inte behörighet att hantera kontot.',conflict:'Kontot har ändrats. Läs in aktuella uppgifter.',not_found:'Kontot kunde inte hittas.'};return {ok:false,code,message:messages[code]};}
 export async function listPlatformAccountsAction(value:unknown={}):Promise<AdminResult<AccountPage>> {
  try{
- const {db,userId}=await requirePlatformAdminContext();const obj=input(value,['filter','pageKey','limit']);
+ const {db,userId}=await requirePlatformAdminContext();const obj=input(value,['filter','pageKey','limit','search']);
  const filter=obj.filter??'pending';if(filter!=='all')status(filter);
- const pageKey=obj.pageKey==null?null:uuid(obj.pageKey),limit=obj.limit===undefined?50:integer(obj.limit);if(limit<1||limit>50)throw new ActionError('invalid_input');
- const result=await (db as unknown as SupabaseClient<AccountDatabase>).rpc('list_platform_accounts',{p_filter:filter as string,p_page_key:pageKey,p_limit:limit});rpcError(result.error);
+ const searching=obj.search!==undefined;
+ if(searching&&(typeof obj.search!=='string'||obj.search.length>254||/[\s\u0000-\u001f\u007f-\u009f]/.test(obj.search.trim())))throw new ActionError('invalid_input');
+ const query=searching?(obj.search as string).trim().toLowerCase():'';
+ function cursor(value:unknown){const c=input(value,['actorId','filter','query','id','createdAt']);if(Object.keys(c).length!==5||c.actorId!==userId||c.filter!==filter||c.query!==query)throw new ActionError('invalid_input');uuid(c.id);timestamp(c.createdAt);return c;}
+ let searchCursor:ReturnType<typeof cursor>|null=null;
+ if(searching&&obj.pageKey!=null){if(typeof obj.pageKey!=='string'||obj.pageKey.length>2048)throw new ActionError('invalid_input');try{searchCursor=cursor(JSON.parse(obj.pageKey));}catch{throw new ActionError('invalid_input');}}
+ const pageKey=searching?null:obj.pageKey==null?null:uuid(obj.pageKey),limit=obj.limit===undefined?50:integer(obj.limit);if(limit<1||limit>50)throw new ActionError('invalid_input');
+ const client=db as unknown as SupabaseClient<AccountDatabase>;
+ const result=searching?await client.rpc('search_platform_accounts',{p_filter:filter as string,p_query:query,p_cursor:searchCursor as import('@/lib/supabase/database.types').Json|null,p_limit:limit}):await client.rpc('list_platform_accounts',{p_filter:filter as string,p_page_key:pageKey,p_limit:limit});rpcError(result.error);
  const row=object(result.data);if(row.actorUserId!==userId||!Array.isArray(row.accounts)||row.accounts.length>limit)throw new ActionError('unavailable');
+ if(searching&&(row.filter!==filter||row.query!==query))throw new ActionError('unavailable');
  const accounts:PlatformAccount[]=row.accounts.map(value=>{const a=object(value);if(typeof a.emailVerified!=='boolean'||typeof a.isPlatformAdmin!=='boolean')throw new ActionError('unavailable');const account:PlatformAccount={userId:uuid(a.userId),name:displayName(a.name),email:text(a.email,254),emailVerified:a.emailVerified,createdAt:timestamp(a.createdAt),status:status(a.status),version:integer(a.version),isPlatformAdmin:a.isPlatformAdmin};if(filter!=='all'&&account.status!==filter||account.version===0&&account.status!=='pending'&&!account.isPlatformAdmin)throw new ActionError('unavailable');return account;});
  if(new Set(accounts.map(a=>a.userId)).size!==accounts.length||accounts.some((a,i)=>i>0&&(Date.parse(a.createdAt)>Date.parse(accounts[i-1].createdAt)||a.createdAt===accounts[i-1].createdAt&&a.userId>=accounts[i-1].userId)))throw new ActionError('unavailable');
- const nextPageKey=row.nextPageKey===null?null:uuid(row.nextPageKey);if(nextPageKey&&nextPageKey!==accounts.at(-1)?.userId)throw new ActionError('unavailable');
+ if(searching&&accounts.some(account=>!account.email.toLowerCase().includes(query)))throw new ActionError('unavailable');
+ let nextPageKey:string|null;
+ if(searching){if(row.nextCursor===null)nextPageKey=null;else{const next=cursor(row.nextCursor);if(next.id!==accounts.at(-1)?.userId||Date.parse(next.createdAt as string)!==Date.parse(accounts.at(-1)!.createdAt))throw new ActionError('unavailable');nextPageKey=JSON.stringify(next);}}
+ else {nextPageKey=row.nextPageKey===null?null:uuid(row.nextPageKey);if(nextPageKey&&nextPageKey!==accounts.at(-1)?.userId)throw new ActionError('unavailable');}
  const fresh=await requirePlatformAdminContext();if(fresh.userId!==userId)throw new ActionError('access_denied');
  return {ok:true,accounts,nextPageKey};
  }catch(error){return failure(error);}

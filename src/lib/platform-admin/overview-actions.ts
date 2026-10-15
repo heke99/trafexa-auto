@@ -20,7 +20,7 @@ function parse(value:unknown,actor:string):PlatformOverview {
  return {actorUserId:actor,generatedAt:row.generatedAt,
  companies:group(row.companies,['total','active','suspended']),users:group(row.users,['total','verified','activeMemberships']),
  applications:group(row.applications,['total','new','inReview','contacted','closed','legacyIncomplete']),inventory:group(row.inventory,['total','available','reserved','sold','archived']),
- deals:group(row.deals,['total','draft','reserved','cancelled']),offers:group(row.offers,['versions','customerReviews','accepted','declined']),
+ deals:group(row.deals,['total','draft','reserved','cancelled','completed']),offers:group(row.offers,['versions','customerReviews','accepted','declined']),
  advertising:group(row.advertising,['draft','ready','connectionsRequested','connectionsVerified']),financing:group(row.financing,['intakeRequests']),
  stockAskingPriceOre:count(row.stockAskingPriceOre),daily} as PlatformOverview;
 }

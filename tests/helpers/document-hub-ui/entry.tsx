@@ -1,0 +1,1 @@
+import React from 'react';import{createRoot}from'react-dom/client';import{DealerDocumentHub}from'../../../src/components/dealer-document-hub';const root=createRoot(document.getElementById('root')!);(window as unknown as {mountHub:(props:React.ComponentProps<typeof DealerDocumentHub>)=>void}).mountHub=props=>root.render(<DealerDocumentHub {...props}/>);

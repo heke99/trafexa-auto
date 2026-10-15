@@ -54,7 +54,11 @@ async function harness() {
         async getUser() { request.authCalls++; return { data: { user: request.user }, error: request.authError }; },
         getClaims() { throw new Error('Authorization must use verified getUser(), not JWT/user metadata.'); },
       },
-      async rpc(name, args) {
+      rpc(name, args) {
+        if (name === 'create_customer_request') return {async abortSignal() {
+          request.inserts.push({table:'customers',value:{company_id:args.p_company_id,name:args.p_name,kind:args.p_kind,email:args.p_email||null,phone:args.p_phone||null,address:args.p_address||null,notes:args.p_notes||null}});
+          return {data:{companyId:args.p_company_id,actorId:request.user.id,requestId:args.p_request_id,kind:'customer',recordId:STOCK,createdAt:'2026-10-15T10:00:00Z'},error:null};
+        }};
         if (name === 'get_workspace_inventory') {
           const role = request.memberships.find(m => m.company_id === args.p_company_id && m.user_id === request.user.id).role;
           return {data:{companyId:args.p_company_id,actorId:request.user.id,role,rows:request.stock.filter(s=>s.company_id===args.p_company_id).map(s=>({...s,purchase_price_ore:['owner','admin','finance'].includes(role)?s.purchase_price_ore:null}))},error:null};
@@ -217,7 +221,7 @@ test('membership-query errors fail closed and do not read business data or offer
 });
 
 test('legacy mutations require the displayed company and derive the tenant instead of trusting posted company_id', async () => {
-  const h = await harness(), input = form({ name: 'Test Customer', kind: 'business', expected_company_id: A, company_id: B });
+  const h = await harness(), input = form({ name: 'Test Customer', kind: 'business', expected_company_id: A, request_id: FOREIGN, company_id: B });
   const stale = fixture({ cookie: 'stale-company' });
   await h.request(stale, async () => {
     assert.equal(await redirected(() => h.actions.createCustomerAction(input)), '/settings');
