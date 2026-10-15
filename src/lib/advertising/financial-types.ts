@@ -1,0 +1,15 @@
+import type { AdvertisingResult,AdvertisingChannel } from './database.types';
+import type { AdvertisingBillingPage } from './billing-types';
+import type { AdvertisingInvoiceDraft } from './invoice-types';
+export type AdvertisingFinancialSettingsFields={vatTreatment:'unresolved'|'se_standard_25';sellerVatRegistered:boolean|null;sellerVatNumber:string|null;paymentDays:number|null;paymentMethod:'unresolved'|'bankgiro'|'plusgiro'|'iban';paymentAccount:string|null;reason:string|null};
+export type AdvertisingFinancialSettings={companyId:string;version:number;fields:AdvertisingFinancialSettingsFields;reviewToken:string;canonicalSnapshot:string;updatedAt:string|null};
+export type AdvertisingFinancialLine={publicationId:string;listingId:string;channel:AdvertisingChannel;originalOre:string;reductionOre:string;netOre:string;vatOre:string|null;grossOre:string|null};
+export type AdvertisingFinancialPreview={lines:AdvertisingFinancialLine[];netTotalOre:string;vatTotalOre:string|null;grossTotalOre:string|null;blockers:string[]};
+export type AdvertisingFinancialSnapshot={status:'reviewed_draft';currency:'SEK';calculationVersion:1;companyId:string;month:string;sourceReviewToken:string;sourceCanonicalSnapshot:string;draft:AdvertisingInvoiceDraft;settings:AdvertisingFinancialSettings;lines:AdvertisingFinancialLine[];netTotalOre:string;vatTotalOre:string;grossTotalOre:string};
+export type AdvertisingFinancialAssessment={id:string;companyId:string;month:string;version:number;createdAt:string;sourceHash:string;canonicalSnapshot:string;snapshot:AdvertisingFinancialSnapshot};
+export type AdvertisingFinancialSummary=Pick<AdvertisingFinancialAssessment,'id'|'version'|'createdAt'|'sourceHash'>&{draftId:string;draftVersion:number;isOutdated:boolean};
+export type AdvertisingFinancialPage={companyId:string;actorUserId:string;actorRole:AdvertisingBillingPage['actorRole'];month:string;settings:AdvertisingFinancialSettings;draft:AdvertisingInvoiceDraft|null;draftIsOutdated:boolean|null;preview:AdvertisingFinancialPreview|null;reviewToken:string|null;reviewCanonicalSnapshot:string|null;canCreateAssessment:boolean;assessments:AdvertisingFinancialSummary[];nextBeforeVersion:number|null};
+export type AdvertisingFinancialPageResult=AdvertisingResult<{page:AdvertisingFinancialPage}>;
+export type AdvertisingFinancialSettingsResult=AdvertisingResult<{settings:AdvertisingFinancialSettings;receipt:{settingsId:string;companyId:string;actorUserId:string;requestId:string}}>;
+export type AdvertisingFinancialAssessmentResult=AdvertisingResult<{assessment:AdvertisingFinancialAssessment;isOutdated:boolean}>;
+export type AdvertisingFinancialCreateResult=AdvertisingResult<{assessment:AdvertisingFinancialAssessment;isOutdated:boolean;receipt:{assessmentId:string;companyId:string;actorUserId:string;requestId:string;sourceHash:string;sourceReviewToken:string;draftId:string;draftSourceHash:string;settingsVersion:number;settingsReviewToken:string}}>;

@@ -21,8 +21,9 @@ before(async () => {
   bundle = resolve(directory, 'fixture.js');
   styles = await readFile(resolve(repo, 'src/app/globals.css'), 'utf8');
   const config = { mode: 'development', target: 'web', devtool: false, context: repo,
-    entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js' },
-    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/advertising/invoice-actions': resolve(helpers,'actions.js'), '@': resolve(repo,'src') } },
+    entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js', publicPath: '' },
+    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/advertising/financial-actions': resolve(repo, 'tests/helpers/advertising-financial-ui/actions.js'), '@/lib/advertising/invoice-actions': resolve(helpers,'actions.js'), '@': resolve(repo,'src') } },
+    plugins: [new webpack.optimize.LimitChunkCountPlugin({ maxChunks: 1 })],
     module: { rules: [{ test: /\.tsx?$/, use: resolve(repo, 'tests/helpers/advertising-usage-ui/swc-loader.cjs') }] } };
   await new Promise((resolveBuild, reject) => { const compiler = webpack(config); compiler.run((error, stats) => compiler.close(() => { if (error || stats.hasErrors()) reject(error ?? new Error(stats.toString({ all: false, errors: true }))); else resolveBuild(); })); });
   browser = await playwright.launch({ executablePath: await Chromium.executablePath(), args: Chromium.args.filter(argument => argument !== '--single-process'), headless: true });
@@ -77,3 +78,41 @@ test('late selected draft after company switch cannot restore the prior PDF link
 test('wrong actor mutation receipt is denied before historical data can be displayed',async()=>{const page=await setup();try{
  await page.getByRole('button',{name:'Granska nytt fakturautkast'}).click();await page.getByRole('checkbox',{name:draftAck}).check();await page.evaluate(()=>window.invoiceMutationResponses.push({ok:true,draft:window.invoiceDraft,isOutdated:false,receipt:{draftId:window.invoiceDraft.id,companyId:window.invoicePage.companyId,actorUserId:'10000000-0000-4000-8000-000000000099',requestId:'20000000-0000-4000-8000-000000000001',sourceHash:window.invoiceDraft.sourceHash}}));await page.getByRole('button',{name:'Bekräfta och spara fakturautkast'}).click();await expect(page.getByRole('alert')).toContainText('Kvittot kunde inte verifieras');await expect(page.getByRole('button',{name:'Visa sparat utkast version 1'})).toHaveCount(0);
 }finally{await page.close();}});
+test('invoice parent loads financial settings only on request, remounts for selected draft and clears all private parent data on child denial',async()=>{
+ const page=await setup();try{
+  assert.equal(await page.evaluate(()=>(window.financialCalls??[]).length),0);
+  await expect(page.getByRole('region',{name:'Moms och betalningsunderlag'})).toHaveCount(0);
+  await page.evaluate(()=>{
+   window.financialCalls=[];window.financialResponses=[];
+   window.financialPage={companyId:window.invoicePage.companyId,actorUserId:window.invoicePage.actorUserId,actorRole:'platform_admin',month:window.invoicePage.month,settings:{companyId:window.invoicePage.companyId,version:0,fields:{vatTreatment:'unresolved',sellerVatRegistered:null,sellerVatNumber:null,paymentDays:null,paymentMethod:'unresolved',paymentAccount:null,reason:null},reviewToken:'b'.repeat(64),canonicalSnapshot:'{}',updatedAt:null},draft:null,draftIsOutdated:null,preview:null,reviewToken:null,reviewCanonicalSnapshot:null,canCreateAssessment:false,assessments:[],nextBeforeVersion:null};
+  });
+  await page.getByRole('button',{name:'Visa moms- och betalningsunderlag',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Gällande uppgifter · Version 0'})).toBeVisible();
+  await expect(page.getByText('Välj ett sparat fakturautkast för att se momsberäkningen.',{exact:false})).toBeVisible();
+  assert.deepEqual(await page.evaluate(()=>window.financialCalls.map(call=>({kind:call.kind,draftId:call.draftId,companyId:call.companyId,platform:call.platform}))),[{kind:'read',draftId:null,companyId:COMPANY,platform:true}]);
+  await page.getByRole('button',{name:'Ändra moms- och betalningsuppgifter',exact:true}).click();
+  await page.getByLabel('Motivering till uppgifterna').fill('Osparad uppgift före val av utkast');
+  await page.evaluate(()=>{
+   window.financialPage={...window.financialPage,draft:window.invoiceDraft,draftIsOutdated:false,reviewToken:'c'.repeat(64),reviewCanonicalSnapshot:'{}',preview:{lines:[],netTotalOre:'10000',vatTotalOre:null,grossTotalOre:null,blockers:['vatTreatment']}};
+  });
+  await page.getByRole('button',{name:'Visa sparat utkast version 1',exact:true}).click();
+  await expect(page.getByRole('link',{name:'Hämta PDF av sparat utkast version 1',exact:true})).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>window.financialCalls.length)).toBe(2);
+  await expect(page.getByRole('region',{name:'Redigera moms- och betalningsuppgifter'})).toHaveCount(0);
+  await expect(page.getByRole('region',{name:'Moms och betalningsunderlag'})).toContainText('Underlag exklusive moms');
+  assert.equal(await page.evaluate(()=>window.financialCalls[1].draftId),DRAFT);
+  assert.equal(await page.evaluate(()=>window.financialCalls[1].companyId),COMPANY);
+  await page.evaluate(()=>window.financialResponses.push({ok:false,code:'access_denied',message:'Ekonomibehörigheten är återkallad'}));
+  await page.getByRole('button',{name:'Uppdatera moms- och betalningsunderlag',exact:true}).click();
+  await expect(page.getByRole('alert')).toHaveText('Ekonomibehörigheten är återkallad');
+  await expect(page.getByRole('heading',{name:'Köparens faktureringsuppgifter',exact:true})).toHaveCount(0);
+  await expect(page.getByText('Exempelbil AB',{exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Visa sparat utkast version 1',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('region',{name:'Valt fakturautkast'})).toHaveCount(0);
+  await expect(page.getByRole('region',{name:'Moms och betalningsunderlag'})).toHaveCount(0);
+  await expect(page.getByRole('link',{name:'Hämta PDF av sparat utkast version 1',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Uppdatera faktureringsuppgifter',exact:true})).toBeDisabled();
+  assert.equal(await page.evaluate(()=>window.financialCalls.some(call=>call.kind!=='read')),false);
+  assert.equal(await page.evaluate(()=>window.invoiceCalls.some(call=>!['read','detail'].includes(call.kind))),false);
+ }finally{await page.close();}
+});
