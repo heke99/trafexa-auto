@@ -32,6 +32,7 @@ function fixture() {
     async saveJob(jobId, expectedVersion, token, outcome) {
       calls.push(['save', jobId, expectedVersion, token, outcome]);
       assert.equal(expectedVersion, job.version);
+      if (job.providerAdId !== null) assert.equal(outcome.providerAdId, job.providerAdId, 'persisted provider identity is immutable');
       job = { ...job, ...outcome, version: job.version + 1 }; return structuredClone(job);
     },
     async expireDispatch() { calls.push(['expire']); job = { ...job, status: 'outcome_unknown', version: job.version + 1 }; return structuredClone(job); },
@@ -79,6 +80,75 @@ test('tenant, connection revision, channel and verified account scope are checke
     assert.deepEqual(f.calls, []);
   }
 });
+test('dealers sharing a dispatcher use their own exact binding regardless of provider order', async () => {
+  for (const reverse of [false, true]) {
+    const f = fixture(); let otherCalls = 0;
+    const other = { ...f.provider, verifiedBinding: { ...f.provider.verifiedBinding, companyId: id(20), connectionId: id(21), accountReference: 'DEALER-B' },
+      async submit() { otherCalls++; throw Error('wrong dealer'); } };
+    f.options.providers = reverse ? [f.provider, other] : [other, f.provider];
+    assert.equal((await createAdvertisingWorker(f.options).run(id(1))).status, 'submitted');
+    assert.equal(otherCalls, 0); assert.equal(f.calls.filter(([kind]) => kind === 'submit').length, 1);
+  }
+});
+test('ambiguous exact provider bindings fail before media, claiming or external requests', async () => {
+  const f = fixture();
+  f.options.providers.push({ ...f.provider, verifiedBinding: { ...f.provider.verifiedBinding } });
+  await assert.rejects(createAdvertisingWorker(f.options).run(id(1)), /connection_unavailable/);
+  assert.deepEqual(f.calls, []);
+});
+test('submitted provider identity is retained without claiming publication', async () => {
+  const f = fixture(); f.provider.submit = async () => ({ status: 'submitted', providerAdId: 'accepted-123', errorCode: 'awaiting_publication' });
+  const result = await createAdvertisingWorker(f.options).run(id(1));
+  assert.equal(result.status, 'submitted'); assert.equal(result.providerAdId, 'accepted-123'); assert.equal(result.providerUrl, null);
+  assert.deepEqual(f.calls.find(([kind]) => kind === 'save')[4], { status: 'submitted', providerAdId: 'accepted-123', errorCode: 'awaiting_publication' });
+});
+test('invalid submitted provider identities become unknown without persisting unsafe evidence', async () => {
+  for (const providerAdId of ['', 'x'.repeat(201), 'unsafe\nidentity', 'unsafe\u0085identity', 123]) {
+    const f = fixture(); f.provider.submit = async () => ({ status: 'submitted', providerAdId });
+    const result = await createAdvertisingWorker(f.options).run(id(1));
+    assert.equal(result.status, 'outcome_unknown'); assert.equal(result.providerAdId, null);
+    assert.deepEqual(f.calls.find(([kind]) => kind === 'save')[4], { status: 'outcome_unknown', errorCode: 'invalid_provider_evidence' });
+  }
+});
+test('reconciliation can add the first submitted identity and keeps it on later receipts', async () => {
+  const f = fixture(); f.job.status = 'submitted';
+  f.provider.reconcile = async () => ({ status: 'submitted', providerAdId: 'accepted-123' });
+  const worker = createAdvertisingWorker(f.options);
+  assert.equal((await worker.run(id(1))).providerAdId, 'accepted-123');
+  assert.equal(f.calls.filter(([kind]) => kind === 'save').length, 1);
+  f.provider.reconcile = async () => ({ status: 'submitted' });
+  assert.equal((await worker.run(id(1))).providerAdId, 'accepted-123');
+  assert.equal(f.calls.filter(([kind]) => kind === 'save').length, 1);
+  f.provider.reconcile = async () => ({ status: 'published', providerAdId: 'accepted-123', providerUrl: null });
+  assert.equal((await worker.run(id(1))).status, 'published');
+  assert.ok(!f.calls.some(([kind]) => kind === 'submit' || kind === 'claim' || kind === 'media'));
+});
+test('unknown reconciliation retains an established identity when submitted or rejected omits it', async () => {
+  for (const status of ['submitted', 'rejected']) {
+    const f = fixture(); f.job.status = 'outcome_unknown'; f.job.providerAdId = 'accepted-123';
+    f.provider.reconcile = async () => ({ status, errorCode: 'provider_status_pending' });
+    const result = await createAdvertisingWorker(f.options).run(id(1));
+    assert.equal(result.status, status); assert.equal(result.providerAdId, 'accepted-123');
+    assert.equal(f.calls.find(([kind]) => kind === 'save')[4].providerAdId, 'accepted-123');
+    assert.ok(!f.calls.some(([kind]) => kind === 'submit' || kind === 'claim'));
+  }
+});
+test('reconciliation never changes an established provider identity or verifies mismatched evidence', async () => {
+  for (const status of ['submitted', 'published', 'rejected']) {
+    const f = fixture(); f.job.status = 'outcome_unknown'; f.job.providerAdId = 'accepted-123';
+    f.provider.reconcile = async () => ({ status, providerAdId: 'other-456', providerUrl: null });
+    const result = await createAdvertisingWorker(f.options).run(id(1));
+    assert.equal(result.status, 'outcome_unknown'); assert.equal(result.providerAdId, 'accepted-123');
+    assert.deepEqual(f.calls, []);
+  }
+});
+test('submission with changed provider identity records unknown while keeping the known identity', async () => {
+  const f = fixture(); f.job.providerAdId = 'accepted-123';
+  f.provider.submit = async () => ({ status: 'published', providerAdId: 'other-456', providerUrl: null });
+  const result = await createAdvertisingWorker(f.options).run(id(1));
+  assert.equal(result.status, 'outcome_unknown'); assert.equal(result.providerAdId, 'accepted-123');
+  assert.deepEqual(f.calls.find(([kind]) => kind === 'save')[4], { status: 'outcome_unknown', providerAdId: 'accepted-123', errorCode: 'invalid_provider_evidence' });
+});
 test('cross-tenant, archived and duplicate photos are rejected before signing or claiming', async () => {
   for (const mutate of [p => { p.companyId = id(9); }, p => { p.status = 'archived'; }, p => { p.objectPath = 'somewhere/evil.jpg'; }]) {
     const f = fixture(); mutate(f.job.snapshot.photos[0]);
@@ -105,7 +175,8 @@ test('expired media, arbitrary origins, redirected paths and wrong private objec
 });
 test('changed claim snapshots or context never reach the provider', async () => {
   for (const mutate of [job => { job.snapshot.description = 'different'; }, job => { job.claimToken = id(99); },
-    job => { job.claimExpiresAt = 'not-a-date'; }, job => { job.version += 1; }, job => { job.createdBy = id(99); }]) {
+    job => { job.claimExpiresAt = 'not-a-date'; }, job => { job.version += 1; }, job => { job.createdBy = id(99); },
+    job => { job.providerAdId = 'changed-identity'; }, job => { job.providerUrl = 'https://www.blocket.se/ad/changed'; }]) {
     const f = fixture(); const claim = f.store.claimJob;
     f.store.claimJob = async (...args) => { const job = await claim(...args); mutate(job); return job; };
     await assert.rejects(createAdvertisingWorker(f.options).run(id(1)), /claim/);

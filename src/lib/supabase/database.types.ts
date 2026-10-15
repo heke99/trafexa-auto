@@ -1050,6 +1050,15 @@ export type GeneratedDatabase = {
         Returns: Json
       }
       get_advertising_job: { Args: { p_job_id: string }; Returns: Json }
+      get_advertising_send_quote: {
+        Args: {
+          p_channels: string[]
+          p_company_id: string
+          p_expected_version: number
+          p_listing_id: string
+        }
+        Returns: Json
+      }
       get_company_store_export: {
         Args: { p_company_id: string; p_export_id: string }
         Returns: Json
@@ -1557,6 +1566,17 @@ export type GeneratedDatabase = {
           p_purchase_vat_ore: string
           p_stock_item_id: string
           p_vat_basis_confirmed: boolean
+        }
+        Returns: Json
+      }
+      send_vehicle_advertisement_priced: {
+        Args: {
+          p_channels: string[]
+          p_company_id: string
+          p_expected_quote_token: string
+          p_expected_version: number
+          p_listing_id: string
+          p_request_id: string
         }
         Returns: Json
       }

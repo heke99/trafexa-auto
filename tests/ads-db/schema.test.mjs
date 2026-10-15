@@ -18,6 +18,8 @@ async function fixture({includeSigningArchive=true}={}){
  await db.query("insert into public.memberships(company_id,user_id,role)values($1,$2,'owner')",[C2,U.other]);
  await db.query("insert into public.vehicles(id,company_id,registration_number,vin,make,model,model_year,mileage_km)values($1,$3,'ABC123','SECRET-VIN','Volvo','V60',2022,12000),($2,$4,'XYZ123','OTHER-VIN','Saab','95',2010,240000)",[V,V2,C,C2]);
  await db.query("insert into public.stock_items(id,company_id,vehicle_id,purchase_price_ore,asking_price_ore,vat_scheme)values($1,$3,$5,11111111,29990000,'standard'),($2,$4,$6,22222222,19990000,'unknown')",[S,S2,C,C2,V,V2]);
+ // Existing ad lifecycle cases now submit a reviewed configured fee, never the legacy unpriced API.
+ for(const company of [C,C2])for(const channel of ['blocket','wayke'])await db.query("insert into private.advertising_channel_rates(company_id,channel,version,unit_price_ore,created_by,request_id,payload)values($1,$2,1,1000,$3,$4,'{}')",[company,channel,U.owner,randomUUID()]);
  return db;
 }
 async function photo(db,{user=U.owner,stock=S,company=C,photoId=randomUUID(),size=12,mime='image/jpeg',ownerId=user,owner=null,request=randomUUID(),upload=true}={}){
@@ -29,7 +31,14 @@ async function save(db,{user=U.owner,listingId=randomUUID(),version=0,photoIds=[
  return rpc(db,user,'save_vehicle_advertisement',{p_company_id:company,p_stock_id:stock,p_listing_id:listingId,p_expected_version:version,p_title:title,p_description:description,p_photo_ids:photoIds,p_include_registration_number:optin,p_request_id:request});
 }
 const ready=(db,l,request=randomUUID(),user=U.owner)=>rpc(db,user,'mark_vehicle_advertisement_ready',{p_company_id:l.companyId,p_listing_id:l.id,p_expected_version:l.version,p_request_id:request});
-const send=(db,l,{user=U.owner,channels=['blocket'],request=randomUUID()}={})=>rpc(db,user,'send_vehicle_advertisement',{p_company_id:l.companyId,p_listing_id:l.id,p_expected_version:l.version,p_channels:channels,p_request_id:request});
+const reviewedTokens=new WeakMap();
+async function send(db,l,{user=U.owner,channels=['blocket'],request=randomUUID()}={}){
+ const args={p_company_id:l.companyId,p_listing_id:l.id,p_expected_version:l.version,p_channels:channels};
+ if(!reviewedTokens.has(db))reviewedTokens.set(db,new Map());
+ const tokens=reviewedTokens.get(db),key=JSON.stringify({user,request,...args});
+ if(!tokens.has(key))tokens.set(key,(await rpc(db,user,'get_advertising_send_quote',args)).reviewToken);
+ return rpc(db,user,'send_vehicle_advertisement_priced',{...args,p_request_id:request,p_expected_quote_token:tokens.get(key)});
+}
 async function approved(db,channels=['blocket']){
  for(const channel of channels){
   await rpc(db,null,'refresh_advertising_dispatcher',{p_dispatcher_id:`${channel}-main`,p_channel:channel,p_available_until:new Date(Date.now()+240000).toISOString()},'service_role');

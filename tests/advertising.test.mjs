@@ -11,6 +11,12 @@ const JOB = '50000000-0000-4000-8000-000000000001';
 const JOB2 = '50000000-0000-4000-8000-000000000002';
 const USER = '60000000-0000-4000-8000-000000000001';
 const REQUEST = '70000000-0000-4000-8000-000000000001';
+const TOKEN = 'a'.repeat(64);
+const RATE = '80000000-0000-4000-8000-000000000001';
+function quote(channels = ['blocket']) {
+  return { companyId: COMPANY, actorUserId: USER, listingId: LISTING, listingVersion: 2, channels: [...channels].sort(), currency: 'SEK', taxBasis: 'exclusive', billingUnit: 'unique_publication',
+    items: [...channels].sort().map(channel => ({ channel, rateId: RATE, rateVersion: 1, unitPriceOre: '12500', chargeOre: '12500', alreadyPublished: false, publicationId: null })), totalOre: String(channels.length * 12500), reviewToken: TOKEN };
+}
 const NOW = '2026-10-13T21:00:00Z';
 const user = { id: USER, email: 'owner@example.com', email_confirmed_at: NOW, is_anonymous: false, user_metadata: { role: 'owner' } };
 const photo = { id: PHOTO, companyId: COMPANY, stockId: STOCK, objectPath: `${COMPANY}/${STOCK}/${PHOTO}.jpg`, contentType: 'image/jpeg', sizeBytes: 2000, version: 1, status: 'active', createdAt: NOW, storageBucket: 'ads-vehicle-photos', storageVisibility: 'private' };
@@ -21,7 +27,7 @@ const connections = [{ channel: 'blocket', status: 'disconnected', accountRefere
 const createInput = { companyId: COMPANY, stockItemId: STOCK, title: snapshot.title, description: snapshot.description, photoIds: [PHOTO], requestId: REQUEST };
 const saveInput = { ...createInput, listingId: LISTING, expectedVersion: 2 };
 const readyInput = { companyId: COMPANY, listingId: LISTING, expectedVersion: 1, requestId: REQUEST };
-const sendInput = { companyId: COMPANY, listingId: LISTING, expectedVersion: 2, channels: ['blocket'], requestId: REQUEST };
+const sendInput = { companyId: COMPANY, listingId: LISTING, expectedVersion: 2, channels: ['blocket'], requestId: REQUEST, expectedQuoteToken: TOKEN };
 const connectionInput = { companyId: COMPANY, channel: 'blocket', accountReference: 'dealer-account-123', requestId: REQUEST };
 
 async function fixture(options = {}) {
@@ -43,7 +49,8 @@ async function fixture(options = {}) {
       if (name === 'get_stock_advertising') return { data: options.details ?? { listing, jobs: [job], channels: connections }, error: options.rpcError ?? null };
       if (name === 'save_vehicle_advertisement') return { data: options.saveReceipt ?? { actorUserId: USER, requestId: args.p_request_id, listing: { ...listing, id: args.p_listing_id, version: args.p_expected_version + 1, status: 'draft', snapshot: { ...snapshot, title: args.p_title, description: args.p_description, photos: args.p_photo_ids.length ? [photo] : [], includeRegistrationNumber: args.p_include_registration_number, registrationNumber: args.p_include_registration_number ? 'ABC123' : null } } }, error: options.rpcError ?? null };
       if (name === 'mark_vehicle_advertisement_ready') return { data: options.readyReceipt ?? { actorUserId: USER, requestId: REQUEST, listing }, error: options.rpcError ?? null };
-      if (name === 'send_vehicle_advertisement') return { data: options.sendReceipt ?? { actorUserId: USER, requestId: REQUEST, status: 'connection_required', jobs: [], listing }, error: options.rpcError ?? null };
+      if (name === 'get_advertising_send_quote') return { data: options.quote ?? quote(args.p_channels), error: options.rpcError ?? null };
+      if (name === 'send_vehicle_advertisement_priced') return { data: options.sendReceipt ?? { actorUserId: USER, requestId: REQUEST, status: 'connection_required', jobs: [], listing }, error: options.rpcError ?? null };
       if (name === 'request_advertising_connection') return { data: options.connectionReceipt ?? { actorUserId: USER, requestId: REQUEST, connection: { channel: 'blocket', status: 'requested', accountReference: 'dealer-account-123', dispatcherAvailable: false } }, error: options.rpcError ?? null };
       throw new Error('Unexpected RPC');
     },
@@ -165,13 +172,13 @@ test('missing/expired/unverified trusted connections produce connection_required
   const { actions, invalidations, calls } = await fixture();
   const result = await actions.sendAdvertisingListingAction({ ...sendInput, channels: ['wayke', 'blocket'] });
   assert.equal(result.ok, false); assert.equal(result.code, 'connection_required'); assert.equal('receipt' in result, false); assert.deepEqual(invalidations, []);
-  assert.deepEqual(calls.at(-1)[1], { p_company_id: COMPANY, p_listing_id: LISTING, p_expected_version: 2, p_channels: ['blocket', 'wayke'], p_request_id: REQUEST });
-  assert.equal(calls.filter(call => call[0] === 'send_vehicle_advertisement').length, 1);
+  assert.deepEqual(calls.at(-1)[1], { p_company_id: COMPANY, p_listing_id: LISTING, p_expected_version: 2, p_channels: ['blocket', 'wayke'], p_request_id: REQUEST, p_expected_quote_token: TOKEN });
+  assert.equal(calls.filter(call => call[0] === 'send_vehicle_advertisement_priced').length, 1);
 });
 
 test('atomic configured send accepts only one correctly-bound durable queued job for every selected channel', async () => {
   const jobs = [job, { ...job, id: JOB2, channel: 'wayke' }];
-  const receipt = { actorUserId: USER, requestId: REQUEST, status: 'queued', jobs, listing };
+  const receipt = { actorUserId: USER, requestId: REQUEST, status: 'queued', jobs, listing, quote: quote(['blocket', 'wayke']) };
   const { actions } = await fixture({ sendReceipt: receipt });
   const result = await actions.sendAdvertisingListingAction({ ...sendInput, channels: ['wayke', 'blocket'] });
   assert.equal(result.ok, true); assert.equal(result.receipt.status, 'queued'); assert.equal(result.receipt.jobs.length, 2);
@@ -179,6 +186,68 @@ test('atomic configured send accepts only one correctly-bound durable queued job
     const invalid = await fixture({ sendReceipt: { ...receipt, ...patch } });
     assert.equal((await invalid.actions.sendAdvertisingListingAction({ ...sendInput, channels: ['blocket', 'wayke'] })).code, 'unavailable');
   }
+});
+
+test('send quote is limited to active write roles and exact tenant, listing version and selected channels', async () => {
+  const input = { companyId: COMPANY, listingId: LISTING, expectedVersion: 2, channels: ['wayke', 'blocket'] };
+  for (const role of ['owner', 'admin', 'sales', 'finance', 'viewer']) {
+    const f = await fixture({ role });
+    const result = await f.actions.getAdvertisingSendQuoteAction(input);
+    assert.equal(result.ok, ['owner', 'admin', 'sales'].includes(role));
+    if (result.ok) {
+      assert.deepEqual(result.quote, quote(['blocket', 'wayke']));
+      assert.deepEqual(f.calls.at(-1), ['get_advertising_send_quote', { p_company_id: COMPANY, p_listing_id: LISTING, p_expected_version: 2, p_channels: ['blocket', 'wayke'] }]);
+    } else assert.equal(f.calls.some(call => call[0] === 'get_advertising_send_quote'), false);
+  }
+  for (const patch of [{ channels: [] }, { channels: ['blocket', 'blocket'] }, { expectedVersion: 0 }, { unitPriceOre: '1' }, { expectedQuoteToken: TOKEN }]) {
+    const f = await fixture();
+    assert.equal((await f.actions.getAdvertisingSendQuoteAction({ ...input, ...patch })).code, 'invalid_input');
+    assert.deepEqual(f.calls, []);
+  }
+});
+
+test('quote preserves missing price, explicit zero, prior publication and full bigint totals without coercion', async () => {
+  const input = { companyId: COMPANY, listingId: LISTING, expectedVersion: 2, channels: ['blocket', 'wayke'] };
+  const max = '9223372036854775807';
+  for (const q of [
+    { ...quote(input.channels), items: quote(input.channels).items.map(item => ({ ...item, unitPriceOre: max, chargeOre: max })), totalOre: '18446744073709551614' },
+    { ...quote(input.channels), items: quote(input.channels).items.map(item => ({ ...item, unitPriceOre: '0', chargeOre: '0' })), totalOre: '0' },
+    { ...quote(input.channels), items: quote(input.channels).items.map(item => ({ ...item, alreadyPublished: true, publicationId: REQUEST, chargeOre: '0' })), totalOre: '0' },
+    { ...quote(input.channels), items: quote(input.channels).items.map(item => ({ ...item, rateId: null, rateVersion: null, unitPriceOre: null, chargeOre: null })), totalOre: null },
+  ]) {
+    const f = await fixture({ quote: q });
+    assert.deepEqual((await f.actions.getAdvertisingSendQuoteAction(input)).quote, q);
+  }
+});
+
+test('quote rejects mismatched scope, changed currency or charge basis, malformed rates and fabricated totals', async () => {
+  const q = quote(), item = q.items[0];
+  for (const patch of [{ companyId: FOREIGN }, { actorUserId: FOREIGN }, { listingId: FOREIGN }, { listingVersion: 3 }, { channels: ['wayke'] }, { currency: 'EUR' }, { taxBasis: 'inclusive' }, { billingUnit: 'submission' }, { reviewToken: 'x'.repeat(64) }, { totalOre: '12501' }, { items: [] }, { items: [{ ...item, channel: 'wayke' }] }, { items: [{ ...item, rateVersion: null }] }, { items: [{ ...item, unitPriceOre: 12500 }] }, { items: [{ ...item, unitPriceOre: '9223372036854775808' }] }, { items: [{ ...item, alreadyPublished: true }] }, { items: [{ ...item, publicationId: REQUEST }] }]) {
+    const f = await fixture({ quote: { ...q, ...patch } });
+    assert.equal((await f.actions.getAdvertisingSendQuoteAction({ companyId: COMPANY, listingId: LISTING, expectedVersion: 2, channels: ['blocket'] })).code, 'unavailable');
+  }
+});
+
+test('priced send requires exact reviewed token and accepted receipt; uncertain retries retain exact request and quote', async () => {
+  for (const expectedQuoteToken of [undefined, null, '', 'a'.repeat(63), 'A'.repeat(64), 1]) {
+    const f = await fixture();
+    assert.equal((await f.actions.sendAdvertisingListingAction({ ...sendInput, expectedQuoteToken })).code, 'invalid_input');
+    assert.deepEqual(f.calls, []);
+  }
+  const receipt = { actorUserId: USER, requestId: REQUEST, status: 'queued', jobs: [job], listing, quote: quote() };
+  for (const accepted of [undefined, { ...quote(), reviewToken: 'b'.repeat(64) }, { ...quote(), listingVersion: 3 }, { ...quote(), totalOre: '0' }]) {
+    const f = await fixture({ sendReceipt: { ...receipt, quote: accepted } });
+    assert.equal((await f.actions.sendAdvertisingListingAction(sendInput)).code, 'unavailable');
+    assert.deepEqual(f.invalidations, []);
+  }
+  let attempts = 0;
+  const f = await fixture({ sendReceipt: receipt, rpc(name) { if (name === 'send_vehicle_advertisement_priced' && !attempts++) throw new Error('unknown outcome'); } });
+  assert.equal((await f.actions.sendAdvertisingListingAction(sendInput)).code, 'unavailable');
+  assert.equal((await f.actions.sendAdvertisingListingAction(sendInput)).ok, true);
+  const calls = f.calls.filter(call => call[0] === 'send_vehicle_advertisement_priced');
+  assert.deepEqual(calls[0], calls[1]);
+  const stale = await fixture({ rpcError: { code: '40001', message: 'secret diagnostic' } });
+  assert.equal((await stale.actions.sendAdvertisingListingAction(sendInput)).code, 'conflict');
 });
 
 test('published state requires evidence id and validates an optional HTTPS URL on the exact provider allowlist', async () => {
