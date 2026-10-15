@@ -186,7 +186,31 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
       try {
         const result = await setPlatformWebApplicationStatusAction({ ...payload, requestId });
         if (generation.current !== requestGeneration) return;
-        if (!result.ok) { handleFailure(result); return; }
+        if (!result.ok) {
+          if (result.code !== 'conflict') { handleFailure(result); return; }
+          // A definite version conflict cannot be retried with the old review.
+          // Remove stale personal data before fetching the new decision source.
+          const previousIndex = contacts.findIndex(item => item.id === payload.applicationId);
+          setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null);
+          setContacts(previous => previous.filter(item => item.id !== payload.applicationId));
+          applicationIntent.current = null;
+          let current;
+          try { current = await getPlatformWebApplicationAction({ applicationId: payload.applicationId }); }
+          catch {
+            if (generation.current === requestGeneration) setError('Ansökan har ändrats, men den aktuella versionen kunde inte läsas in. Uppdatera ansökningslistan och öppna ansökan igen.');
+            return;
+          }
+          if (generation.current !== requestGeneration) return;
+          if (!current.ok) { handleFailure(current); return; }
+          setApplication(current.application); setApplicationAudit(current.audit);
+          setContacts(previous => {
+            const rows = previous.filter(item => item.id !== payload.applicationId);
+            if (previousIndex >= 0) rows.splice(Math.min(previousIndex, rows.length), 0, current.application);
+            return rows;
+          });
+          handleFailure(result);
+          return;
+        }
         const current = await getPlatformWebApplicationAction({ applicationId: payload.applicationId });
         if (generation.current !== requestGeneration) return;
         if (!current.ok) { handleFailure(current); return; }

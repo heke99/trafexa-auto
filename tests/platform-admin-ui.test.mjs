@@ -166,6 +166,38 @@ test('application details expose actual fields, review status with stable unknow
 });
 
 
+test('application status CAS conflict reloads current source and requires a new review and nonce',async()=>{
+ const application={id:COMPANY,name:'Old Person',email:'old@example.test',company:'Old AB',organisationNumber:'5561234567',seeking:['system'],status:'new',version:1,createdAt:'2026-10-14T08:00:00Z'};
+ const current={...application,name:'Current Person',email:'current@example.test',status:'in_review',version:2};
+ const before={...application,id:NEXT,name:'Before Person'},after={...application,id:FILTERED,name:'After Person'};
+ const page=await setup({application,contactResponses:[{ok:true,requests:[before,application,after],nextPageKey:null}],detailResponses:[{ok:true,application,audit:[]},{ok:true,application:current,audit:[]}],applicationStatusResponses:[{ok:false,code:'conflict',message:'Ansökan har ändrats. Granska aktuell version.'}]});
+ try {
+  await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();await page.getByRole('button',{name:'Visa ansökan från Old Person',exact:true}).click();
+  await page.getByLabel('Ny handläggningsstatus').selectOption('contacted');await page.getByLabel('Motivering för handläggning').fill('Kontaktad via telefon');await page.getByRole('button',{name:'Granska handläggningsstatus',exact:true}).click();await page.getByRole('button',{name:'Bekräfta handläggningsstatus',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Ansökan från Current Person'})).toBeVisible();await expect(page.getByRole('button',{name:'Bekräfta handläggningsstatus',exact:true})).toHaveCount(0);await expect(page.getByRole('heading',{name:'Ansökan från Old Person'})).toHaveCount(0);await expect(page.getByLabel('Ny handläggningsstatus')).toHaveValue('in_review');
+  const table=page.getByRole('table',{name:'Ansökningar till Trafexa'});
+  assert.deepEqual(await table.getByRole('button').allTextContents(),['Visa ansökan från Before Person','Visa ansökan från Current Person','Visa ansökan från After Person']);
+  await expect(table.getByRole('row').filter({hasText:'Current Person'}).getByRole('cell',{name:'Under granskning',exact:true})).toBeVisible();
+  await page.evaluate(value=>{window.fixture.application=value;},current);
+  await page.getByLabel('Ny handläggningsstatus').selectOption('contacted');await page.getByLabel('Motivering för handläggning').fill('Kontaktad via telefon');await page.getByRole('button',{name:'Granska handläggningsstatus',exact:true}).click();assert.equal(await page.evaluate(()=>window.fixture.applicationStatusCalls.length),1);await page.getByRole('button',{name:'Bekräfta handläggningsstatus',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Ansökans status har registrerats.'})).toBeVisible();
+  const calls=await page.evaluate(()=>window.fixture.applicationStatusCalls);assert.equal(calls[0].expectedVersion,1);assert.equal(calls[1].expectedVersion,2);assert.notEqual(calls[0].requestId,calls[1].requestId);
+ } finally {await page.close();}
+});
+
+test('application conflict refetch denial or transport failure never leaves stale data or confirmation',async()=>{
+ for(const mode of ['denied','transport']) {
+  const application={id:COMPANY,name:'Old Person',email:'old@example.test',company:'Old AB',organisationNumber:'5561234567',seeking:['system'],status:'new',version:1,createdAt:'2026-10-14T08:00:00Z'};
+  const page=await setup({application,contactResponses:[{ok:true,requests:[application],nextPageKey:null}],applicationStatusResponses:[{ok:false,code:'conflict',message:'Ansökan har ändrats.'}]});
+  try {
+   await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();await page.getByRole('button',{name:/Visa ansökan/}).click();
+   await page.evaluate(mode=>{window.fixture.detailResponses.shift=()=>{if(mode==='transport')throw Error('Unknown read outcome');return {ok:false,code:'access_denied',message:'Administratörsåtkomst återkallad.'};};},mode);
+   await page.getByLabel('Ny handläggningsstatus').selectOption('contacted');await page.getByLabel('Motivering för handläggning').fill('Kontaktad via telefon');await page.getByRole('button',{name:'Granska handläggningsstatus',exact:true}).click();await page.getByRole('button',{name:'Bekräfta handläggningsstatus',exact:true}).click();
+   await expect(page.getByRole('alert')).toContainText(mode==='denied'?'återkallad':'Uppdatera ansökningslistan');await expect(page.getByRole('heading',{name:'Ansökan från Old Person'})).toHaveCount(0);await expect(page.getByText('old@example.test',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Bekräfta handläggningsstatus',exact:true})).toHaveCount(0);assert.equal(await page.evaluate(()=>window.fixture.applicationStatusCalls.length),1);
+   if(mode==='denied')await expect(page.getByRole('button',{name:'Konton',exact:true})).toBeDisabled();else await expect(page.getByRole('button',{name:'Uppdatera',exact:true})).toBeEnabled();
+  } finally {await page.close();}
+ }
+});
+
 test('permanent erasure needs separate review and confirmation, reuses unknown nonce and clears all displayed personal data',async()=>{
  const application={id:COMPANY,name:'Delete Person',email:'erase@example.test',phone:'+46709999999',company:'Delete AB',organisationNumber:'5561234567',seeking:['system'],message:'Personligt meddelande.',status:'new',version:7,privacyVersion:'2026-10-14',privacyAcknowledgedAt:'2026-10-14T08:00:00Z',createdAt:'2026-10-14T08:00:00Z'};
  const page=await setup({application,contactResponses:[{ok:true,requests:[application],nextPageKey:null},{ok:true,requests:[],nextPageKey:null}],eraseResponses:[{throw:true}]});
