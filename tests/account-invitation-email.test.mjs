@@ -15,6 +15,22 @@ test('Invitation payload uses one canonical activation URL and encrypted authent
   const rendered = JSON.parse(body);
   assert.equal(rendered.from, 'Trafexa <kundtjanst@trafexa.com>'); assert.equal(rendered.reply_to, 'info@trafexa.com');
   assert.deepEqual(rendered.to, [invitation.email]); assert.match(rendered.html, /&lt;Synthetic&gt;/);
+  assert.equal(rendered.subject, 'Välkommen till Trafexa – din ansökan är godkänd');
+  for (const format of [rendered.text, rendered.html]) {
+    assert.match(format, /Välkommen till Trafexa!/);
+    assert.match(format, /ansökan till Trafexa har granskats och godkänts/);
+    assert.match(format, /bekräfta din e-postadress och välja ett lösenord/);
+    assert.match(format, /Finansiering kräver ett separat godkännande/);
+    assert.match(format, /Länken är personlig och kan användas en gång/);
+    assert.match(format, /info@trafexa\.com/);
+  }
+  assert.match(rendered.html, /<html lang="sv">/);
+  assert.match(rendered.html, /<h1[^>]*>Välkommen till Trafexa!<\/h1>/);
+  assert.match(rendered.html, /Om knappen inte fungerar/);
+  const activationLinks = [...rendered.html.matchAll(/href="(https:[^"]+)"/g)].map(match => match[1]);
+  assert.equal(activationLinks.length, 2);
+  assert.equal(new Set(activationLinks).size, 1, 'CTA and fallback must use the same one-time link');
+  assert.deepEqual(rendered.tags, [{ name: 'kind', value: 'account_invitation' }, { name: 'invitation_id', value: id }]);
   assert.match(rendered.text, new RegExp(`https://app.trafexa.com/auth/invitation\\?token_hash=${token}`));
   const encrypted = content.encryptInvitationBody(body, id, secret);
   assert.ok(!encrypted.includes(token)); assert.ok(!encrypted.includes(invitation.email));

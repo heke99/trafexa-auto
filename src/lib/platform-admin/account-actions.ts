@@ -13,6 +13,7 @@ function uuid(value:unknown){if(typeof value!=='string'||!UUID.test(value))throw
 function status(value:unknown):AccountStatus{if(typeof value!=='string'||!['pending','approved','rejected','suspended'].includes(value))throw new ActionError('invalid_input');return value as AccountStatus;}
 function integer(value:unknown){if(typeof value!=='number'||!Number.isSafeInteger(value)||value<0||value>2147483647)throw new ActionError('invalid_input');return value;}
 function text(value:unknown,max:number){if(typeof value!=='string'||!value.length||value.length>max||/[\u0000-\u001f\u007f]/.test(value))throw new ActionError('invalid_input');return value;}
+function companyName(value:unknown){const result=text(value,320);if([...result].length>160)throw new ActionError('unavailable');return result;}
 function displayName(value:unknown):string|null{return typeof value==='string'&&value.length>0&&value.length<=160&&!/[\u0000-\u001f\u007f]/.test(value)?value:null;}
 function timestamp(value:unknown){const s=text(value,80);if(!Number.isFinite(Date.parse(s)))throw new ActionError('unavailable');return s;}
 function rpcError(error:{code?:string}|null){if(error)throw new ActionError(error.code==='42501'?'access_denied':error.code==='40001'?'conflict':error.code==='P0002'?'not_found':error.code==='22023'?'invalid_input':'unavailable');}
@@ -22,8 +23,8 @@ export async function listPlatformAccountsAction(value:unknown={}):Promise<Admin
  const {db,userId}=await requirePlatformAdminContext();const obj=input(value,['filter','pageKey','limit','search']);
  const filter=obj.filter??'pending';if(filter!=='all')status(filter);
  const searching=obj.search!==undefined;
- if(searching&&(typeof obj.search!=='string'||obj.search.length>254||/[\s\u0000-\u001f\u007f-\u009f]/.test(obj.search.trim())))throw new ActionError('invalid_input');
- const query=searching?(obj.search as string).trim().toLowerCase():'';
+ if(searching&&(typeof obj.search!=='string'||obj.search.length>254||/[\u0000-\u001f\u007f-\u009f]/.test(obj.search)))throw new ActionError('invalid_input');
+ const query=searching?(obj.search as string).trim().replace(/ +/g,' ').toLowerCase():'';
  function cursor(value:unknown){const c=input(value,['actorId','filter','query','id','createdAt']);if(Object.keys(c).length!==5||c.actorId!==userId||c.filter!==filter||c.query!==query)throw new ActionError('invalid_input');uuid(c.id);timestamp(c.createdAt);return c;}
  let searchCursor:ReturnType<typeof cursor>|null=null;
  if(searching&&obj.pageKey!=null){if(typeof obj.pageKey!=='string'||obj.pageKey.length>2048)throw new ActionError('invalid_input');try{searchCursor=cursor(JSON.parse(obj.pageKey));}catch{throw new ActionError('invalid_input');}}
@@ -32,9 +33,18 @@ export async function listPlatformAccountsAction(value:unknown={}):Promise<Admin
  const result=searching?await client.rpc('search_platform_accounts',{p_filter:filter as string,p_query:query,p_cursor:searchCursor as import('@/lib/supabase/database.types').Json|null,p_limit:limit}):await client.rpc('list_platform_accounts',{p_filter:filter as string,p_page_key:pageKey,p_limit:limit});rpcError(result.error);
  const row=object(result.data);if(row.actorUserId!==userId||!Array.isArray(row.accounts)||row.accounts.length>limit)throw new ActionError('unavailable');
  if(searching&&(row.filter!==filter||row.query!==query))throw new ActionError('unavailable');
- const accounts:PlatformAccount[]=row.accounts.map(value=>{const a=object(value);if(typeof a.emailVerified!=='boolean'||typeof a.isPlatformAdmin!=='boolean')throw new ActionError('unavailable');const account:PlatformAccount={userId:uuid(a.userId),name:displayName(a.name),email:text(a.email,254),emailVerified:a.emailVerified,createdAt:timestamp(a.createdAt),status:status(a.status),version:integer(a.version),isPlatformAdmin:a.isPlatformAdmin};if(filter!=='all'&&account.status!==filter||account.version===0&&account.status!=='pending'&&!account.isPlatformAdmin)throw new ActionError('unavailable');return account;});
+ const accounts:PlatformAccount[]=row.accounts.map(value=>{const a=object(value);if(typeof a.emailVerified!=='boolean'||typeof a.isPlatformAdmin!=='boolean')throw new ActionError('unavailable');const account:PlatformAccount={userId:uuid(a.userId),name:displayName(a.name),email:text(a.email,254),emailVerified:a.emailVerified,createdAt:timestamp(a.createdAt),status:status(a.status),version:integer(a.version),isPlatformAdmin:a.isPlatformAdmin};
+ if(a.identityVersion!==1||!Array.isArray(a.companies)||a.companies.length>5)throw new ActionError('unavailable');
+ account.companyCount=integer(a.companyCount);
+ account.companies=a.companies.map(value=>{const c=object(value);if(!['active','suspended'].includes(c.status as string)||!['active','suspended'].includes(c.membershipStatus as string)||typeof c.organisationNumber!=='string'||!/^\d{10}$/.test(c.organisationNumber))throw new ActionError('unavailable');return {id:uuid(c.id),name:companyName(c.name),organisationNumber:c.organisationNumber,status:c.status as 'active'|'suspended',membershipStatus:c.membershipStatus as 'active'|'suspended'};});
+ if(account.companies.length!==Math.min(account.companyCount,5)||new Set(account.companies.map(c=>c.id)).size!==account.companies.length)throw new ActionError('unavailable');
+ if(a.requestedCompany===null)account.requestedCompany=null;else{const c=object(a.requestedCompany);if(typeof c.organisationNumber!=='string'||!/^\d{10}$/.test(c.organisationNumber))throw new ActionError('unavailable');account.requestedCompany={name:companyName(c.name),organisationNumber:c.organisationNumber};}
+if(filter!=='all'&&account.status!==filter||account.version===0&&account.status!=='pending'&&!account.isPlatformAdmin)throw new ActionError('unavailable');return account;});
  if(new Set(accounts.map(a=>a.userId)).size!==accounts.length||accounts.some((a,i)=>i>0&&(Date.parse(a.createdAt)>Date.parse(accounts[i-1].createdAt)||a.createdAt===accounts[i-1].createdAt&&a.userId>=accounts[i-1].userId)))throw new ActionError('unavailable');
- if(searching&&accounts.some(account=>!account.email.toLowerCase().includes(query)))throw new ActionError('unavailable');
+
+ const orgDigits=/^[0-9 -]+$/.test(query)?query.replace(/[^0-9]/g,''):'';
+ const orgQuery=/^16[0-9]{10}$/.test(orgDigits)?orgDigits.slice(2):orgDigits;
+ if(searching&&accounts.some(account=>![account.email,account.name,...(account.companies??[]).map(c=>c.name),account.requestedCompany?.name].some(value=>typeof value==='string'&&value.toLowerCase().includes(query))&&!(orgQuery&&[...(account.companies??[]).map(c=>c.organisationNumber),account.requestedCompany?.organisationNumber].some(value=>value?.includes(orgQuery)))))throw new ActionError('unavailable');
  let nextPageKey:string|null;
  if(searching){if(row.nextCursor===null)nextPageKey=null;else{const next=cursor(row.nextCursor);if(next.id!==accounts.at(-1)?.userId||Date.parse(next.createdAt as string)!==Date.parse(accounts.at(-1)!.createdAt))throw new ActionError('unavailable');nextPageKey=JSON.stringify(next);}}
  else {nextPageKey=row.nextPageKey===null?null:uuid(row.nextPageKey);if(nextPageKey&&nextPageKey!==accounts.at(-1)?.userId)throw new ActionError('unavailable');}

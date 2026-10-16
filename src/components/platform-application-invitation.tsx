@@ -83,13 +83,13 @@ export function PlatformApplicationInvitation({ application, actorUserId, disabl
           return;
         }
         if (result.status === 'not_configured') {
-          setMessage('Utskicket är inte konfigurerat. Ingen kontoinbjudan har skickats. Kontrollera mejlinställningarna innan du försöker igen.');
+          setMessage('Utskicket är inte konfigurerat. Ansökan har inte godkänts från denna granskning och ingen kontoinbjudan har skickats. Kontrollera mejlinställningarna innan du försöker igen.');
         } else if (result.status === 'unknown') {
           setFinished(true);
           setMessage('Det gick inte att bekräfta om mejlet skickades. Skicka inte en ny inbjudan innan utskicksstatus har kontrollerats.');
         } else {
           setFinished(true);
-          setMessage(result.status === 'already_sent' ? `Kontoinbjudan har redan skickats till ${result.email}.` : `Kontoinbjudan har skickats till ${result.email}. Kunden väljer lösenord via mejlet.`);
+          setMessage(result.status === 'already_sent' ? `Mejltjänsten har redan tagit emot välkomstmejlet till ${result.email}. Ingen ny inbjudan har skickats.` : `Välkomstmejlet med godkännandebekräftelse och kontoinbjudan har lämnats till mejltjänsten för ${result.email}. Leverans till inkorgen är ännu inte bekräftad.`);
         }
       } catch {
         if (active.current) setError('Resultatet kunde inte läsas in. Försök igen med samma granskning för att kontrollera utskicket.');
@@ -97,15 +97,15 @@ export function PlatformApplicationInvitation({ application, actorUserId, disabl
     });
   }
 
-  return <section aria-labelledby="application-invitation-heading" style={{ marginTop: 24 }}>
+  return <section className="admin-application-approval-content" aria-labelledby="application-invitation-heading">
     <h3 id="application-invitation-heading">Godkänn ansökan och bjud in</h3>
-    <p>Granska ansökan innan du godkänner tillgång till Trafexa. Kunden får en kontoinbjudan till ansökans e-postadress och väljer sitt lösenord. Finansiering och företagsmedlemskap hanteras separat.</p>
+    <p>Godkänn kontot och skicka ett välkomstmejl till ansökans e-postadress. Mejlet bekräftar godkännandet och innehåller en personlig länk för att aktivera kontot och välja lösenord. Företags- och produktbehörigheter samt finansiering hanteras separat.</p>
     <form className="workspace-form" onSubmit={event => {
       event.preventDefault();
       if (reviewing) sendInvitation();
       else if (ready && !disabled && !pending && reason.trim()) { setReason(reason.trim()); setReviewing(true); setAcknowledged(false); setError(null); setMessage(null); }
     }}>
-      {reviewing && <dl><dt>Sökande</dt><dd>{application.name}</dd><dt>Företag</dt><dd>{application.company} · {application.organisationNumber || 'Organisationsnummer saknas'}</dd><dt>Kontoinbjudan skickas till</dt><dd style={{ overflowWrap: 'anywhere' }}>{application.email}</dd></dl>}
+      {reviewing && <div className="admin-application-approval-review"><h4>Kontrollera före godkännande</h4><dl className="admin-application-fields"><div><dt>Sökande</dt><dd>{application.name}</dd></div><div><dt>Företag</dt><dd>{application.company} · {application.organisationNumber || 'Organisationsnummer saknas'}</dd></div><div><dt>Välkomstmejl skickas till</dt><dd style={{ overflowWrap: 'anywhere' }}>{application.email}</dd></div><div><dt>Mejlets ämne</dt><dd>Välkommen till Trafexa – din ansökan är godkänd</dd></div></dl><p>Godkännandet och välkomsthälsningen skickas tillsammans med aktiveringslänken i ett mejl.</p></div>}
       <label>Motivering för kontogodkännande<input required minLength={2} maxLength={500} value={reason} disabled={!ready || disabled || pending || reviewing || finished || existing} onChange={event => setReason(event.target.value)}/></label>
       {reviewing && <label className="auth-checkbox"><input type="checkbox" required checked={acknowledged} disabled={disabled || pending || finished} onChange={event => setAcknowledged(event.target.checked)}/><span>Jag har granskat ansökan och godkänner kontot för {application.email}.</span></label>}
       {error && <p role="alert" className="notice error">{error}</p>}
