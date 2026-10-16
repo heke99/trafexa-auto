@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { before, after, test } from 'node:test';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,3 +28,19 @@ test('document switches discard delayed data and mismatched response fails close
 test('mobile preserves exact bigint totals and wraps long recipient without page overflow',async()=>{const page=await setup({netTotalOre:'7378697629483820645',vatTotalOre:'1844674407370955161',grossTotalOre:'9223372036854775806',recipient:`${'verylong'.repeat(12)}@example.test`});try{await page.setViewportSize({width:390,height:844});await expect(page.getByText('92 233 720 368 547 758,06 kr',{exact:true})).toBeVisible();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=390));}finally{await page.close();}});
 test('credit and missing-recipient blockers never offer review',async()=>{for(const blocker of['original.creditExists','recipient.missing']){const page=await setup({canQueue:false,preview:null,blockers:[blocker]});try{await expect(page.getByRole('button',{name:'Granska mejlutskick',exact:true})).toHaveCount(0);}finally{await page.close();}}});
 test('ambiguous dispatch refreshes persisted job and cannot reopen queue or retry an unknown send',async()=>{const page=await setup();try{await review(page);await page.evaluate(()=>{window.emailSendResponses.push({throw:true});window.emailResponses.push({ok:true,page:{...window.emailPage,email:{...window.emailFixture,status:'unknown'},preview:null,canQueue:false}});});await page.getByRole('button',{name:'Bekräfta och skicka mejlet'}).click();await expect(page.getByRole('region',{name:'Dokumentets leveransstatus'})).toContainText('Stäm av utskicket med mejlleverantören');await expect(page.getByRole('button',{name:'Granska mejlutskick',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Försök skicka det granskade utskicket'})).toHaveCount(0);}finally{await page.close();}});
+
+for(const width of [390,1440])test(`invoice email presentation at ${width}px`,async()=>{const page=await setup();try{await page.setViewportSize({width,height:1000});await expect(page.getByRole('region',{name:'Dokumentets mejlutskick'})).toBeVisible();if(process.env.TRAFEXA_INVOICE_EMAIL_SCREENSHOTS){await mkdir(process.env.TRAFEXA_INVOICE_EMAIL_SCREENSHOTS,{recursive:true});await page.screenshot({path:resolve(process.env.TRAFEXA_INVOICE_EMAIL_SCREENSHOTS,`invoice-${width}.png`),fullPage:true});}await page.getByRole('button',{name:'Granska mejlutskick',exact:true}).click();await expect(page.getByRole('button',{name:'Bekräfta och skicka mejlet'})).toBeDisabled();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));if(process.env.TRAFEXA_INVOICE_EMAIL_SCREENSHOTS)await page.screenshot({path:resolve(process.env.TRAFEXA_INVOICE_EMAIL_SCREENSHOTS,`invoice-review-${width}.png`),fullPage:true});assert.equal(await page.evaluate(()=>window.emailCalls.some(c=>['send','queue'].includes(c.kind))),false);}finally{await page.close();}});
+
+test('delivery and retry times use Swedish Stockholm dates without raw timestamps or dispatch',async()=>{
+ const page=await setup();try{
+  await page.evaluate(()=>{window.emailPage.email={...window.emailFixture,status:'accepted',deliveredAt:'2026-10-15T12:00:00Z'};window.emailPage.preview=null;window.emailPage.canQueue=false;});
+  await page.getByRole('button',{name:'Uppdatera utskicksstatus'}).click();
+  await expect(page.locator('time[datetime="2026-10-15T12:00:00Z"]')).toHaveText(/15 okt\. 2026.*14:00/);
+  await expect(page.getByText('2026-10-15T12:00:00Z',{exact:true})).toHaveCount(0);
+  await page.evaluate(()=>{window.emailPage.email={...window.emailFixture,status:'pending',nextAttemptAt:'2076-11-01T12:00:00Z'};});
+  await page.getByRole('button',{name:'Uppdatera utskicksstatus'}).click();
+  await expect(page.locator('time[datetime="2076-11-01T12:00:00Z"]')).toHaveText(/1 nov\. 2076.*13:00/);
+  await expect(page.getByRole('button',{name:'Försök skicka det granskade utskicket'})).toHaveCount(0);
+  assert.equal(await page.evaluate(()=>window.emailCalls.some(c=>['send','queue'].includes(c.kind))),false);
+ }finally{await page.close();}
+});

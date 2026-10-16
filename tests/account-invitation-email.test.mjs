@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { createSourceLoader } from './helpers/source-loader.mjs';
 
 const id = '99300000-0000-4000-8000-000000000001', actorId = '99300000-0000-4000-8000-000000000002', userId = '99300000-0000-4000-8000-000000000003', leaseId = '99300000-0000-4000-8000-000000000004';
 const secret = 'synthetic-secret-for-encryption-only-not-a-credential';
-const token = 'a'.repeat(64);
+// Supabase Auth uses hex SHA-224, not the 64-character SHA-256 mocked previously.
+const token = createHash('sha224').update('synthetic@example.invalid' + '12345678').digest('hex');
 const invitation = { id, actorUserId: actorId, email: 'synthetic@example.invalid', name: '<Synthetic>', applicationId: id, applicationVersion: 1, reason: 'Reviewed', requestId: id };
 const loader = await createSourceLoader();
 const content = loader.load('@/lib/email/account-invitation-content');
@@ -64,14 +66,14 @@ async function withConfig(run) {
   try { await run(); } finally { for (const key of keys) { if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key]; } }
 }
 
-async function dispatchHarness({ mode = 'generate', revoked = false, linkUser = userId, sendStatus = 'sent' } = {}) {
-  const calls = [], job = { invitationId: id, actorUserId: actorId, leaseId, status: mode, email: invitation.email, userId: mode === 'generate' ? null : userId, firstAttemptAt: mode === 'send' ? new Date().toISOString() : null, ciphertext: null };
+async function dispatchHarness({ mode = 'generate', revoked = false, linkUser = userId, linkToken = token, sendStatus = 'sent', prebound = false } = {}) {
+  const calls = [], job = { invitationId: id, actorUserId: actorId, leaseId, status: mode, email: invitation.email, userId: mode === 'generate' && !prebound ? null : userId, firstAttemptAt: mode === 'send' ? new Date().toISOString() : null, ciphertext: null };
   if (mode === 'send') job.ciphertext = content.encryptInvitationBody(content.renderAccountInvitationBody({ invitationId: id, email: invitation.email, name: invitation.name, tokenHash: token }), id, secret);
   const db = { rpc: async (name) => { calls.push(name); return { data: { ...job }, error: null }; } };
   let checks = 0;
   const service = { auth: { admin: { generateLink: async input => {
     calls.push(['generate', input]); job.userId = userId;
-    return { data: { properties: { hashed_token: token, verification_type: 'invite' }, user: { id: linkUser, email: invitation.email } }, error: null };
+    return { data: { properties: { hashed_token: linkToken, verification_type: 'invite' }, user: { id: linkUser, email: invitation.email } }, error: null };
   } } }, rpc: async (name, input) => {
     calls.push([name, input]);
     if (name.startsWith('get_')) { checks++; if (revoked && checks >= 3) return { data: null, error: { code: '42501' } }; return { data: { ...job }, error: null }; }
@@ -108,5 +110,27 @@ test('Mismatched Auth user or revoked fresh delivery denies external sending', a
     const { server, calls } = await dispatchHarness(options);
     await assert.rejects(server.dispatchAccountInvitation(invitation));
     assert.equal(calls.some(call => Array.isArray(call) && call[0] === 'send'), false);
+  }
+}));
+
+test('GoTrue SHA-224 hashes pass generation, encrypted persistence and provider dispatch, including an unsent prebound account', async () => withConfig(async () => {
+  assert.equal(token.length, 56);
+  for (const prebound of [false, true]) {
+    const { server, calls } = await dispatchHarness({ prebound });
+    assert.equal(await server.dispatchAccountInvitation(invitation), 'sent');
+    const send = calls.find(call => Array.isArray(call) && call[0] === 'send')[1];
+    const payload = JSON.parse(send.body);
+    assert.match(payload.text, new RegExp(`token_hash=${token}`));
+    const bound = calls.find(call => Array.isArray(call) && call[0] === 'bind_platform_application_invitation_delivery')[1];
+    assert.equal(bound.p_invitation_id, id);
+    assert.equal(content.decryptInvitationBody(bound.p_ciphertext, id, secret), send.body);
+  }
+}));
+
+test('Malformed provider invitation hashes fail before persistence or provider delivery', async () => withConfig(async () => {
+  for (const linkToken of ['a'.repeat(55), 'a'.repeat(57), 'a'.repeat(63), 'a'.repeat(65), 'g'.repeat(56), '']) {
+    const { server, calls } = await dispatchHarness({ linkToken });
+    await assert.rejects(server.dispatchAccountInvitation(invitation));
+    assert.equal(calls.some(call => Array.isArray(call) && ['bind_platform_application_invitation_delivery', 'send'].includes(call[0])), false);
   }
 }));
