@@ -89,14 +89,15 @@ function bytes(value: unknown, max: number, kind: 'pdf' | 'evidence'): Uint8Arra
 }
 function evidenceProof(value: Uint8Array, signed?: Completed) {
   try {
-    const receipt = z.object({ party: z.enum(['customer', 'company']), fullName: z.string().min(2).max(160), signedAt: timestamp, documentHash: hash, consentVersion: z.literal('2026-10-14') }).strict();
+    const receipt = z.object({ party: z.enum(['customer', 'company']), fullName: z.string().min(2).max(160), signedAt: timestamp, documentHash: hash, consentVersion: z.literal('2026-10-14'),authenticationMethod:z.literal('email_link').optional(),approvalMethod:z.literal('typed_name').optional(),guestInvitationId:uuid.optional(),recipientEmail:z.string().email().optional() }).strict();
     const result = z.object({ schemaVersion: z.literal(1), method: z.literal('trafexa-simple-electronic-signature'), signingId: uuid, draftId: uuid, draftVersion: version, documentContentSha256: hash, signedPdfSha256: hash, completedAt: timestamp, receipts: z.array(receipt).length(2), assurance: z.string().min(1).max(1000) }).strict().parse(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(value)));
     if (result.receipts[0].party !== 'customer' || result.receipts[1].party !== 'company' || result.receipts.some(row => row.documentHash !== result.documentContentSha256)) return fail('storage_unverified');
+    for(const receipt of result.receipts){if(receipt.authenticationMethod==='email_link'){if(receipt.party!=='customer'||receipt.approvalMethod!=='typed_name'||!receipt.guestInvitationId||!receipt.recipientEmail)return fail('storage_unverified');}else if(receipt.approvalMethod!==undefined||receipt.guestInvitationId!==undefined||receipt.recipientEmail!==undefined)return fail('storage_unverified');}
     if (signed) {
       if (result.signingId !== signed.id || result.draftId !== signed.draftId || result.draftVersion !== signed.draftVersion || result.documentContentSha256 !== signed.documentHash || result.completedAt !== signed.completedAt) return fail('storage_unverified');
       for (const [index, expected] of [signed.customerSignature, signed.companySignature].entries()) {
         const actual = result.receipts[index];
-        if (actual.party !== expected.party || actual.fullName !== expected.fullName || actual.signedAt !== expected.signedAt || actual.consentVersion !== expected.consentVersion) return fail('storage_unverified');
+        if (actual.party !== expected.party || actual.fullName !== expected.fullName || actual.signedAt !== expected.signedAt || actual.consentVersion !== expected.consentVersion || actual.authenticationMethod!==expected.authenticationMethod || actual.approvalMethod!==expected.approvalMethod || actual.guestInvitationId!==expected.guestInvitationId || actual.recipientEmail!==expected.recipientEmail) return fail('storage_unverified');
       }
     }
     return result;

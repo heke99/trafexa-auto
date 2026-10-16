@@ -4,8 +4,9 @@ import { CrmError } from '@/lib/crm/context';
 import { requireDealerSigningContext, requireCustomerSigningContext } from '@/lib/contracts/signing-context';
 import { signing, hash, email, signatureStrokes } from '@/lib/contracts/signing-validation';
 import { input, record, id, integer, text } from '@/lib/contracts/validation';
-import { CONTRACT_SIGNING_CONSENT_VERSION, type ContractSigning, type ContractSigningPage, type SignContractInput } from '@/lib/contracts/signing-types';
+import { CONTRACT_SIGNING_CONSENT_VERSION, type ContractSigning, type ContractSigningPage, type ContractSigningDelivery, type SignContractInput } from '@/lib/contracts/signing-types';
 import type { ContractResult } from '@/lib/contracts/types';
+import { contractEmailConfigurationStatus } from '@/lib/email/server';
 type Dealer = Awaited<ReturnType<typeof requireDealerSigningContext>>;
 type Customer = Awaited<ReturnType<typeof requireCustomerSigningContext>>;
 type Context = Dealer | Customer;
@@ -24,8 +25,23 @@ function parse(v: unknown, c: Context, dealId?: string) { return signing(v, c.us
 async function fresh(c: Context, write = false) { const n = await context('companyId' in c ? c.companyId : undefined, write); if (n.userId !== c.userId || 'role' in c && (!('role' in n) || n.role !== c.role) || 'email' in c && (!('email' in n) || n.email !== c.email)) throw new CrmError('access_denied'); }
 function invalidate() { revalidatePath('/deals'); revalidatePath('/my-contracts'); }
 async function dispatch(kind: 'contract_invitation' | 'contract_completed' | 'contract_completed_company', signingId: string) {
-  if (process.env.TRANSACTIONAL_EMAIL_ENABLED !== 'true') return;
   try { const { dispatchTransactionalEvent } = await import('@/lib/email/server'); await dispatchTransactionalEvent(kind, signingId); } catch { /* The committed outbox remains the delivery receipt; business state is already saved. */ }
+}
+/** Dealer-only, read-only status. Reading never claims a queue item or sends an email. */
+export async function getContractSigningDeliveryAction(value: { companyId: string; dealId: string; signingId: string }): Promise<ContractResult<{ delivery: ContractSigningDelivery }>> {
+  let companyId: string, dealId: string, signingId: string;
+  try { const r = input(value, ['companyId', 'dealId', 'signingId']); companyId = id(r.companyId); dealId = id(r.dealId); signingId = id(r.signingId); } catch (e) { return failure(e, true); }
+  try {
+    const c = await requireDealerSigningContext(companyId), response = await c.db.rpc('get_contract_signing_delivery', { p_company_id: companyId, p_deal_id: dealId, p_signing_id: signingId });
+    if (response.error) throw response.error;
+    const r = record(response.data); scope(r, c);
+    if (id(r.dealId) !== dealId || id(r.signingId) !== signingId || r.status !== null && (typeof r.status !== 'string' || !['pending', 'processing', 'accepted', 'rejected', 'unknown', 'cancelled'].includes(r.status))) throw Error('Invalid delivery status');
+    const { transport } = contractEmailConfigurationStatus();
+    if (!['paused', 'unconfigured', 'configured'].includes(transport)) throw Error('Invalid transport configuration');
+    const delivery: ContractSigningDelivery = { companyId, dealId, signingId, recipientEmail: email(r.recipientEmail), status: r.status as ContractSigningDelivery['status'], transport };
+    await fresh(c);
+    return { ok: true, delivery };
+  } catch (e) { return failure(e); }
 }
 export async function listDealContractSigningsAction(value: { companyId: string; dealId: string }): Promise<ContractResult<ContractSigningPage>> {
   let companyId: string, dealId: string;

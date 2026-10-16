@@ -1,0 +1,19 @@
+import {parseOfferSnapshot} from '@/lib/documents/offer-pdf';
+import type {OfferReview,CustomerOfferReview} from '@/lib/offer-review/types';
+import {record,id,integer,text} from '@/lib/contracts/validation';
+import {email} from '@/lib/contracts/signing-validation';
+function timestamp(v:unknown){if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}T/.test(v)||!Number.isFinite(Date.parse(v)))throw Error('Invalid timestamp');return v;}
+function review(v:unknown,scope?:{companyId:string;dealId:string},recipient?:string):OfferReview{
+ const r=record(v);const result:OfferReview={id:id(r.id),companyId:id(r.companyId),dealId:id(r.dealId),offerId:id(r.offerId),offerVersion:integer(r.offerVersion),recipientEmail:email(r.recipientEmail),status:r.status as OfferReview['status'],version:integer(r.version),createdAt:timestamp(r.createdAt),decidedAt:r.decidedAt===null?null:timestamp(r.decidedAt),responderName:r.responderName===null?null:text(r.responderName,2,160),reason:r.reason===null?null:text(r.reason,2,500)};
+ if(!['pending','accepted','declined','withdrawn','superseded','expired','unavailable'].includes(result.status)||scope&&(scope.companyId!==result.companyId||scope.dealId!==result.dealId)||recipient&&result.recipientEmail!==recipient)throw Error('invalid scope');
+ if(['accepted','declined','withdrawn'].includes(result.status)!==(result.decidedAt!==null))throw Error('invalid state');
+ if(['accepted','declined'].includes(result.status)!==(result.responderName!==null)||result.status==='accepted'&&result.reason!==null||['declined','withdrawn'].includes(result.status)&&result.reason===null||!['declined','withdrawn'].includes(result.status)&&result.reason!==null)throw Error('invalid state');
+ return result;
+}
+export function guestOfferReview(v:unknown,recipient:string):CustomerOfferReview{
+ const r=record(v),base=review(v,undefined,recipient),snapshot=parseOfferSnapshot(r.snapshot);
+ if(snapshot.company.id.toLowerCase()!==base.companyId||snapshot.deal_id.toLowerCase()!==base.dealId||snapshot.version!==base.offerVersion||snapshot.customer.email?.trim().toLowerCase()!==recipient||snapshot.stock.vat_scheme==='unknown')throw Error('invalid snapshot');
+ // Parser strips unknown keys recursively; explicit construction prevents future parser additions leaking internal data.
+ const safe={schema_version:snapshot.schema_version,document_type:snapshot.document_type,version:snapshot.version,deal_id:snapshot.deal_id,issued_at:snapshot.issued_at,valid_until:snapshot.valid_until,terms:snapshot.terms,currency:snapshot.currency,price_basis:snapshot.price_basis,sale_price_ore:snapshot.sale_price_ore,company:{id:snapshot.company.id,name:snapshot.company.name,organisation_number:snapshot.company.organisation_number},customer:{id:snapshot.customer.id,kind:snapshot.customer.kind,name:snapshot.customer.name,email:snapshot.customer.email,phone:snapshot.customer.phone,address:snapshot.customer.address},stock:{id:snapshot.stock.id,vat_scheme:snapshot.stock.vat_scheme},vehicle:{id:snapshot.vehicle.id,registration_number:snapshot.vehicle.registration_number,vin:snapshot.vehicle.vin,make:snapshot.vehicle.make,model:snapshot.vehicle.model,model_year:snapshot.vehicle.model_year,mileage_km:snapshot.vehicle.mileage_km,fuel:snapshot.vehicle.fuel,gearbox:snapshot.vehicle.gearbox},vat:{rate_percent:snapshot.vat.rate_percent,amount_ore:snapshot.vat.amount_ore,net_price_ore:snapshot.vat.net_price_ore}};
+ return {...base,snapshot:{...safe,...(snapshot.trade_in?{trade_in:{id:snapshot.trade_in.id,version:snapshot.trade_in.version,registration:snapshot.trade_in.registration,make:snapshot.trade_in.make,model:snapshot.trade_in.model,model_year:snapshot.trade_in.model_year,mileage_km:snapshot.trade_in.mileage_km,value_ore:snapshot.trade_in.value_ore,debt_known:snapshot.trade_in.debt_known,debt_ore:snapshot.trade_in.debt_ore,net_trade_in_ore:snapshot.trade_in.net_trade_in_ore,amount_to_pay_ore:snapshot.trade_in.amount_to_pay_ore}}:{})}};
+}

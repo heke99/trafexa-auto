@@ -1,11 +1,13 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { domainRedirect, isWorkspacePath, isPlatformAdminPath, isCompanyInvitationsPath, isCustomerOffersPath, isAuthPath } from '@/lib/routing.mjs';
+import { domainRedirect, isWorkspacePath, isPlatformAdminPath, isCompanyInvitationsPath, isCustomerOffersPath, isGuestCustomerPath, isAuthPath } from '@/lib/routing.mjs';
 
 export async function proxy(request: NextRequest) {
   const { pathname, search, hostname } = request.nextUrl;
   const destination = domainRedirect(hostname, pathname, search);
-  if (destination && ['GET', 'HEAD'].includes(request.method)) return NextResponse.redirect(destination);
+  const guestHeaders=(response:NextResponse)=>{response.headers.set('Cache-Control','private, no-store, max-age=0');response.headers.set('Referrer-Policy','no-referrer');response.headers.set('X-Robots-Tag','noindex, nofollow, noarchive');response.headers.set('X-Content-Type-Options','nosniff');return response;};
+  if (destination && ['GET', 'HEAD'].includes(request.method)) {const response=NextResponse.redirect(destination);return isGuestCustomerPath(pathname)?guestHeaders(response):response;}
+  if(isGuestCustomerPath(pathname))return guestHeaders(NextResponse.next());
   if (!isWorkspacePath(pathname) && !isPlatformAdminPath(pathname) && !isCompanyInvitationsPath(pathname) && !isCustomerOffersPath(pathname) && !isAuthPath(pathname)) return NextResponse.next();
   let response = NextResponse.next({ request });
   response.headers.set('Cache-Control', 'private, no-store');
@@ -27,7 +29,7 @@ export async function proxy(request: NextRequest) {
     if (isWorkspacePath(pathname)) login.searchParams.set('next', pathname);
     if (isPlatformAdminPath(pathname)) login.searchParams.set('next', '/admin');
     if (isCompanyInvitationsPath(pathname)) login.searchParams.set('next', '/invitations');
-    if (isCustomerOffersPath(pathname)) login.searchParams.set('next', pathname);
+    if (isCustomerOffersPath(pathname)) login.searchParams.set('next', pathname + request.nextUrl.search);
     const redirect = NextResponse.redirect(login);
     response.cookies.getAll().forEach(cookie => redirect.cookies.set(cookie));
     redirect.headers.set('Cache-Control', 'private, no-store');

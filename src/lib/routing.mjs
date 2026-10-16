@@ -11,12 +11,15 @@ export function isCompanyInvitationsPath(path) {
 export function isCustomerOffersPath(path) {
   return path === '/my-offers' || path === '/my-contracts';
 }
+export function isGuestCustomerPath(path) {
+  return path === '/customer-document' || path.startsWith('/customer-document/');
+}
 export function isAuthPath(path) {
   return ['/login', '/register', '/onboarding', '/forgot-password', '/reset-password', '/auth/callback', '/auth/invitation', '/activate-account', '/account-pending'].includes(path);
 }
 export function domainRedirect(host, path, search = '') {
   if (host === 'app.trafexa.com' && path === '/') return `https://app.trafexa.com/dashboard${search}`;
-  if (['trafexa.com', 'www.trafexa.com'].includes(host) && (isWorkspacePath(path) || isPlatformAdminPath(path) || isCompanyInvitationsPath(path) || isCustomerOffersPath(path) || isAuthPath(path))) return `https://app.trafexa.com${path}${search}`;
+  if (['trafexa.com', 'www.trafexa.com'].includes(host) && (isWorkspacePath(path) || isPlatformAdminPath(path) || isCompanyInvitationsPath(path) || isCustomerOffersPath(path) || isGuestCustomerPath(path) || isAuthPath(path))) return `https://app.trafexa.com${path}${search}`;
   return null;
 }
 export function safeNextPath(path) {

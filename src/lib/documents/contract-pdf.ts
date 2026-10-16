@@ -54,7 +54,7 @@ function getFontBytes(): Promise<Buffer> {
 }
 
 /** The source offer and approved template version are frozen; this renders no signature or payment state. */
-export type ContractPdfSignature = { party: 'customer' | 'company'; fullName: string; signedAt: string; strokes: { points: { x: number; y: number }[] }[] };
+export type ContractPdfSignature = { authenticationMethod?: 'email_link'; party: 'customer' | 'company'; fullName: string; signedAt: string; strokes: { points: { x: number; y: number }[] }[] };
 export type ContractPdfCompletion = { documentHash: string; completedAt: string; signatures: ContractPdfSignature[] };
 
 export async function generateContractPdf(value: unknown): Promise<Uint8Array> { return renderContractPdf(value); }
@@ -87,7 +87,7 @@ export async function renderContractPdf(value: unknown, completion?: ContractPdf
   draw(`Utkastversion ${draft.version} · Sparad ${dateTime.format(created)}`, 10, muted);
   draw(`Godkänd mallversion: ${draft.template.title} · Version ${draft.template.version}`, 10, muted);
   draw(`Underlag: accepterad offertversion ${draft.offerVersion}`, 10, muted);
-  draw(completion ? 'Kunden och bolaget har undertecknat samma avtalsinnehåll med inloggade, verifierade konton. Underskriften bekräftar ingen genomförd betalning, leverans eller finansiering.' : 'Detta är ett osignerat utkast. Dokumentet bekräftar ingen genomförd signering, betalning, leverans eller finansiering.', 10, muted);
+  draw(completion ? (completion.signatures.some(signature=>signature.authenticationMethod==='email_link')?'Kunden har godkänt avtalet via en personlig mejllänk och bolaget med sitt Trafexa-konto. Godkännandet bekräftar ingen genomförd betalning, leverans eller finansiering.':'Kunden och bolaget har undertecknat samma avtalsinnehåll med inloggade, verifierade konton. Underskriften bekräftar ingen genomförd betalning, leverans eller finansiering.') : 'Detta är ett osignerat utkast. Dokumentet bekräftar ingen genomförd signering, betalning, leverans eller finansiering.', 10, muted);
   section('Säljare och kund');
   draw(`${offer.company.name} · Organisationsnummer ${offer.company.organisation_number}`, 11);
   draw(`${offer.customer.name} · ${offer.customer.kind === 'business' ? 'Företag' : 'Privatperson'}`);
@@ -128,6 +128,7 @@ export async function renderContractPdf(value: unknown, completion?: ContractPdf
       if (y < margin + 180) newPage();
       draw(`${signature.party === 'customer' ? 'Kund' : 'Bolag'}: ${signature.fullName}`, 12, accent);
       draw(`Undertecknat ${dateTime.format(new Date(signature.signedAt))}`, 9, muted);
+      if(signature.authenticationMethod==='email_link'){draw('Godkänt med angivet namn och bekräftelse via personlig mejllänk.',9,muted);y-=16;continue;}
       const points = signature.strokes.flatMap(stroke => stroke.points);
       const minX = Math.min(...points.map(p => p.x)), maxX = Math.max(...points.map(p => p.x));
       const minY = Math.min(...points.map(p => p.y)), maxY = Math.max(...points.map(p => p.y));

@@ -10,7 +10,7 @@ import { archiveOfferAction } from '@/lib/data/offer-archive-actions';
 
 const DealerOfferReviews = dynamic(() => import('./dealer-offer-reviews').then(module => module.DealerOfferReviews), { loading: () => <p role="status">Hämtar kundgranskningen…</p> });
 
-export type DealOffersProps = { dealId: string; canCreate: boolean; canArchive?: boolean; companyId?: string; demo?: boolean; demoOffers?: OfferSummary[] };
+export type DealOffersProps = { dealId: string; canCreate: boolean; canArchive?: boolean; companyId?: string; userId?: string; role?: string; demo?: boolean; demoOffers?: OfferSummary[] };
 const emptyDemoOffers: OfferSummary[] = [];
 
 function localDateAfter(days: number): string {
@@ -21,8 +21,8 @@ function localDateAfter(days: number): string {
 }
 function money(value: string) { const amount = BigInt(value); return `${(amount / BigInt(100)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')},${(amount % BigInt(100)).toString().padStart(2, '0')} kr`; }
 
-export function DealOffers(props: DealOffersProps) { return <OfferPanel key={`${props.companyId}:${props.dealId}:${props.canCreate}:${props.canArchive}:${!!props.demo}`} {...props}/>; }
-function OfferPanel({ dealId, canCreate, canArchive = false, companyId, demo = false, demoOffers = emptyDemoOffers }: DealOffersProps) {
+export function DealOffers(props: DealOffersProps) { return <OfferPanel key={`${props.companyId}:${props.userId}:${props.role}:${props.dealId}:${props.canCreate}:${props.canArchive}:${!!props.demo}`} {...props}/>; }
+function OfferPanel({ dealId, canCreate, canArchive = false, companyId, userId, role, demo = false, demoOffers = emptyDemoOffers }: DealOffersProps) {
   const fieldId = useId();
   const [offers, setOffers] = useState<OfferSummary[]>(demo ? demoOffers : []);
   const [resolvedCompany, setResolvedCompany] = useState(companyId);
@@ -183,7 +183,7 @@ function OfferPanel({ dealId, canCreate, canArchive = false, companyId, demo = f
     {!demo && canArchive && <p className="muted">Arkiveringen sparar den här offertversionen i företagets privata dokumentarkiv. Offerten är inte signerad.</p>}
     {message && <p role="status">{message}{lastOffer && !offers.some((offer) => offer.id === lastOffer) && <> <a href={`/api/offers/${lastOffer}/pdf`} download>Hämta den sparade offerten</a></>}</p>}
     {error && <p role="alert">{error}</p>}
-    {resolvedCompany && !denied && <DealerOfferReviews key={`${resolvedCompany}:${dealId}:${canCreate}:${lastOffer ?? ''}`} companyId={resolvedCompany} dealId={dealId} canEdit={canCreate} demo={demo}/>}
+    {resolvedCompany && !denied && <DealerOfferReviews key={`${resolvedCompany}:${dealId}:${canCreate}:${lastOffer ?? ''}`} companyId={resolvedCompany} dealId={dealId} userId={userId} role={role} canEdit={canCreate} demo={demo}/>}
     </section>}
   </details>;
 }
