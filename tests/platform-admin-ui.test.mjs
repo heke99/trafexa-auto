@@ -458,7 +458,7 @@ test('mobile dealer and account actions remain inside their visible cards withou
  const page=await setup({accountRows:[makeAccount()]});try{
   await page.setViewportSize({width:320,height:1000});await expect(page.getByRole('button',{name:'Fakturering för Fixture AB',exact:true})).toBeInViewport();await expect(page.getByRole('button',{name:'Hantera status för Fixture AB',exact:true})).toBeInViewport();
   assert.equal(await page.evaluate(()=>document.body.scrollWidth<=innerWidth),true);
-  await page.getByRole('button',{name:'Konton',exact:true}).click();await expect(page.getByRole('button',{name:'Granska konto new@example.invalid',exact:true})).toBeInViewport();
+  await page.getByRole('button',{name:'Konton',exact:true}).click();await page.getByRole('button',{name:'Granska konto new@example.invalid',exact:true}).scrollIntoViewIfNeeded();await expect(page.getByRole('button',{name:'Granska konto new@example.invalid',exact:true})).toBeInViewport();
   const fits=await page.getByLabel('Visa konton').evaluate(element=>element.clientWidth>=180&&element.getBoundingClientRect().right<=innerWidth);assert.equal(fits,true);assert.equal(await page.evaluate(()=>document.body.scrollWidth<=innerWidth),true);
  }finally{await page.close();}
 });

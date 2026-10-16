@@ -131,3 +131,38 @@
 .admin-application-approval-review .admin-application-fields dd{font-size:13px}
 .admin-application-approval-review p{margin:16px 0 0;font-size:12px}
 .admin-application-history-section{margin-top:24px}
+
+/* Platform mail operations: connection, queue and deliberate manual action. */
+.email-delivery-panel{margin-block:24px;padding:24px;overflow-wrap:anywhere;min-width:0}
+.email-delivery-header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:22px;border-bottom:1px solid #e0e7d8}
+.email-delivery-header h2{font-size:20px;font-weight:500;line-height:1.4}
+.email-delivery-header p,.email-delivery-panel p{font-size:13px;line-height:1.75;color:#52604c}
+.email-delivery-header p{margin-top:6px}
+.email-delivery-header>.button{flex-shrink:0;font-size:12px}
+.email-delivery-connection{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.6fr);gap:32px;padding-block:24px}
+.email-delivery-connection h3{font-size:16px;line-height:1.5;margin:12px 0 7px}
+.email-delivery-connection .badge{font-size:11px}
+.email-delivery-addresses{margin:0;padding:18px 20px;background:#f7f9f3;border:1px solid #e0e7d8;border-radius:6px;display:grid;gap:14px;align-self:start}
+.email-delivery-addresses dt{font-size:11px;color:#59694f;margin-bottom:5px}
+.email-delivery-addresses dd{font-size:13px;line-height:1.6;margin:0}
+.email-delivery-queue{border-top:1px solid #e0e7d8;padding-top:22px}
+.email-delivery-queue h3,.email-delivery-account-note h3{font-size:15px;line-height:1.5;margin:0 0 14px}
+.email-delivery-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 14px}
+.email-delivery-metrics>div{border:1px solid #dce5d4;background:#fafbf7;border-radius:6px;padding:16px;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:10px}
+.email-delivery-metrics dt{font-size:12px;color:#52604c;line-height:1.6}
+.email-delivery-metrics dd{font-size:25px;line-height:1.2;margin:0;font-weight:500}
+.email-delivery-config-notes{font-size:12px;line-height:1.75;color:#52604c;margin:12px 0 0;padding-left:18px}
+.email-delivery-manual{border:1px solid #dce5d4;border-radius:6px;margin-top:22px}
+.email-delivery-manual summary{padding:17px 19px;font-size:13px;font-weight:600;line-height:1.6}
+.email-delivery-manual summary:focus-visible{outline:2px solid #496951;outline-offset:3px}
+.email-delivery-manual>div{padding:0 19px 20px}
+.email-delivery-manual p+p{margin-top:10px}
+.email-delivery-confirmation{display:flex;flex-direction:row;align-items:flex-start;gap:10px;font-size:12px;line-height:1.7;margin-block:18px}
+.email-delivery-confirmation input{width:18px;height:18px;min-height:18px;flex-shrink:0;margin:2px 0 0}
+.email-delivery-manual .button{font-size:12px;white-space:normal;line-height:1.5;text-align:left}
+.email-delivery-account-note{margin-top:22px;padding:18px 20px;background:#f5f7f0;border-radius:6px}
+.email-delivery-account-note h3{font-size:13px;margin-bottom:5px}
+.email-delivery-account-note p{font-size:12px}
+.email-delivery-panel .email-delivery-result{margin:20px 0 0}
+.email-delivery-loading{padding-block:20px}
+@media(max-width:760px){.email-delivery-panel{padding:20px}.email-delivery-header{flex-direction:column;gap:14px}.email-delivery-header h2{font-size:19px}.email-delivery-connection{grid-template-columns:1fr;gap:18px;padding-block:20px}.email-delivery-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.email-delivery-metrics>div{padding:14px}.email-delivery-metrics dt{font-size:11px}.email-delivery-metrics dd{font-size:23px}.email-delivery-manual summary{padding:16px}.email-delivery-manual>div{padding:0 16px 18px}.email-delivery-addresses{padding:16px}.email-delivery-account-note{padding:16px}}

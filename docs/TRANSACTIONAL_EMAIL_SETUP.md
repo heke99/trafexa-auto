@@ -1,6 +1,8 @@
 # Trafexas transaktionsmejl
 
-Supabase Auth hanterar registrering, återställning och övriga kontoverifieringar enligt AUTH_EMAIL_SETUP.md. Affärsmejlen nedan är en separat transport. Samma SMTP-inställning i Supabase aktiverar inte dessa utskick.
+Supabase Auth hanterar lösenordsåterställning och sina verifieringsmejl enligt AUTH_EMAIL_SETUP.md. Välkomstmejlet efter granskad ansökan skickas separat via Resend enligt [kontokontraktet](ACCOUNT_APPROVAL_CONTRACT.md). Händelsemejlen nedan har en egen kö och aktiveringsflagga. Samma SMTP-inställning i Supabase aktiverar inte dessa utskick.
+
+Adminpanelens köantal gäller enbart dessa händelsemejl, inte kontoinbjudningar, Auth-mejl eller fakturamejl. Status skiljer pausad transport från saknad konfiguration och visar separat om välkomstmejl är konfigurerade. Statusläsning och sidöppning skickar aldrig mejl. Produktionskontroll 16 oktober 2026 visar verifieringsflagga och servernycklarnas förekomst, men `TRANSACTIONAL_EMAIL_ENABLED` saknas. Därför är händelsemejlen pausade medan granskade kontoinbjudningar har separat konfigurationskontroll. Inga väntande mejl skickas som del av UI-ändringen.
 
 Avsändare: **Trafexa <kundtjanst@trafexa.com>**. Svar går till **info@trafexa.com**. Mallar versionshanteras i `src/lib/email/templates.ts` och innehåller HTML och ren text, utan kunduppgifter, autentiseringstokens, bilagor eller spårning.
 
