@@ -4,9 +4,14 @@ import type {Database,Json} from '@/lib/supabase/database.types';
 import {EMAIL_KINDS,type TransactionalEmail} from './templates';
 import {emailConfigurationStatus,sendTransactionalEmail} from './transport';
 import {requirePlatformAdminContext} from '@/lib/platform-admin/context';
+import {accountInvitationConfigured} from './account-invitation-server';
 type EmailDatabase=Omit<Database,'public'>&{public:Omit<Database['public'],'Functions'>&{Functions:{claim_transactional_email:{Args:{p_kind?:string;p_reference?:string};Returns:Json};check_transactional_email_lease:{Args:{p_id:string;p_lease_id:string};Returns:boolean};finish_transactional_email:{Args:{p_id:string;p_lease_id:string;p_status:string;p_provider_id:string|null};Returns:boolean}}}};
 function config(){return {enabled:process.env.TRANSACTIONAL_EMAIL_ENABLED==='true'&&process.env.TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED==='true'&&!!process.env.SUPABASE_SECRET_KEY&&process.env.NEXT_PUBLIC_SUPABASE_URL==='https://buqdtssxrotkzndublrt.supabase.co',apiKey:process.env.RESEND_API_KEY};}
-export function transactionalEmailConfigurationStatus(){return {transport:emailConfigurationStatus(config()),sender:'kundtjanst@trafexa.com',replyTo:'info@trafexa.com',automaticSchedule:false as const};}
+export function transactionalEmailConfigurationStatus(){return {
+ transport:emailConfigurationStatus(config()),sender:'kundtjanst@trafexa.com',replyTo:'info@trafexa.com',automaticSchedule:false as const,
+ diagnostics:{enabled:process.env.TRANSACTIONAL_EMAIL_ENABLED==='true',domainVerified:process.env.TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED==='true',credentialsPresent:Boolean(process.env.RESEND_API_KEY)&&Boolean(process.env.SUPABASE_SECRET_KEY),projectConfigured:process.env.NEXT_PUBLIC_SUPABASE_URL==='https://buqdtssxrotkzndublrt.supabase.co'},
+ invitationTransport:accountInvitationConfigured()?'configured' as const:'unconfigured' as const,
+};}
 /** One bounded message per explicit platform-admin action. No public recipient or arbitrary content inputs. */
 export async function dispatchNextTransactionalEmail():Promise<{status:string}>{return dispatch(null,null,true);}
 /** Call only after a persisted domain mutation. Sources and recipients are independently verified by SQL. */

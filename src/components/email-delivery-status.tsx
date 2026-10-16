@@ -38,7 +38,7 @@ export function EmailDeliveryStatus() {
   }, []);
 
   async function dispatch() {
-    if (lock.current || loading || !ack || !status?.ok || status.transport !== 'configured') return;
+    if (lock.current || loading || !ack || !status?.ok || status.transport !== 'configured' || !status.counts?.pending) return;
     lock.current = true;
     setBusy(true);
     setMessage('');
@@ -72,22 +72,31 @@ export function EmailDeliveryStatus() {
     }
   }
 
-  return <section className="surface" aria-labelledby="transactional-email-heading" style={{ marginBlock: 24, padding: 24, overflowWrap: 'anywhere' }}>
-    <div className="panel-heading" style={{ padding: 0, flexWrap: 'wrap', gap: 16 }}>
-      <h2 id="transactional-email-heading">Transaktionsmejl</h2>
+  const configuration = status?.ok ? status : null;
+  const diagnostics = configuration?.diagnostics;
+  const paused = configuration?.transport !== 'configured' && diagnostics?.enabled === false;
+  const ready = configuration?.transport === 'configured';
+  const pendingCount = configuration?.counts?.pending ?? 0;
+
+  return <section className="surface email-delivery-panel" aria-labelledby="transactional-email-heading">
+    <header className="email-delivery-header">
+      <div><h2 id="transactional-email-heading">Transaktionsmejl</h2><p>Status för automatiska mejl från händelser i Trafexa.</p></div>
       <button type="button" className="button button-outline" disabled={busy || loading} onClick={() => void refresh()}>{loading ? 'Hämtar mejlstatus…' : 'Uppdatera mejlstatus'}</button>
-    </div>
-    <p>Avsändare: kundtjanst@trafexa.com. Svar: info@trafexa.com.</p>
-    {loading && <p role="status">Hämtar mejlstatus…</p>}
-    {status && !status.ok && <p role="alert" className="form-error">{status.message}</p>}
-    {status?.ok && <>
-      <p>{status.transport === 'configured' ? 'Mejltransport aktiverad.' : 'Mejltransport behöver konfigureras och avsändardomänen verifieras.'}</p>
-      <p>Kontomejl och lösenordsåterställning skickas separat av Supabase Auth.</p>
-      {status.counts && <p>Väntar: {status.counts.pending} · Accepterade av leverantör: {status.counts.accepted} · Avvisade: {status.counts.rejected} · Okänt utfall: {status.counts.unknown}</p>}
-      <p>Nya händelser försöker skickas direkt när mejltransporten är aktiverad. Väntande mejl kan skickas här. Inget schemalagt utskicksjobb är aktiverat.</p>
-      <label><input type="checkbox" checked={ack} onChange={event => setAck(event.target.checked)} disabled={busy || status.transport !== 'configured'}/> Jag vill skicka nästa väntande transaktionsmejl</label>
-      <p><button type="button" className="button button-green" disabled={!ack || busy || status.transport !== 'configured'} onClick={() => void dispatch()}>{busy ? 'Skickar…' : 'Skicka nästa mejl'}</button></p>
+    </header>
+    {loading && <p role="status" className="email-delivery-loading">Hämtar mejlstatus…</p>}
+    {status && !status.ok && <p role="alert" className="notice error">{status.message}</p>}
+    {configuration && <>
+      <div className="email-delivery-connection">
+        <div><span className={`badge ${ready ? 'badge-green' : ''}`}>{ready ? 'Aktiverat' : paused ? 'Pausat' : 'Inställningar saknas'}</span><h3>{ready ? 'Automatiska händelsemejl är aktiverade' : paused ? 'Automatiska händelsemejl är pausade' : 'Utskicksinställningarna behöver kontrolleras'}</h3><p>{ready ? 'Nya händelser försöker skickas direkt. Äldre väntande mejl hanteras separat nedan.' : paused ? 'Automatiska utskick är avstängda. Inga väntande händelsemejl skickas från den här panelen.' : 'Mejl kan inte skickas med nuvarande inställningar. Kontrollera mejlkonfigurationen innan utskick.'}</p>
+        {diagnostics && !ready && <ul className="email-delivery-config-notes">{!diagnostics.domainVerified && <li>Avsändardomänen är inte markerad som verifierad i inställningarna.</li>}{!diagnostics.credentialsPresent && <li>Uppgifter för mejltjänsten saknas.</li>}{!diagnostics.projectConfigured && <li>Projektets mejlkoppling saknas.</li>}</ul>}</div>
+        <dl className="email-delivery-addresses"><div><dt>Avsändare</dt><dd>kundtjanst@trafexa.com</dd></div><div><dt>Svar skickas till</dt><dd>info@trafexa.com</dd></div></dl>
+      </div>
+      {configuration.counts && <div className="email-delivery-queue" aria-labelledby="email-queue-heading"><h3 id="email-queue-heading">Kö för händelsemejl</h3><dl className="email-delivery-metrics">{([
+        ['pending', 'Väntar på utskick'], ['accepted', 'Mottagna av mejltjänsten'], ['rejected', 'Avvisade'], ['unknown', 'Okänt utfall'],
+      ] as const).map(([key,label]) => <div key={key}><dt>{label}</dt><dd>{configuration.counts[key] ?? 0}</dd></div>)}</dl><p>Antalen gäller händelsemejl. Välkomstmejl, lösenordsåterställning och fakturamejl ingår inte. Mottagna av mejltjänsten betyder inte bekräftad leverans till inkorgen.</p></div>}
+      <details className="email-delivery-manual"><summary>Manuellt utskick av väntande mejl</summary><div><p>{pendingCount ? `${pendingCount} mejl väntar. Här kan du skicka ett mejl i taget efter kontroll.` : 'Inga mejl väntar på utskick. Uppdatera status för att läsa in kön igen.'} Kön har inget schemalagt utskicksjobb.</p>{!ready && <p>Manuellt utskick är inte tillgängligt medan händelsemejl är {paused ? 'pausade' : 'okonfigurerade'}.</p>}<label className="email-delivery-confirmation"><input type="checkbox" checked={ack} onChange={event => setAck(event.target.checked)} disabled={busy || !ready || !pendingCount}/><span>Jag vill skicka nästa väntande transaktionsmejl</span></label><button type="button" className="button button-green" disabled={!ack || busy || !ready || !pendingCount} onClick={() => void dispatch()}>{busy ? 'Skickar…' : 'Skicka nästa mejl'}</button></div></details>
+      <aside className="email-delivery-account-note" aria-label="Kontomejl"><h3>Välkomstmejl och konto</h3><p>Välkomstmejl efter godkänd ansökan hanteras separat{configuration.invitationTransport === 'configured' ? ' och är konfigurerade för utskick' : configuration.invitationTransport === 'unconfigured' ? ' och behöver konfigureras' : ''}. Lösenordsåterställning har ett eget utskicksflöde.</p></aside>
     </>}
-    {message && <p role="status">{message}</p>}
+    {message && <p role="status" className="notice email-delivery-result">{message}</p>}
   </section>;
 }
