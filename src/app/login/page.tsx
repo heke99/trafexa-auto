@@ -5,14 +5,14 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { AuthShell } from '@/components/auth-shell';
 import { safeNextPath } from '@/lib/routing.mjs';
 import { getAuthenticatedLandingPath } from '@/lib/auth/landing';
-import { passwordChangeUnconfirmedWarning, savedPasswordSignOutWarning } from '@/lib/auth/sign-out';
+import { passwordChangeUnconfirmedWarning, savedPasswordSignOutWarning, sessionSignOutUnconfirmedWarning } from '@/lib/auth/sign-out';
 import { retryPasswordSignOutAction } from '@/lib/auth/session-recovery-actions';
 export const metadata={title:'Logga in',robots:{index:false,follow:false}};
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{error?:string;success?:string;next?:string}> }) {
  const query=await searchParams;const nextPath=safeNextPath(query.next);const db=await createServerSupabaseClient();const {data,error}=await db.auth.getUser();
  if(!error&&data?.user){
   const landing=await getAuthenticatedLandingPath(nextPath);
-  if(query.error!==savedPasswordSignOutWarning&&query.error!==passwordChangeUnconfirmedWarning)redirect(landing);
+  if(query.error!==savedPasswordSignOutWarning&&query.error!==passwordChangeUnconfirmedWarning&&query.error!==sessionSignOutUnconfirmedWarning)redirect(landing);
   return <AuthShell title="Kontrollera din inloggning." subtitle="En inloggad session finns kvar i den här webbläsaren.">
    <p className="notice error" role="alert">{query.error}</p>
    <form action={retryPasswordSignOutAction}><input type="hidden" name="next" value={nextPath}/><button className="button button-green" type="submit">Försök logga ut igen</button></form>
