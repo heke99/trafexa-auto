@@ -175,9 +175,10 @@ test('application status CAS conflict reloads current source and requires a new 
   await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();await page.getByRole('button',{name:'Visa ansökan från Old Person',exact:true}).click();
   await page.getByLabel('Ny handläggningsstatus').selectOption('contacted');await page.getByLabel('Motivering för handläggning').fill('Kontaktad via telefon');await page.getByRole('button',{name:'Granska handläggningsstatus',exact:true}).click();await page.getByRole('button',{name:'Bekräfta handläggningsstatus',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Ansökan från Current Person'})).toBeVisible();await expect(page.getByRole('button',{name:'Bekräfta handläggningsstatus',exact:true})).toHaveCount(0);await expect(page.getByRole('heading',{name:'Ansökan från Old Person'})).toHaveCount(0);await expect(page.getByLabel('Ny handläggningsstatus')).toHaveValue('in_review');
-  const table=page.getByRole('table',{name:'Ansökningar till Trafexa'});
-  assert.deepEqual(await table.getByRole('button').allTextContents(),['Visa ansökan från Before Person','Visa ansökan från Current Person','Visa ansökan från After Person']);
-  await expect(table.getByRole('row').filter({hasText:'Current Person'}).getByRole('cell',{name:'Under granskning',exact:true})).toBeVisible();
+  const table=page.locator('table.admin-applications-table');
+  await expect(table).toBeHidden();
+  assert.deepEqual(await table.getByRole('button',{includeHidden:true}).allTextContents(),['Visa ansökan från Before Person','Visa ansökan från Current Person','Visa ansökan från After Person']);
+  await expect(table.getByRole('row',{includeHidden:true}).filter({hasText:'Current Person'}).getByRole('cell',{includeHidden:true}).nth(3)).toHaveText('StatusUnder granskning');
   await page.evaluate(value=>{window.fixture.application=value;},current);
   await page.getByLabel('Ny handläggningsstatus').selectOption('contacted');await page.getByLabel('Motivering för handläggning').fill('Kontaktad via telefon');await page.getByRole('button',{name:'Granska handläggningsstatus',exact:true}).click();assert.equal(await page.evaluate(()=>window.fixture.applicationStatusCalls.length),1);await page.getByRole('button',{name:'Bekräfta handläggningsstatus',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Ansökans status har registrerats.'})).toBeVisible();
   const calls=await page.evaluate(()=>window.fixture.applicationStatusCalls);assert.equal(calls[0].expectedVersion,1);assert.equal(calls[1].expectedVersion,2);assert.notEqual(calls[0].requestId,calls[1].requestId);
@@ -273,7 +274,7 @@ test('application approval requires recipient review and explicit acknowledgemen
   assert.equal(await page.evaluate(()=>window.fixture.invitationCalls.length),0);
   await page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'}).check();
   await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
-  await expect(region.getByRole('status')).toContainText('Kontoinbjudan har skickats till invited@example.test.');
+  await expect(region.getByRole('status')).toContainText('Välkomstmejlet med godkännandebekräftelse och kontoinbjudan har lämnats till mejltjänsten för invited@example.test.');
   await expect(page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true})).toBeDisabled();
   const calls=await page.evaluate(()=>window.fixture.invitationCalls);
   assert.equal(calls.length,1);assert.equal(calls[0].applicationId,COMPANY);assert.equal(calls[0].expectedVersion,3);assert.equal(calls[0].acknowledged,true);
@@ -296,7 +297,7 @@ test('unconfigured invitation never claims delivery and an existing account dire
  try {
   await openInvitationReview(page);await page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'}).check();
   await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
-  await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'}).getByRole('status')).toContainText('Ingen kontoinbjudan har skickats');
+  await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'}).getByRole('status')).toContainText(/ingen kontoinbjudan har skickats/i);
   await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Granska kontot under Konton');
  }finally{await page.close();}
 });
@@ -321,7 +322,7 @@ test('reviewed invitation fits mobile widths and changing application discards a
   await page.getByRole('checkbox',{name:`Jag har granskat ansökan och godkänner kontot för ${application.email}.`}).check();
   await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
   await page.waitForFunction(()=>typeof window.releaseInvitation==='function');
-  await page.getByRole('button',{name:'Stäng detaljer',exact:true}).click();
+  await page.getByRole('button',{name:/Tillbaka till ansökningar/}).click();
   await page.evaluate(()=>window.releaseInvitation({ok:true,status:'sent',invitationId:'50000000-0000-4000-8000-000000000001',email:window.fixture.application.email}));
   await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'})).toHaveCount(0);
   await expect(page.getByText('Kontoinbjudan har skickats',{exact:false})).toHaveCount(0);
@@ -337,7 +338,7 @@ test('reopening a prepared invitation reuses persisted reason and request identi
   await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'}).getByRole('status')).toContainText('Tidigare förberedelse betyder inte att mejlet har levererats');
   await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();await page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'}).check();
   await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
-  await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'}).getByRole('status')).toContainText('har redan skickats');
+  await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'}).getByRole('status')).toContainText('har redan tagit emot välkomstmejlet');
   const calls=await page.evaluate(()=>window.fixture.invitationCalls);assert.equal(calls[0].requestId,requestId);assert.equal(calls[0].reason,previous.reason);
  }finally{await page.close();}
 });
@@ -465,14 +466,14 @@ test('mobile dealer and account actions remain inside their visible cards withou
 test('account email search retains applied query for pagination and resets cursor when search or status changes',async()=>{
  const a=makeAccount({email:'one@example.test'}),b=makeAccount({userId:NEXT,email:'two@example.test'});
  const page=await setup({accountRows:[a,b]});try{
-  await page.getByRole('button',{name:'Konton',exact:true}).click();await page.getByLabel('Sök kontots e-post').fill(' EXAMPLE.TEST ');
+  await page.getByRole('button',{name:'Konton',exact:true}).click();await page.getByLabel('Sök namn, organisationsnummer eller e-post').fill(' EXAMPLE.TEST ');
   await page.evaluate(a=>window.fixture.accountResponses.push({ok:true,accounts:[a],nextPageKey:'bound-cursor'}),a);
   await page.getByRole('button',{name:'Uppdatera konton',exact:true}).click();await expect(page.getByRole('button',{name:'Läs in fler konton'})).toBeVisible();
-  await page.getByLabel('Sök kontots e-post').fill('unsubmitted');await page.evaluate(b=>window.fixture.accountResponses.push({ok:true,accounts:[b],nextPageKey:null}),b);await page.getByRole('button',{name:'Läs in fler konton'}).click();
+  await page.getByLabel('Sök namn, organisationsnummer eller e-post').fill('unsubmitted');await page.evaluate(b=>window.fixture.accountResponses.push({ok:true,accounts:[b],nextPageKey:null}),b);await page.getByRole('button',{name:'Läs in fler konton'}).click();
   let calls=await page.evaluate(()=>window.fixture.accountListCalls);assert.equal(calls.at(-1).search,'example.test');assert.equal(calls.at(-1).pageKey,'bound-cursor');
   await page.getByLabel('Visa konton').selectOption('all');await expect(page.getByText('Inga konton i denna vy',{exact:true})).toBeVisible();calls=await page.evaluate(()=>window.fixture.accountListCalls);assert.equal(calls.at(-1).filter,'all');assert.equal(calls.at(-1).search,'unsubmitted');assert.equal(calls.at(-1).pageKey,null);
-  await page.getByLabel('Sök kontots e-post').fill('ONE@EXAMPLE');await page.getByRole('button',{name:'Uppdatera konton',exact:true}).click();await expect(page.getByRole('button',{name:'Visa företag för one@example.test',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Visa företag för two@example.test',exact:true})).toHaveCount(0);
-  await page.getByRole('button',{name:'Företag',exact:true}).click();await page.getByRole('button',{name:'Konton',exact:true}).click();await expect(page.getByLabel('Visa konton')).toHaveValue('all');await expect(page.getByLabel('Sök kontots e-post')).toHaveValue('one@example');calls=await page.evaluate(()=>window.fixture.accountListCalls);assert.equal(calls.at(-1).search,'one@example');assert.equal(calls.at(-1).pageKey,null);
+  await page.getByLabel('Sök namn, organisationsnummer eller e-post').fill('ONE@EXAMPLE');await page.getByRole('button',{name:'Uppdatera konton',exact:true}).click();await expect(page.getByRole('button',{name:'Visa företag för one@example.test',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Visa företag för two@example.test',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Företag',exact:true}).click();await page.getByRole('button',{name:'Konton',exact:true}).click();await expect(page.getByLabel('Visa konton')).toHaveValue('all');await expect(page.getByLabel('Sök namn, organisationsnummer eller e-post')).toHaveValue('one@example');calls=await page.evaluate(()=>window.fixture.accountListCalls);assert.equal(calls.at(-1).search,'one@example');assert.equal(calls.at(-1).pageKey,null);
  }finally{await page.close();}
 });
 
@@ -481,4 +482,36 @@ test('mobile application cards retain table semantics and exactly one visible de
  const page=await setup({application,contactResponses:[{ok:true,requests:[application],nextPageKey:null}]});try{
   await page.setViewportSize({width:320,height:900});await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();const table=page.getByRole('table',{name:'Ansökningar till Trafexa'});assert.equal(await table.getByRole('columnheader').count(),6);assert.equal(await table.getByRole('row').count(),2);assert.equal(await table.getByRole('cell').count(),6);await expect(table.getByRole('button',{name:/Visa ansökan/})).toHaveCount(1);const rect=await table.getByRole('button').boundingBox();assert.ok(rect.x>=0&&rect.x+rect.width<=320);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await table.getByRole('button').click();await expect(page.getByRole('heading',{name:'Ansökan från Sökande med långt namn'})).toBeVisible();
  }finally{await page.close();}
+});
+
+test('application detail presentation stays readable at mobile and desktop widths', async () => {
+ const application={id:COMPANY,name:'Anna Andersson',email:'anna.andersson@bilhandlaren.example.test',phone:'+46701234567',company:'Stockholms Bilhandel & Motor AB',organisationNumber:'5561234567',seeking:['system','advertising','dealer_network'],message:'Vi vill samla annonsering och försäljning i Trafexa.\nVi har två anläggningar och önskar hjälp att komma igång.',status:'new',version:1,privacyVersion:'2026-10-14',privacyAcknowledgedAt:'2026-10-14T08:00:00Z',createdAt:'2026-10-14T08:00:00Z'};
+ for (const width of [320,390,1440]) {
+  const page=await setup({application,contactResponses:[{ok:true,requests:[application],nextPageKey:null}]});
+  try {
+   await page.setViewportSize({width,height:1000});
+   await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();
+   await page.getByRole('button',{name:/Visa ansökan/}).click();
+   await expect(page.getByRole('heading',{name:'Ansökan från Anna Andersson'})).toBeFocused();
+   await expect(page.getByRole('region',{name:'Inkomna ansökningar'})).toHaveCount(0);
+   for(const heading of ['Företag och kontakt','Önskemål och meddelande','Handläggningshistorik','Handlägg ansökan','Integritet och personuppgifter']) await expect(page.getByRole('heading',{name:heading,exact:true})).toBeVisible();
+   const detail=page.getByRole('region',{name:'Ansökan från Anna Andersson'});
+   const layout=await detail.locator('.admin-application-layout').evaluate(el=>({columns:getComputedStyle(el).gridTemplateColumns.split(' ').length,font:getComputedStyle(el.querySelector('dd')).fontSize}));
+   assert.equal(layout.columns,width===1440?2:1);assert.equal(layout.font,'14px');
+   await expect(page.getByRole('heading',{name:'Godkänn ansökan och bjud in'})).toBeVisible();
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
+   if(process.env.TRAFEXA_APPLICATION_SCREENSHOTS){await mkdir(process.env.TRAFEXA_APPLICATION_SCREENSHOTS,{recursive:true});await page.screenshot({path:resolve(process.env.TRAFEXA_APPLICATION_SCREENSHOTS,`application-${width}.png`),fullPage:true});}
+   await page.getByLabel('Motivering för kontogodkännande').fill('Kontaktperson och bolagsuppgifter har granskats.');
+   await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();
+   const approval=page.getByRole('region',{name:'Godkänn ansökan och bjud in'});
+   await expect(approval.getByRole('heading',{name:'Kontrollera före godkännande'})).toBeVisible();
+   await expect(approval.getByText(application.email,{exact:true})).toBeVisible();
+   await expect(page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true})).toBeDisabled();
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
+   if(process.env.TRAFEXA_APPLICATION_SCREENSHOTS) await page.screenshot({path:resolve(process.env.TRAFEXA_APPLICATION_SCREENSHOTS,`application-review-${width}.png`),fullPage:true});
+   await page.getByRole('button',{name:/Tillbaka till ansökningar/}).click();
+   await expect(page.getByRole('button',{name:'Visa ansökan från Anna Andersson',exact:true})).toBeFocused();
+   assert.equal(await page.evaluate(()=>window.fixture.applicationStatusCalls.length+window.fixture.invitationCalls.length+window.fixture.eraseCalls.length),0);
+  } finally {await page.close();}
+ }
 });

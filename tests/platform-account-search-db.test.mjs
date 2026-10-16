@@ -24,7 +24,7 @@ test('actual account email search binds actor query filter and chronology, treat
   const last=await search('example.test',next.nextCursor);assert.equal(last.accounts[0].userId,id(3));assert.equal(last.nextCursor,null);
   assert.deepEqual((await search('%_')).accounts.map(a=>a.userId),[id(5)]);
   for(const run of [()=>search('test',first.nextCursor),()=>search('example.test',first.nextCursor,id(2)),()=>search('example.test',first.nextCursor,id(1),'all'),()=>search('example.test',{...first.nextCursor,createdAt:'2020-01-01'})])await assert.rejects(run,e=>e.code==='40001');
-  for(const query of ['UPPER','has space','bad\nvalue'])await assert.rejects(()=>search(query),e=>e.code==='22023');
+  for(const query of ['UPPER','has  space','bad\nvalue'])await assert.rejects(()=>search(query),e=>e.code==='22023');
   await assert.rejects(()=>search('',null,id(3)),e=>e.code==='42501');
   for(const role of ['anon','service_role'])await assert.rejects(()=>asRole(db,role,id(1),tx=>tx.query("select public.search_platform_accounts()")),e=>e.code==='42501');
   const legacy=await rpc(id(1),'list_platform_accounts',['pending',null,50]);assert.equal(legacy.accounts.length,4);assert.ok(Object.hasOwn(legacy,'nextPageKey'));

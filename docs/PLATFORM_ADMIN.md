@@ -15,7 +15,8 @@ Databasen kontrollerar det faktiska Auth-kontots UUID, verifierade adress, spär
 - Företagssökning med organisationsnummer, status och antal medlemskap/lagerobjekt; högst 50 rader per sida.
 - Aktivering eller avstängning av ett företag med obligatorisk motivering, granskning och uttrycklig bekräftelse. Databasen jämför förväntad status och loggar aktör, företag, skäl och begärans UUID.
 - Samma begärans UUID och innehåll kan upprepas utan dubbel ändring. Ett historiskt kvitto ersätter inte en ny läsning av företagets aktuella status.
-- Inkomna kontaktförfrågningar från webbformuläret, med sidindelning. Ingen utgående mejlsändning eller automatisk banköverföring utförs.
+- Inkomna ansökningar från webbformuläret med sidindelning och strukturerad detaljvy. Separat granskat kontogodkännande skickar en personlig inbjudan med välkomsthälsning och godkännandebekräftelse enligt [kontokontraktet](ACCOUNT_APPROVAL_CONTRACT.md). Enbart ändrad handläggningsstatus skickar inget mejl.
+- Konton visar företagsnamn, organisationsnummer och kontaktperson. Sökning stöder namn, företag, organisationsnummer och e-post; flera företagskopplingar och ansökt företag utan medlemskap visas tydligt åtskilda.
 - Vanliga handlarroller har fortsatt företagsbunden åtkomst. Adminlistor och revisionstabeller exponeras inte genom direkt tabellåtkomst.
 
 ## Verifiering och driftsgränser
