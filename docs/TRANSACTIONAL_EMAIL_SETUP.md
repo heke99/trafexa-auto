@@ -37,6 +37,10 @@ Service-RPC:er hyr en post under 30 sekunder, kontrollerar aktuellt underlag och
 
 Ansökningsradering stoppar väntande utskick. Konto-/administratörsbehörighet och avtalsunderlag kontrolleras före sändning. En återkallelse exakt samtidigt med ett redan påbörjat nätverksutskick kan inte dra tillbaka ett mejl leverantören redan accepterat. Tidigare accepterade köposters metadata omfattas av organisationens lagrings- och raderingsrutiner.
 
+Signeringsinbjudan är aktuell endast medan affären är i utkast/reserverad och kundens underskrift saknas. Kundens redan registrerade underskrift stoppar inbjudan både när kön hämtas och vid sista kontrollen före sändning. Företagets underskrift ensam stoppar inte kundens inbjudan. Slutmeddelandenas befintliga tvåpartskontroll bevaras.
+
+Transporten vägrar ogiltig eller framtida försökstid och passerat 23-timmarsfönster. Ett tekniskt fel vid sista databasverifieringen före utskick är ett osänt, återförsökbart kontrollfel och får inte visas som bekräftad återkallelse. Ett definitivt leveransbesked kräver att utfallet sparats; misslyckat sparande förblir okänt. Generiska mallars bytes och fakturamejlens mallversion 1 bevaras i denna korrigering.
+
 ## DNS för den förberedda Trafexa-domänen
 
 Resend-domänen skapades 2026-10-14 i EU-regionen eu-west-1, med tvingad TLS och utan länk-/öppningsspårning. Status vid skapandet: not_started. Dessa offentliga DNS-poster behöver läggas hos domänens DNS-operatör. TTL: Auto. Behåll befintliga MX-poster för ordinarie inkorgar.

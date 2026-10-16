@@ -5,6 +5,7 @@ import type { ApplicationInvitation } from '@/lib/platform-admin/application-inv
 import { invitationRecord, invitationUuid } from '@/lib/platform-admin/application-invitation-validation';
 import { decryptInvitationBody, encryptInvitationBody, renderAccountInvitationBody } from './account-invitation-content';
 import { sendAccountInvitation } from './account-invitation-transport';
+import { validAccountInvitationToken } from '@/lib/auth/account-invitation-token';
 
 const PROJECT_URL = 'https://buqdtssxrotkzndublrt.supabase.co';
 type RpcClient = { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> };
@@ -56,7 +57,7 @@ export async function dispatchAccountInvitation(invitation: ApplicationInvitatio
     const generated = await service.auth.admin.generateLink({ type: 'invite', email: invitation.email, options: { redirectTo: 'https://app.trafexa.com/activate-account' } });
     if (generated.error) throw Error('Invitation link unavailable');
     const token = generated.data?.properties?.hashed_token, user = generated.data?.user;
-    if (!token || !/^[a-f0-9]{64}$/.test(token) || generated.data.properties.verification_type !== 'invite' || !user || user.email?.toLowerCase() !== invitation.email) throw Error('Invalid invitation link');
+    if (!validAccountInvitationToken(token) || generated.data.properties.verification_type !== 'invite' || !user || user.email?.toLowerCase() !== invitation.email) throw Error('Invalid invitation link');
     // Auth's deferred gate binds the actual created user before this request can continue.
     job = await current();
     if (job.userId !== user.id) throw Error('Invited user mismatch');

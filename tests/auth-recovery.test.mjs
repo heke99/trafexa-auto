@@ -113,13 +113,63 @@ test('password update uses fresh Auth and keeps the customer destination after g
    getUser:async()=>{events.push('fresh-user');return {data:{user:{id:'buyer'}},error:null};},
    getClaims:()=>assert.fail('Claims do not authorize password changes'),
    updateUser:async payload=>{events.push(['password',payload.password]);return {error:null};},
-   signOut:async options=>events.push(['signout',options.scope]),
+   signOut:async options=>{events.push(['signout',options.scope]);return {error:null};},
   }})},
  });
  const form=new FormData();form.set('next','/my-offers');form.set('password','new-password-long');
  try{await loader.load('src/lib/data/actions.ts').updatePasswordAction(form);assert.fail('Expected redirect');}
  catch(error){const url=new URL(error.url,'https://app.example.invalid');assert.equal(url.pathname,'/login');assert.equal(url.searchParams.get('next'),'/my-offers');}
  assert.deepEqual(events,['fresh-user',['password','new-password-long'],['signout','global'],['cookie','trafexa-company']]);
+});
+
+test('password reset reports a saved password and unconfirmed logout on provider error or timeout, preserving next',async()=>{
+ for(const throws of [false,true]){
+  const events=[];
+  const loader=await createSourceLoader({
+   'next/navigation':{redirect},'next/headers':{cookies:async()=>({delete:name=>events.push(['cookie',name])})},
+   'next/cache':{revalidatePath:()=>assert.fail('No business mutation')},
+   '@/lib/supabase/server':{createServerSupabaseClient:async()=>({auth:{
+    getUser:async()=>({data:{user:{id:'buyer'}},error:null}),
+    updateUser:async()=>{events.push('password-saved');return{error:null};},
+    signOut:async()=>{events.push('logout');if(throws)throw Error('private provider diagnostics');return{error:{message:'private provider diagnostics'}};},
+   }})},
+  });
+  const form=new FormData();form.set('next','/my-offers');form.set('password','new-password-long');
+  try{await loader.load('src/lib/data/actions.ts').updatePasswordAction(form);assert.fail('Expected redirect');}
+  catch(error){
+   const url=new URL(error.url,'https://app.example.invalid');
+   assert.equal(url.pathname,'/login');assert.equal(url.searchParams.get('next'),'/my-offers');assert.equal(url.searchParams.has('success'),false);
+   assert.match(url.searchParams.get('error'),/Lösenordet har sparats/);assert.match(url.searchParams.get('error'),/utloggningen från alla sessioner kunde inte bekräftas/);
+   assert.ok(!url.href.includes('private'));
+  }
+  assert.deepEqual(events,['password-saved','logout',['cookie','trafexa-company']]);
+ }
+});
+
+test('password reset bounds client, identity and ambiguous password-write failures without replaying a write',async()=>{
+ for(const step of ['client','identity','password']){
+  const events=[];
+  const loader=await createSourceLoader({
+   'next/navigation':{redirect},'next/headers':{cookies:async()=>({delete:()=>assert.fail('No confirmed logout')})},
+   'next/cache':{revalidatePath:()=>assert.fail('No business mutation')},
+   '@/lib/supabase/server':{createServerSupabaseClient:async()=>{
+    events.push('client');if(step==='client')throw Error('private provider diagnostics');
+    return{auth:{getUser:async()=>{events.push('identity');if(step==='identity')throw Error('private provider diagnostics');return{data:{user:{id:'buyer'}},error:null};},
+     updateUser:async()=>{events.push('password');throw Error('private provider diagnostics');},
+     signOut:async()=>assert.fail('No confirmed password response'),
+    }};
+   }},
+  });
+  const form=new FormData();form.set('next','/my-offers');form.set('password','new-password-long');
+  try{await loader.load('src/lib/data/actions.ts').updatePasswordAction(form);assert.fail('Expected redirect');}
+  catch(error){
+   const url=new URL(error.url,'https://app.example.invalid');
+   assert.equal(url.pathname,step==='password'?'/login':'/forgot-password');assert.equal(url.searchParams.get('next'),'/my-offers');
+   assert.equal(url.searchParams.has('success'),false);assert.ok(!url.href.includes('private'));
+   if(step==='password')assert.match(url.searchParams.get('error'),/kunde inte bekräftas.*nya lösenord/);
+  }
+  assert.deepEqual(events,['client',...(step==='client'?[]:['identity']),...(step==='password'?['password']:[])]);
+ }
 });
 
 test('customer logout preserves safe next while default and external destinations keep ordinary login',async()=>{

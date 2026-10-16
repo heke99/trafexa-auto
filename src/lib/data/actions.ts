@@ -8,6 +8,7 @@ import { enumField,integerField,moneyField,requiredField,textField,uuidField } f
 import { safeNextPath } from '@/lib/routing.mjs';
 import { getAuthAppOrigin } from '@/lib/auth/app-origin';
 import { getAuthenticatedLandingPath } from '@/lib/auth/landing';
+import { passwordChangeUnconfirmedWarning, savedPasswordSignOutWarning, tryGlobalSignOut } from '@/lib/auth/sign-out';
 import { canManageStockIntake, canWriteInternalFinance } from '@/lib/access/dealer-capabilities';
 import { createCustomerRequestAction, createFinanceIntakeRequestAction } from './create-record-actions';
 
@@ -155,10 +156,15 @@ export async function updatePasswordAction(form:FormData) {
  const nextPath=safeNextPath(form.get('next'));
  const route=(path:string)=>nextPath==='/dashboard'?path:`${path}?${new URLSearchParams({next:nextPath})}`;
  const password=authPassword(form,route('/reset-password'),12);
- const db=await createServerSupabaseClient();const {data,error:authError}=await db.auth.getUser();
- if(authError||!data?.user)outcome(route('/forgot-password'),'error','Återställningslänken har gått ut. Begär en ny länk.');
- const {error}=await db.auth.updateUser({password});
- if(error)outcome(route('/reset-password'),'error','Lösenordet kunde inte ändras. Begär en ny länk och försök igen.');
- await db.auth.signOut({scope:'global'});(await cookies()).delete('trafexa-company');
+ let db:Awaited<ReturnType<typeof createServerSupabaseClient>>;
+ try {db=await createServerSupabaseClient();}catch{outcome(route('/forgot-password'),'error','Återställningen kunde inte verifieras just nu. Försök igen senare.');}
+ let verified=false;
+ try{const {data,error}=await db.auth.getUser();verified=!error&&Boolean(data?.user);}catch{outcome(route('/forgot-password'),'error','Återställningen kunde inte verifieras just nu. Försök igen senare.');}
+ if(!verified)outcome(route('/forgot-password'),'error','Återställningslänken har gått ut. Begär en ny länk.');
+ let rejected=false;
+ try{const {error}=await db.auth.updateUser({password});rejected=Boolean(error);}catch{outcome(route('/login'),'error',passwordChangeUnconfirmedWarning);}
+ if(rejected)outcome(route('/reset-password'),'error','Lösenordet kunde inte ändras. Begär en ny länk och försök igen.');
+ const signedOut=await tryGlobalSignOut(db);(await cookies()).delete('trafexa-company');
+ if(!signedOut)outcome(route('/login'),'error',savedPasswordSignOutWarning);
  outcome(route('/login'),'success','Lösenordet har ändrats. Logga in igen.');
 }

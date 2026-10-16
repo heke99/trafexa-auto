@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {createSourceLoader} from './helpers/source-loader.mjs';
-const token='a'.repeat(64);
+// Actual GoTrue GenerateTokenHash output is hexadecimal SHA-224 (56 characters).
+const token='a'.repeat(56);
 const redirect=url=>{const e=new Error('redirect');e.url=url;throw e;};
 async function activation(options={}){
  const calls=[],mutations=[];
@@ -12,7 +13,7 @@ async function activation(options={}){
   '@/lib/supabase/server':{createServerSupabaseClient:async()=>({auth:{
    verifyOtp:async input=>{calls.push(['verify',input]);return{error:options.verifyError?{message:'private token diagnostics'}:null,data:{user:{id:'review-user',email_confirmed_at:'2026-01-01'}}};},
    updateUser:async input=>{calls.push(['password',input]);return{error:options.passwordError?{message:'private password diagnostics'}:null};},
-   signOut:async input=>{calls.push(['signOut',input]);return{error:null};},
+   signOut:async input=>{calls.push(['signOut',input]);if(options.signOutThrows)throw Error('private logout diagnostics');return{error:options.signOutError?{message:'private logout diagnostics'}:null};},
   }})},
  });
  const action=loader.load('src/lib/auth/activate-account-actions.ts').activateAccountAction;
@@ -33,7 +34,7 @@ test('invitation GET only deposits HttpOnly token and redirects to clean local f
  assert.equal(res.url,'https://app.trafexa.com/activate-account');assert.ok(!res.url.includes(token));
  assert.equal(res.headers.get('cache-control'),'private, no-store');assert.equal(res.headers.get('referrer-policy'),'no-referrer');
  assert.deepEqual(calls,[['trafexa-account-invitation',token,{httpOnly:true,secure:true,sameSite:'lax',path:'/activate-account',maxAge:3600}]]);
- for(const invalid of ['', 'a'.repeat(63), 'b'.repeat(65),'x'.repeat(64)]){
+ for(const invalid of ['', 'a'.repeat(55), 'a'.repeat(57), 'a'.repeat(63), 'b'.repeat(65),'x'.repeat(56)]){
   const failed=await handler({nextUrl:new URL('https://app.trafexa.com/auth/invitation?token_hash='+invalid)});
   assert.equal(new URL(failed.url).pathname,'/login');assert.ok(!failed.url.includes(invalid)||!invalid);
  }
@@ -60,3 +61,38 @@ test('password provider failure preserves verified reset opportunity without fal
 });
 
 test('activation rejects a verified-session identity mismatch before setting a password',async()=>{const h=await activation({wrongIdentity:true}),result=await h.submit();assert.equal(result.pathname,'/login');assert.ok(result.searchParams.get('error'));assert.ok(!h.calls.some(v=>Array.isArray(v)&&v[0]==='password'));assert.deepEqual(h.calls.at(-1),['signOut',{scope:'global'}]);});
+
+test('activation logout failures preserve saved-password fact without claiming completed logout or replaying the invitation',async()=>{
+ for(const options of [{signOutError:true},{signOutThrows:true}]){
+  const h=await activation(options),result=await h.submit();
+  assert.equal(result.pathname,'/login');assert.equal(result.searchParams.has('success'),false);
+  assert.match(result.searchParams.get('error'),/Lösenordet har sparats/);
+  assert.match(result.searchParams.get('error'),/utloggningen från alla sessioner kunde inte bekräftas/);
+  assert.ok(!result.href.includes('private'));
+  assert.equal(h.calls.filter(v=>Array.isArray(v)&&v[0]==='verify').length,1);
+  assert.equal(h.calls.filter(v=>Array.isArray(v)&&v[0]==='password').length,1);
+  assert.ok(h.mutations.some(v=>v[0]==='trafexa-company'));
+ }
+});
+
+test('revoked approval still returns a bounded denial when provider logout fails',async()=>{
+ const h=await activation({denied:true,signOutThrows:true}),result=await h.submit();
+ assert.equal(result.pathname,'/login');assert.match(result.searchParams.get('error'),/saknar godkänd åtkomst/);
+ assert.ok(!h.calls.some(v=>Array.isArray(v)&&v[0]==='password'));
+ assert.ok(!result.href.includes('private'));assert.ok(h.mutations.some(v=>v[0]==='trafexa-company'));
+});
+
+test('activation client initialization failure retains invitation for a safe retry before any OTP consumption',async()=>{
+ const mutations=[];
+ const loader=await createSourceLoader({
+  'next/navigation':{redirect},
+  'next/headers':{cookies:async()=>({get:()=>({value:token}),set:(...args)=>mutations.push(args),delete:(...args)=>mutations.push(args)})},
+  '@/lib/supabase/server':{createServerSupabaseClient:async()=>{throw Error('private initialization diagnostic');}},
+ });
+ const form=new FormData();form.set('password','synthetic-password-long');form.set('acknowledged','yes');
+ await assert.rejects(()=>loader.load('@/lib/auth/activate-account-actions').activateAccountAction(form),error=>{
+  const url=new URL(error.url,'https://app.trafexa.com');assert.equal(url.pathname,'/activate-account');
+  assert.match(url.searchParams.get('error'),/Försök igen med samma inbjudningslänk/);assert.ok(!url.href.includes('private'));return true;
+ });
+ assert.deepEqual(mutations,[]);
+});

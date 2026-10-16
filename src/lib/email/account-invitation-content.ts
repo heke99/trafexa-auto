@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:crypto';
 import { validRecipient } from './templates';
+import { validAccountInvitationToken } from '@/lib/auth/account-invitation-token';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function scope(id: string) { if (!UUID.test(id)) throw Error('Invalid invitation'); return `trafexa/account-invitation/${id.toLowerCase()}`; }
@@ -25,7 +26,7 @@ export function decryptInvitationBody(value: string, invitationId: string, secre
 function escape(value: string) { return value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!)); }
 export function renderAccountInvitationBody(input: { invitationId: string; email: string; name: string; tokenHash: string }): string {
   scope(input.invitationId);
-  if (!validRecipient(input.email) || !/^[a-f0-9]{64}$/.test(input.tokenHash) || input.name.length > 160 || /[\u0000-\u001f\u007f]/.test(input.name)) throw Error('Invalid invitation payload');
+  if (!validRecipient(input.email) || !validAccountInvitationToken(input.tokenHash) || input.name.length > 160 || /[\u0000-\u001f\u007f]/.test(input.name)) throw Error('Invalid invitation payload');
   const url = `https://app.trafexa.com/auth/invitation?token_hash=${input.tokenHash}`;
   const subject = 'Välkommen till Trafexa – din ansökan är godkänd';
   const title = 'Välkommen till Trafexa!';
