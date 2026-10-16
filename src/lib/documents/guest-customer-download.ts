@@ -1,0 +1,22 @@
+import 'server-only';
+import type {SupabaseClient} from '@supabase/supabase-js';
+import {getGuestCustomerDocumentAction} from '@/lib/data/guest-customer-actions';
+import {requireGuestCustomerContext} from '@/lib/guest-customer/context';
+import {record,id} from '@/lib/contracts/validation';
+import {generateSignedContractArtifacts,parseCompletedContract} from './signed-contract-pdf';
+import {parseContractArchive,assertContractArchiveSource,verifyContractArchiveFiles,nativeArchiveOperation,CONTRACT_ARCHIVE_BUCKET,MAX_CONTRACT_PDF_BYTES,MAX_CONTRACT_EVIDENCE_BYTES} from './native-contract-archive';
+export const guestDocumentHeaders={'Cache-Control':'private, no-store, max-age=0','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Robots-Tag':'noindex, nofollow, noarchive',Vary:'Cookie'};
+function failure(status:number){return new Response(status===409?'Avtalet är inte färdigsignerat av båda parter.':'Dokumentet är inte tillgängligt via denna länk.',{status,headers:guestDocumentHeaders});}
+/** The cookie selects one document. The URL id only asserts which document the user was reviewing. */
+export async function downloadGuestCustomerDocument(request:Request,format:'pdf'|'evidence'){
+ const query=new URL(request.url).searchParams,observed=query.get('document');
+ if([...query.keys()].some(key=>key!=='document')||query.getAll('document').length!==1||!observed||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(observed))return failure(404);
+ const documentId=observed.toLowerCase();
+ try{const bounded=nativeArchiveOperation();const c=await bounded(()=>requireGuestCustomerContext());const first=await bounded(()=>getGuestCustomerDocumentAction({documentId}));if(!first.ok)return failure(first.code==='access_denied'?403:503);if(first.document.kind!=='contract'||first.document.signing.status!=='completed')return failure(409);const completed=parseCompletedContract(first.document.signing);if(completed.id!==documentId)return failure(403);
+  async function archive(){const response=await bounded(()=>c.db.rpc('get_guest_contract_archive',{p_invitation_id:c.invitationId,p_token_hash:c.tokenHash}));if(response.error)throw response.error;const row=record(response.data);if(id(row.invitationId)!==c.invitationId||id(row.companyId)!==completed.companyId||id(row.signingId)!==completed.id)throw Error('Invalid archive scope');return row.archive===null?null:parseContractArchive(row.archive,{companyId:completed.companyId,signingId:completed.id});}
+  const original=await archive();let artifacts:{pdf:Uint8Array;evidence:Uint8Array};
+  if(original){assertContractArchiveSource(original,completed);const storage=(c.db as unknown as SupabaseClient).storage;async function stored(path:string,max:number){return bounded(async({signal})=>{const result=await storage.from(CONTRACT_ARCHIVE_BUCKET).download(path,{},{signal,cache:'no-store'});if(result.error||!result.data||result.data.size<2||result.data.size>max)throw Error('Original unavailable');return new Uint8Array(await result.data.arrayBuffer());});}const[pdf,evidence]=await Promise.all([stored(original.pdf.objectPath,MAX_CONTRACT_PDF_BYTES),stored(original.evidence.objectPath,MAX_CONTRACT_EVIDENCE_BYTES)]);artifacts=verifyContractArchiveFiles(original,{pdf,evidence},completed);
+  }else artifacts=await bounded(()=>generateSignedContractArtifacts(completed));
+  const currentArchive=await archive();if(JSON.stringify(currentArchive)!==JSON.stringify(original))return failure(503);const current=await bounded(()=>getGuestCustomerDocumentAction({documentId}));if(!current.ok)return failure(current.code==='access_denied'?403:503);if(JSON.stringify(current.document)!==JSON.stringify(first.document))return failure(403);const fresh=await bounded(()=>requireGuestCustomerContext());if(fresh.invitationId!==c.invitationId||fresh.tokenHash!==c.tokenHash)return failure(403);const body=new Uint8Array(format==='pdf'?artifacts.pdf:artifacts.evidence);return new Response(body,{headers:{...guestDocumentHeaders,'Content-Type':format==='pdf'?'application/pdf':'application/json; charset=utf-8','Content-Disposition':`attachment; filename="avtal-${completed.id}-v${completed.draftVersion}-${original?'original':'genererad-kopia'}${format==='pdf'?'.pdf':'-signeringsbevis.json'}"`}});
+ }catch(e){const code=e&&typeof e==='object'&&'code'in e?e.code:null;return failure(code==='42501'||code==='access_denied'?403:503);}
+}

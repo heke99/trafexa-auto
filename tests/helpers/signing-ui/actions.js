@@ -5,3 +5,6 @@ export async function signContractAction(input){window.fixture.calls.push({kind:
 
 export async function getContractArchiveAction(){throw Error('Existing signing tests must not open the archive panel.');}
 export async function archiveContractAction(){throw Error('Existing signing tests must not archive contracts.');}
+export async function getContractSigningAction(input){window.fixture.calls.push({kind:'getCustomer',input});if(window.fixture.selectedWait)return new Promise(resolve=>{window.resolveSelected=resolve});if(window.fixture.denied)return{ok:false,code:'access_denied',message:'Åtkomst till avtalet nekad'};return window.fixture.selectedResponse??{ok:true,signing:window.fixture.selected??window.fixture.rows.find(row=>row.id===input.signingId)};}
+
+export async function getContractSigningDeliveryAction(input){window.fixture.calls.push({kind:'delivery',input});const response=window.fixture.deliveryResponses?.shift()??window.fixture.deliveryResponse;if(response?.throw)throw Error('Delivery read unavailable');if(response?.hold)return new Promise(resolve=>{window.fixture.releaseDelivery=resolve;});return response??(window.fixture.denied?{ok:false,code:'access_denied',message:'Åtkomst nekad'}:{ok:true,delivery:{...input,recipientEmail:'anna@example.com',status:'pending',transport:'paused'}});}

@@ -9,6 +9,7 @@ type Functions = {
   list_deal_contract_signings: { Args: { p_company_id: string; p_deal_id: string }; Returns: Json };
   list_my_contract_signings: { Args: { p_before_id: string | null }; Returns: Json };
   get_contract_signing: { Args: { p_signing_id: string; p_company_id: string | null }; Returns: Json };
+  get_contract_signing_delivery: { Args: { p_company_id: string; p_deal_id: string; p_signing_id: string }; Returns: Json };
   request_contract_signing: { Args: { p_company_id: string; p_deal_id: string; p_draft_id: string; p_acknowledged: boolean; p_request_id: string }; Returns: Json };
   sign_contract: { Args: { p_signing_id: string; p_company_id: string | null; p_expected_revision: number; p_document_hash: string; p_full_name: string; p_strokes: Json; p_acknowledged: boolean; p_consent_version: string; p_request_id: string }; Returns: Json };
 };

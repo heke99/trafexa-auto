@@ -198,3 +198,103 @@
 .invoice-email-controls{display:flex;flex-wrap:wrap;gap:10px}
 .invoice-email-loading{padding-block:10px}
 @media(max-width:760px){.invoice-email-panel{padding:20px}.invoice-email-header{flex-direction:column;gap:14px}.invoice-email-details{grid-template-columns:1fr;gap:20px}.invoice-email-addresses{display:grid;gap:14px}.invoice-email-amounts{padding:16px}.invoice-email-review{padding:16px}.invoice-email-controls{flex-direction:column}.invoice-email-controls>.button{width:100%;align-self:stretch;text-align:left}}
+
+/* Dealer contract workflow: accepted source, draft review and signatures. */
+.deal-contracts-disclosure{margin-top:16px;min-width:0;border:1px solid #dce4d5;border-radius:6px;padding:16px;background:#fff}
+.deal-contracts-disclosure>summary,.contract-signing-disclosure>summary{font-size:13px;line-height:1.6;padding-block:6px}
+.deal-contracts-panel,.contract-signing-panel{min-width:0;overflow-wrap:anywhere;padding-top:16px}
+.deal-contracts-panel h3,.contract-signing-panel h3,.contract-template-panel h3{font-size:18px;line-height:1.5;margin:0 0 10px}
+.deal-contracts-panel h4,.contract-signing-panel h4,.contract-template-panel h4{font-size:15px;line-height:1.5;margin:0 0 12px}
+.deal-contracts-panel h5,.contract-signing-panel h5{font-size:13px;line-height:1.5;margin:0 0 10px}
+.deal-contracts-panel p,.contract-signing-panel p,.contract-template-panel p{font-size:13px;line-height:1.8}
+.deal-contracts-panel>.muted,.contract-signing-panel>p,.contract-template-panel>.muted{color:#52604c;margin-bottom:18px}
+.deal-contract-steps{padding:0;margin:20px 0;list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.deal-contract-steps li{border:1px solid #dce4d5;border-radius:5px;padding:12px;font-size:12px;line-height:1.6;background:#f6f9f2;display:flex;align-items:center;gap:9px}
+.deal-contract-steps li>span{display:inline-flex;align-items:center;justify-content:center;width:23px;height:23px;border-radius:50%;border:1px solid #cbd8c0;flex-shrink:0;font-size:11px}
+.deal-contract-create{margin-top:18px;min-width:0}
+.deal-contract-basis{min-width:0;background:#f7f9f3;border:1px solid #dce5d4;border-radius:6px;padding:18px}
+.deal-contract-basis>dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 24px;margin:0}
+.deal-contract-basis dt{font-size:11px;line-height:1.5;color:#59694f;margin-bottom:5px}
+.deal-contract-basis dd{font-size:13px;line-height:1.7;margin:0;min-width:0}
+.deal-contract-basis dd>span{display:block;color:#59694f;font-size:12px}
+.deal-contract-basis .deal-contract-trade{border-top:1px solid #d8e2ce;margin-top:18px;padding-top:16px}
+.deal-contract-terms{margin-top:18px;border-top:1px solid #d8e2ce;padding-top:16px}
+.deal-contract-review{margin-top:20px;padding:20px;min-width:0;border-color:#cbd9c0}
+.deal-contracts-panel .workspace-form,.deal-contract-review{gap:17px}
+.deal-contract-draft-list,.contract-template-list{list-style:none;padding:0;margin:18px 0;display:grid;gap:18px}
+.deal-contract-draft-card,.contract-template-list>li{border:1px solid #dce5d4;border-radius:6px;padding:20px;min-width:0;overflow-wrap:anywhere}
+.deal-contract-draft-card>strong{display:block;font-size:14px;line-height:1.5;margin-bottom:10px}
+.deal-contract-draft-card>p{margin-bottom:15px}
+.deal-contract-draft-card>details{border-top:1px solid #e0e7d8;padding-block:12px}
+.deal-contract-draft-card summary{font-size:12px;line-height:1.7}
+.deal-contract-source .deal-contract-basis{margin-top:14px}
+.deal-contract-download{margin-top:12px}
+.deal-contracts-panel .button,.contract-signing-panel .button,.contract-template-panel .button{font-size:12px;line-height:1.6;white-space:normal;min-height:44px;max-width:100%}
+.deal-contracts-panel select,.contract-template-panel select{font-size:13px;max-width:100%}
+.contract-signing-panel{margin-top:20px}
+.contract-signing-request{padding:18px;border:1px solid #dce5d4;border-radius:6px;background:#f5f8ef;margin-block:18px}
+.contract-signing-request h4{margin:0}
+.contract-signing-card{padding:20px;margin-top:16px;min-width:0;gap:17px}
+.contract-signing-card>details{border-block:1px solid #e0e7d8;padding-block:13px;font-size:12px;line-height:1.8}
+.contract-signing-card>details>section{margin-top:16px}
+.contract-signing-card .contract-signing-document-id{border-top:0;margin-top:-17px}
+.contract-signing-document-id p{margin-top:10px}
+.contract-signing-confirm{padding:18px;background:#f2f7eb;border:1px solid #d2dfc5;border-radius:6px}
+.contract-signing-confirm .button{margin:14px 8px 0 0}
+.contract-delivery-panel{padding:18px;border:1px solid #dce5d4;border-radius:6px;background:#f8faf5}
+.contract-delivery-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px}
+.contract-delivery-heading h5{margin:0}
+.contract-delivery-heading button{font-size:11px;line-height:1.6;text-align:left;min-height:40px}
+.contract-delivery-panel p+p{margin-top:8px}
+.contract-delivery-panel .contract-delivery-status{font-weight:600;color:#2d4936}
+.contract-template-panel{padding:24px;min-width:0;overflow-wrap:anywhere}
+.contract-template-panel>.workspace-form{margin-top:20px}
+.contract-template-list>li>strong{font-size:14px;line-height:1.6}
+.contract-template-list>li>p{margin-block:8px}
+.contract-template-list>li>details{font-size:12px;line-height:1.8;margin-block:14px}
+@media(max-width:760px){.deal-contracts-disclosure{padding:14px}.deal-contract-steps{grid-template-columns:1fr;gap:8px}.deal-contract-steps li{padding:10px 12px}.deal-contract-basis{padding:16px}.deal-contract-basis>dl{grid-template-columns:1fr;gap:14px}.deal-contract-draft-card,.deal-contract-review,.contract-signing-card{padding:16px}.contract-signing-request,.contract-delivery-panel,.contract-signing-confirm{padding:16px}.contract-delivery-heading{flex-direction:column;align-items:flex-start;gap:8px}.contract-signing-confirm .button{width:100%;margin-right:0}.deal-contract-download{width:100%;justify-content:flex-start;text-align:left}.contract-template-panel{padding:20px}}
+.customer-email-retry-review{margin-top:16px;padding:16px;border:1px solid #cbd9c0;border-radius:6px;background:#f0f5e9}
+.customer-email-retry-review label{display:flex;flex-direction:row;align-items:flex-start;gap:10px;font-size:12px;line-height:1.7;margin-block:16px}
+.customer-email-retry-review input{width:18px;height:18px;flex-shrink:0;margin:2px 0 0}
+.customer-email-retry-review>div{display:flex;gap:10px;flex-wrap:wrap}
+.contract-delivery-panel>button{margin-top:16px}
+@media(max-width:760px){.customer-email-retry-review>div{flex-direction:column}.customer-email-retry-review .button{width:100%;white-space:normal;line-height:1.6;text-align:left}}
+
+/* Personal buyer documents: a focused review without accounts or navigation. */
+.guest-document-page{max-width:940px;margin:0 auto;padding:30px 28px 50px;min-width:0;overflow-wrap:anywhere}
+.guest-document-brand{display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:1px solid #dce4d5;padding-bottom:22px;margin-bottom:30px}
+.guest-document-brand strong{font-size:24px;letter-spacing:-.7px;color:var(--green)}
+.guest-document-brand span{font-size:12px;color:#59694f}
+.guest-document-intro{margin-bottom:26px}
+.guest-document-intro .eyebrow{font-size:10px;color:#59694f;margin-bottom:12px}
+.guest-document-intro h1,.guest-document-card h1{font-size:32px;font-weight:500;line-height:1.25;letter-spacing:-.7px;margin-bottom:14px}
+.guest-document-page p{font-size:14px;line-height:1.8;color:#465944}
+.guest-document-page p+p{margin-top:10px}
+.guest-document-summary{border:1px solid #cbd9c0;background:#edf3e7;border-radius:8px;padding:24px;margin-bottom:20px}
+.guest-document-summary h2{font-size:22px;line-height:1.4;font-weight:500;margin:0 0 7px}
+.guest-document-summary>strong{display:inline-block;font-size:13px;line-height:1.6;padding:6px 10px;border:1px solid #c6d6b8;border-radius:5px;background:#fff;margin-block:16px 10px}
+.guest-document-card{padding:24px;border:1px solid #dce4d5;background:#fff;border-radius:8px;margin-bottom:20px;min-width:0}
+.guest-document-card h2{font-size:18px;line-height:1.5;margin:0 0 18px;font-weight:600}
+.guest-document-card h3{font-size:16px;line-height:1.5;margin:0 0 14px}
+.guest-document-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 28px;margin:0}
+.guest-document-fields>div{min-width:0}
+.guest-document-fields dt{font-size:12px;line-height:1.6;color:#59694f;margin-bottom:6px}
+.guest-document-fields dd{font-size:15px;line-height:1.7;margin:0;min-width:0}
+.guest-document-fields dd>span{display:block;font-size:13px;color:#59694f;margin-top:3px}
+.guest-document-trade{border-top:1px solid #e0e7d8;margin-top:24px;padding-top:20px}
+.guest-document-trade>p{margin-bottom:16px}
+.guest-document-trade .guest-document-fields{margin-bottom:16px}
+.guest-document-terms{white-space:pre-wrap}
+.guest-document-consent{gap:18px}
+.guest-document-consent label{font-size:13px;line-height:1.6}
+.guest-document-consent input{font-size:15px;min-height:46px}
+.guest-document-consent .guest-document-checkbox{display:flex;flex-direction:row;align-items:flex-start;gap:12px}
+.guest-document-checkbox input{width:20px;height:20px;min-height:20px;flex-shrink:0;margin:2px 0 0}
+.guest-document-page .button{font-size:13px;line-height:1.6;white-space:normal;min-height:46px;text-align:left}
+.guest-document-review{border-color:#b9d0a8;background:#f4f8ee}
+.guest-document-review>div,.guest-document-downloads{display:flex;flex-wrap:wrap;gap:12px}
+.guest-document-review>div{margin-top:20px}
+.guest-document-downloads h2,.guest-document-downloads p{width:100%;margin-bottom:0}
+.guest-document-footer{margin-top:26px}
+.guest-document-footer p{font-size:12px;margin-top:18px}
+@media(max-width:760px){.guest-document-page{padding:22px 18px 36px}.guest-document-brand{margin-bottom:24px;gap:12px}.guest-document-brand strong{font-size:22px}.guest-document-brand span{font-size:11px}.guest-document-intro h1,.guest-document-card h1{font-size:28px}.guest-document-card,.guest-document-summary{padding:20px}.guest-document-fields{grid-template-columns:1fr;gap:17px}.guest-document-summary h2{font-size:20px}.guest-document-review>div{flex-direction:column}.guest-document-page .button{max-width:100%}.guest-document-review .button,.guest-document-downloads .button{width:100%;align-self:stretch}.guest-document-consent .button{align-self:stretch}.guest-document-card h2{font-size:17px}}

@@ -57,6 +57,10 @@ test('Invitation provider failures retain ambiguity and exact idempotency/body o
   let network = false;
   assert.equal((await transport.sendAccountInvitation({ ...input, firstAttemptAt: new Date(Date.now() - 24 * 3600_000).toISOString() }, async () => { network = true; return Response.json({ id: 'bad' }); })).status, 'unknown');
   assert.equal(network, false);
+  let genericKey;
+  assert.equal((await transport.sendAccountInvitation({ ...input, idempotencyKey: `trafexa/${id}` }, async (_url, options) => { genericKey = options.headers['Idempotency-Key']; return Response.json({ id: 'synthetic-generic-id' }); })).status, 'sent');
+  assert.equal(genericKey, `trafexa/${id}`);
+  assert.equal((await transport.sendAccountInvitation({ ...input, idempotencyKey: 'arbitrary-provider-key' }, async () => { assert.fail('Only the server-selected exact queue key is permitted'); })).status, 'rejected');
 });
 
 async function withConfig(run) {

@@ -1,4 +1,4 @@
-export const EMAIL_KINDS = ['application_received','application_admin','account_approved','contract_invitation','contract_completed','contract_completed_company'] as const;
+export const EMAIL_KINDS = ['application_received','application_admin','account_approved','offer_invitation','contract_invitation','contract_completed','contract_completed_company'] as const;
 export type EmailKind = typeof EMAIL_KINDS[number];
 export type TransactionalEmail = { id:string; kind:EmailKind; reference:string; recipient:string; createdAt:string };
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -11,6 +11,7 @@ export function renderTransactionalEmail(email:TransactionalEmail){
  application_received:['Vi har tagit emot din ansökan','Tack för din ansökan till Trafexa. Vi granskar den och återkommer. Ansökan skapar inget konto och innebär inget produktgodkännande.','https://www.trafexa.com','Besök Trafexa'],
  application_admin:['Ny ansökan hos Trafexa','En ny ansökan har registrerats. Logga in i superadmin för att granska uppgifterna.','https://app.trafexa.com/admin','Granska ansökningar'],
  account_approved:['Ditt Trafexa-konto är godkänt','Ditt konto har godkänts av Trafexa. Logga in för att fortsätta. Företags- och produktbehörigheter hanteras separat.','https://app.trafexa.com/login','Logga in'],
+ offer_invitation:['En offert väntar på din granskning','Bilhandlaren har skickat en offert för granskning. Logga in med den e-postadress som fått detta mejl.','https://app.trafexa.com/my-offers','Granska offerten'],
  contract_invitation:['Ett avtal väntar på din underskrift','Du har fått ett avtal för granskning och elektronisk underskrift. Logga in med den e-postadress som fått detta mejl.',`https://app.trafexa.com/my-contracts?contract=${email.reference}`,'Granska avtalet'],
  contract_completed_company:['Avtalet är undertecknat','Alla parter har undertecknat avtalet. Öppna affären för att hämta avtalet och signeringsbeviset.','https://app.trafexa.com/deals','Öppna affären'],
  contract_completed:['Avtalet är undertecknat','Alla parter har undertecknat avtalet. Logga in för att hämta avtalet och signeringsbeviset.',`https://app.trafexa.com/my-contracts?contract=${email.reference}`,'Visa avtalet']};

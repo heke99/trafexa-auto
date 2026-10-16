@@ -7,11 +7,13 @@ import {requirePlatformAdminContext} from '@/lib/platform-admin/context';
 import {accountInvitationConfigured} from './account-invitation-server';
 type EmailDatabase=Omit<Database,'public'>&{public:Omit<Database['public'],'Functions'>&{Functions:{claim_transactional_email:{Args:{p_kind?:string;p_reference?:string};Returns:Json};check_transactional_email_lease:{Args:{p_id:string;p_lease_id:string};Returns:boolean};finish_transactional_email:{Args:{p_id:string;p_lease_id:string;p_status:string;p_provider_id:string|null};Returns:boolean}}}};
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function config(){return {enabled:process.env.TRANSACTIONAL_EMAIL_ENABLED==='true'&&process.env.TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED==='true'&&!!process.env.SUPABASE_SECRET_KEY&&process.env.NEXT_PUBLIC_SUPABASE_URL==='https://buqdtssxrotkzndublrt.supabase.co',apiKey:process.env.RESEND_API_KEY};}
+function config(kind?:string|null){const customer=kind==='offer_invitation'||kind?.startsWith('contract_');return {enabled:(customer?process.env.CONTRACT_EMAIL_ENABLED==='true':process.env.TRANSACTIONAL_EMAIL_ENABLED==='true')&&process.env.TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED==='true'&&!!process.env.SUPABASE_SECRET_KEY&&process.env.NEXT_PUBLIC_SUPABASE_URL==='https://buqdtssxrotkzndublrt.supabase.co',apiKey:process.env.RESEND_API_KEY};}
+export function contractEmailConfigurationStatus(){return {transport:process.env.CONTRACT_EMAIL_ENABLED!=='true'?'paused' as const:emailConfigurationStatus(config('contract_invitation'))==='configured'?'configured' as const:'unconfigured' as const};}
 export function transactionalEmailConfigurationStatus(){return {
  transport:emailConfigurationStatus(config()),sender:'kundtjanst@trafexa.com',replyTo:'info@trafexa.com',automaticSchedule:false as const,
  diagnostics:{enabled:process.env.TRANSACTIONAL_EMAIL_ENABLED==='true',domainVerified:process.env.TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED==='true',credentialsPresent:Boolean(process.env.RESEND_API_KEY)&&Boolean(process.env.SUPABASE_SECRET_KEY),projectConfigured:process.env.NEXT_PUBLIC_SUPABASE_URL==='https://buqdtssxrotkzndublrt.supabase.co'},
  invitationTransport:accountInvitationConfigured()?'configured' as const:'unconfigured' as const,
+ contractTransport:contractEmailConfigurationStatus().transport,
 };}
 /** One bounded message per explicit platform-admin action. No public recipient or arbitrary content inputs. */
 export async function dispatchNextTransactionalEmail():Promise<{status:string}>{return dispatch(null,null,true);}
@@ -22,7 +24,7 @@ export async function dispatchTransactionalEvent(kind:TransactionalEmail['kind']
 }
 async function dispatch(kind:TransactionalEmail['kind']|null,reference:string|null,admin:boolean):Promise<{status:string}>{
  const actor=admin?await requirePlatformAdminContext():null;
- if(emailConfigurationStatus(config())!=='configured')return {status:'unconfigured'};
+ if(emailConfigurationStatus(config(kind))!=='configured')return {status:'unconfigured'};
  const key=process.env.SUPABASE_SECRET_KEY,url=process.env.NEXT_PUBLIC_SUPABASE_URL;
  if(!key||url!=='https://buqdtssxrotkzndublrt.supabase.co')return {status:'unconfigured'};
  const db:SupabaseClient<EmailDatabase>=createClient<EmailDatabase>(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:(input,init)=>fetch(input,{...init,signal:AbortSignal.timeout(10_000)})}});
@@ -45,6 +47,12 @@ async function dispatch(kind:TransactionalEmail['kind']|null,reference:string|nu
  // No provider attempt occurred: a failed verification is not a source revocation.
  if(lease.error||typeof lease.data!=='boolean')return finish('pending','unavailable');
  if(!lease.data)return finish('cancelled');
- const result=await sendTransactionalEmail({id:row.id,kind:row.kind as TransactionalEmail['kind'],reference:row.reference,recipient:row.recipient,createdAt:row.createdAt},config());
+ if(emailConfigurationStatus(config(String(row.kind)))!=='configured')return finish('pending','unconfigured');
+ // Customer invitations grant access only to the linked document. Persist the
+ // encrypted message before any provider call; no customer account is created.
+ const result=row.kind==='contract_invitation'||row.kind==='offer_invitation'||row.kind==='contract_completed'
+  ? await (await import('./customer-contract-invitation-server')).sendClaimedCustomerContractInvitation(db as unknown as import('./customer-contract-invitation-server').CustomerInvitationClient,
+    {id:row.id,leaseId:row.leaseId,reference:row.reference,recipient:row.recipient,kind:row.kind,createdAt:row.createdAt},{apiKey:process.env.RESEND_API_KEY!,secret:key})
+  : await sendTransactionalEmail({id:row.id,kind:row.kind as TransactionalEmail['kind'],reference:row.reference,recipient:row.recipient,createdAt:row.createdAt},config(String(row.kind)));
  return finish(result.status==='retryable'||result.status==='unconfigured'?'pending':result.status,result.status,result.status==='accepted'?result.providerId:null);
 }

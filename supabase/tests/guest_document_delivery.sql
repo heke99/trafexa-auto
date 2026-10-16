@@ -1,0 +1,61 @@
+-- Synthetic rollback-only guest delivery proof. Only the dealer has Auth.
+-- No token, account or invitation is created through an external Auth API.
+begin;
+do $$begin if exists(select 1 from auth.users where id='af240000-0000-4000-8000-000000000001') or exists(select 1 from public.companies where id='af240000-0000-4000-8000-000000000003') then raise exception 'Guest delivery fixture collision';end if;end $$;
+insert into auth.users(id,email,email_confirmed_at)values('af240000-0000-4000-8000-000000000001','guest-delivery-owner-af240000@example.invalid',now());
+insert into private.account_approvals(user_id,status,updated_by)values('af240000-0000-4000-8000-000000000001','approved','af240000-0000-4000-8000-000000000001');
+insert into public.companies(id,name,organisation_number,created_by)values('af240000-0000-4000-8000-000000000003','Guest delivery fixture','5568554884','af240000-0000-4000-8000-000000000001');
+insert into public.memberships(company_id,user_id,role)values('af240000-0000-4000-8000-000000000003','af240000-0000-4000-8000-000000000001','owner');
+insert into public.customers(id,company_id,name,email)values('af240000-0000-4000-8000-000000000005','af240000-0000-4000-8000-000000000003','Guest Buyer','guest-delivery-buyer-af240000@example.invalid');
+insert into public.vehicles(id,company_id,registration_number,make,model,model_year)values('af240000-0000-4000-8000-000000000007','af240000-0000-4000-8000-000000000003','AF24000','Fixture','Guest',2020);
+insert into public.stock_items(id,company_id,vehicle_id,purchase_price_ore,asking_price_ore,vat_scheme)values('af240000-0000-4000-8000-000000000006','af240000-0000-4000-8000-000000000003','af240000-0000-4000-8000-000000000007',100,200,'standard');
+insert into public.deals(id,company_id,stock_item_id,customer_id,sale_price_ore,created_by)values('af240000-0000-4000-8000-000000000004','af240000-0000-4000-8000-000000000003','af240000-0000-4000-8000-000000000006','af240000-0000-4000-8000-000000000005',200,'af240000-0000-4000-8000-000000000001');
+do $$declare offer uuid;review jsonb;lease jsonb;prepared jsonb;bound jsonb;again jsonb;template jsonb;draft jsonb;signing jsonb;complete jsonb;document jsonb;sid uuid;hash text;oh text:=repeat('a',64);ch text:=repeat('b',64);dh text:=repeat('c',64);cipher text:=repeat('opaque-synthetic-guest-body-',4);strokes jsonb:='[{"points":[{"x":0,"y":0},{"x":5,"y":20},{"x":10,"y":0}]}]';begin
+ set local role authenticated;
+ perform set_config('request.jwt.claim.sub','af240000-0000-4000-8000-000000000001',true);
+ offer:=public.create_offer_version('af240000-0000-4000-8000-000000000003','af240000-0000-4000-8000-000000000004','af240000-0000-4000-8000-000000000010','Guest delivery terms',(clock_timestamp() at time zone 'Europe/Stockholm')::date,true);
+ review:=public.publish_offer_review('af240000-0000-4000-8000-000000000003','af240000-0000-4000-8000-000000000004',offer,'af240000-0000-4000-8000-000000000011');
+ reset role;set local role service_role;
+ lease:=public.claim_transactional_email('offer_invitation',(review->'review'->>'id')::uuid);
+ prepared:=public.prepare_customer_contract_invitation((lease->>'id')::uuid,(lease->>'leaseId')::uuid);
+ if prepared->>'mode'<>'guest' or prepared->'userId'<>'null'::jsonb or prepared->'firstAttemptAt'<>'null'::jsonb then raise exception 'Guest offer preparation mismatch';end if;
+ bound:=public.bind_guest_document_invitation((lease->>'id')::uuid,(lease->>'leaseId')::uuid,(prepared->>'invitationId')::uuid,oh,cipher);
+ again:=public.current_customer_contract_invitation((lease->>'id')::uuid,(lease->>'leaseId')::uuid,(prepared->>'invitationId')::uuid);
+ if bound<>again or bound->>'ciphertext'<>cipher then raise exception 'Guest frozen receipt mismatch';end if;
+ begin perform public.bind_guest_document_invitation((lease->>'id')::uuid,(lease->>'leaseId')::uuid,(prepared->>'invitationId')::uuid,ch,cipher);raise exception 'Guest token rotated';exception when serialization_failure then null;end;
+ perform public.begin_customer_contract_invitation_send((lease->>'id')::uuid,(lease->>'leaseId')::uuid);
+ perform public.finish_transactional_email((lease->>'id')::uuid,(lease->>'leaseId')::uuid,'accepted','fixture_offer');
+ perform public.respond_guest_offer((prepared->>'invitationId')::uuid,oh,1,'accepted','Guest Buyer',null,true,'2026-10-14','af240000-0000-4000-8000-000000000020');
+ reset role;set local role authenticated;
+ template:=public.create_contract_template_version('af240000-0000-4000-8000-000000000003','af240000-0000-4000-8000-000000000021',0,'Guest contract','Seller {{company.name}} Buyer {{customer.name}} Price {{offer.price_ore}}','af240000-0000-4000-8000-000000000022');
+ perform public.review_contract_template('af240000-0000-4000-8000-000000000003',(template->'template'->>'id')::uuid,1,'approved','Reviewed guest contract','af240000-0000-4000-8000-000000000023');
+ draft:=public.create_sale_contract_draft('af240000-0000-4000-8000-000000000003','af240000-0000-4000-8000-000000000004',offer,(template->'template'->>'id')::uuid,2,'af240000-0000-4000-8000-000000000024');
+ signing:=public.request_contract_signing('af240000-0000-4000-8000-000000000003','af240000-0000-4000-8000-000000000004',(draft->'draft'->>'id')::uuid,true,'af240000-0000-4000-8000-000000000025');
+ sid:=(signing->'signing'->>'id')::uuid;hash:=signing->'signing'->>'documentHash';
+ reset role;set local role service_role;
+ lease:=public.claim_transactional_email('contract_invitation',sid);
+ prepared:=public.prepare_customer_contract_invitation((lease->>'id')::uuid,(lease->>'leaseId')::uuid);
+ perform public.bind_guest_document_invitation((lease->>'id')::uuid,(lease->>'leaseId')::uuid,(prepared->>'invitationId')::uuid,ch,cipher);
+ perform public.begin_customer_contract_invitation_send((lease->>'id')::uuid,(lease->>'leaseId')::uuid);
+ perform public.finish_transactional_email((lease->>'id')::uuid,(lease->>'leaseId')::uuid,'accepted','fixture_contract');
+ perform public.sign_guest_contract((prepared->>'invitationId')::uuid,ch,1,hash,'Guest Buyer','[]',true,'2026-10-14','af240000-0000-4000-8000-000000000030');
+ reset role;set local role authenticated;
+ complete:=public.sign_contract(sid,'af240000-0000-4000-8000-000000000003',2,hash,'Guest Dealer',strokes,true,'2026-10-14','af240000-0000-4000-8000-000000000031');
+ if complete->'signing'->>'status'<>'completed' then raise exception 'Guest two-party completion failed';end if;
+ reset role;set local role service_role;
+ lease:=public.claim_transactional_email('contract_completed',sid);
+ prepared:=public.prepare_customer_contract_invitation((lease->>'id')::uuid,(lease->>'leaseId')::uuid);
+ if prepared->>'kind'<>'contract_completed' or prepared->'firstAttemptAt'<>'null'::jsonb then raise exception 'Completion counted before provider start';end if;
+ perform public.bind_guest_document_invitation((lease->>'id')::uuid,(lease->>'leaseId')::uuid,(prepared->>'invitationId')::uuid,dh,cipher);
+ document:=public.get_guest_customer_document((prepared->>'invitationId')::uuid,dh);
+ if document->>'kind'<>'contract_completed' or document->'document'->>'status'<>'completed' then raise exception 'Completion read-only document mismatch';end if;
+ begin perform public.sign_guest_contract((prepared->>'invitationId')::uuid,dh,2,hash,'Guest Buyer','[]',true,'2026-10-14','af240000-0000-4000-8000-000000000032');raise exception 'Completion capability allowed signing';exception when insufficient_privilege or invalid_parameter_value then null;end;
+ perform public.begin_customer_contract_invitation_send((lease->>'id')::uuid,(lease->>'leaseId')::uuid);
+ reset role;
+ if exists(select 1 from auth.users where lower(email)='guest-delivery-buyer-af240000@example.invalid')
+ or exists(select 1 from private.customer_portal_accounts where email='guest-delivery-buyer-af240000@example.invalid')
+ or exists(select 1 from private.customer_portal_invitations where company_id='af240000-0000-4000-8000-000000000003') then raise exception 'Guest flow created customer account state';end if;
+ if(select count(*)from private.guest_document_invitations where company_id='af240000-0000-4000-8000-000000000003')<>3 then raise exception 'Expected separate offer, contract and completion capabilities';end if;
+end $$;
+select 'PASS: guest-only offer, contract and read-only completion capabilities; frozen payload/token, provider-start attempts, no customer Auth/account/approval and no external provider calls' result;
+rollback;

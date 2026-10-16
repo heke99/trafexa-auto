@@ -4,3 +4,5 @@ export async function listMyContractSigningsAction(input) { window.fixture.signi
 export async function listDealContractSigningsAction(input) { window.fixture.signingCalls.push({kind:'dealer',input}); return {ok:true,signings:window.fixture.signings,nextBeforeId:null}; }
 export function requestContractSigningAction() { throw Error('Archive UI fixtures must not request signatures.'); }
 export function signContractAction() { throw Error('Archive UI fixtures must not sign a contract.'); }
+export async function getContractSigningAction(){throw Error('Archive tests must not fetch a selected contract.');}
+export async function getContractSigningDeliveryAction(input){return {ok:true,delivery:{...input,recipientEmail:'customer@example.test',status:'accepted',transport:'configured'}};}
