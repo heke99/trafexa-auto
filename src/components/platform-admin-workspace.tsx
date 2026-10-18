@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { activatePlatformAdminAction, erasePlatformWebApplicationAction, getPlatformWebApplicationAction, setPlatformWebApplicationStatusAction, listPlatformCompaniesAction, listPlatformContactRequestsAction, setPlatformCompanyStatusAction } from '@/lib/platform-admin/actions';
+import { useDescendantBusy } from './use-descendant-busy';
 import { PlatformAccountAccess } from './platform-account-access';
 import { PlatformApplicationInvitation } from './platform-application-invitation';
 import { PlatformAdminOverview } from './platform-admin-overview';
@@ -76,7 +77,8 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
   const [financeBusy, setFinanceBusy] = useState(false);
   const financeBusyRef = useRef(false);
   const handleFinanceBusy = useCallback((busy: boolean) => { financeBusyRef.current = busy; setFinanceBusy(busy); }, []);
-  const pending = actionPending || invitationBusy || financeBusy;
+  const administration = useDescendantBusy();
+  const pending = actionPending || invitationBusy || financeBusy || administration.busy;
   function handleInvitationBusy(busy: boolean) { invitationBusyRef.current = busy; setInvitationBusy(busy); }
   const generation = useRef(0);
   const reviewHeading = useRef<HTMLHeadingElement>(null);
@@ -90,7 +92,7 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
   function handleFailure(result: { code: string; message: string }) {
     setError(result.message);
     if (result.code === 'access_denied') {
-      financeBusyRef.current = false; setFinanceBusy(false);
+      financeBusyRef.current = false; setFinanceBusy(false); administration.report(false);
       ++generation.current; ++overviewGeneration.current; setOverview(null); setOverviewError(null); setOverviewLoading(false); setDenied(true); setCompanyDetail(null); companyTrigger.current = null; setCompanies([]); setContacts([]); setNextPageKey(null); setContactCursor(null); setReview(null); setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null);
     }
   }
@@ -113,7 +115,7 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
   }
   useEffect(() => { loadOverview(); return () => { ++overviewGeneration.current; ++generation.current; }; }, []);
   function navigate(nextTab: AdminTab) {
-    if (invitationBusyRef.current || financeBusyRef.current) return;
+    if (invitationBusyRef.current || financeBusyRef.current || administration.busyRef.current) return;
     if (pending || denied) return;
     ++generation.current;
     accountCompanyReturn.current=false;
@@ -121,17 +123,18 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
     if (nextTab === 'contacts' && !contactsLoaded) loadContacts();
   }
   function openCompany(company: CompanyDetailTarget, view: CompanyView, trigger: HTMLButtonElement) {
-    if (financeBusyRef.current) return;
+    if (financeBusyRef.current || administration.busyRef.current) return;
     companyTrigger.current = trigger;
     setCompanyDetail({ company, view }); setReview(null); setError(null); setNotice(null);
   }
   function closeCompany() {
-    if (financeBusyRef.current) return;
+    if (financeBusyRef.current || administration.busyRef.current) return;
     setCompanyDetail(null);
     if(accountCompanyReturn.current){accountCompanyReturn.current=false;setTab('accounts');requestAnimationFrame(()=>accountTab.current?.focus());return;}
     if (companyTrigger.current?.isConnected) companyTrigger.current.focus(); else companyTab.current?.focus();
   }
   function loadCompanies(append = false) {
+    if (financeBusyRef.current || administration.busyRef.current) return;
     const requestGeneration = ++generation.current;
     const query = append ? loadedSearch : search.trim();
     const cursor = append ? nextPageKey : null;
@@ -311,7 +314,7 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
     {notice && <p role="status" className="notice">{notice}</p>}
     {pending && <p role="status">Läser in och verifierar…</p>}
     {!denied && tab === 'overview' && <PlatformAdminOverview overview={overview} loading={overviewLoading} error={overviewError} onRefresh={loadOverview} onNavigate={navigate}/> }
-    {!denied && tab === 'accounts' && <PlatformAccountAccess key={actorUserId} actorUserId={actorUserId} onOpenApplications={() => navigate('contacts')} initialFilter={accountQuery.filter} initialSearch={accountQuery.search} onQueryChange={(filter,search)=>setAccountQuery({filter,search})} onOpenCompany={(company, trigger) => { navigate('companies'); accountCompanyReturn.current=true; openCompany(company, 'members', trigger); }} onAccessDenied={() => handleFailure({code:'access_denied',message:'Du har inte längre tillgång till plattformsadministrationen.'})}/> }
+    {!denied && tab === 'accounts' && <PlatformAccountAccess onBusyChange={administration.report} key={actorUserId} actorUserId={actorUserId} onOpenApplications={() => navigate('contacts')} initialFilter={accountQuery.filter} initialSearch={accountQuery.search} onQueryChange={(filter,search)=>setAccountQuery({filter,search})} onOpenCompany={(company, trigger) => { if (administration.busyRef.current) return; navigate('companies'); accountCompanyReturn.current=true; openCompany(company, 'members', trigger); }} onAccessDenied={() => handleFailure({code:'access_denied',message:'Du har inte längre tillgång till plattformsadministrationen.'})}/> }
     {!denied && tab === 'receivables' && <PlatformAdvertisingReceivables key={actorUserId} actorUserId={actorUserId} onBusyChange={handleFinanceBusy} onDenied={message => handleFailure({ code: 'access_denied', message })}/>}
     {!denied && tab === 'companies' && <>
       <section className="surface" aria-label="Företag">
@@ -322,14 +325,14 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
           <td><span className="admin-cell-label" aria-hidden="true">Medlemmar</span>{company.membershipCount}</td>
           <td><span className="admin-cell-label" aria-hidden="true">Lagerobjekt</span>{company.stockCount}</td>
           <td><span className="admin-cell-label" aria-hidden="true">Registrerat</span>{dateLabel(company.createdAt)}</td>
-          <td><span className="admin-cell-label" aria-hidden="true">Åtgärder</span><div className="admin-row-actions"><button type="button" className="text-link" disabled={pending} onClick={() => { setCompanyDetail(null); setReview({ company, status: company.status === 'active' ? 'suspended' : 'active', reason: '', confirmed: false }); setError(null); setNotice(null); }}>Hantera status<span className="sr-only"> för {company.name}</span></button>{(['members', 'advertising', 'billing', 'blocket'] as const).map(view => <button key={view} type="button" className="text-link" disabled={pending} onClick={event => openCompany(company, view, event.currentTarget)}>{companyViewLabels[view]}<span className="sr-only"> för {company.name}</span></button>)}</div></td>
+          <td><span className="admin-cell-label" aria-hidden="true">Åtgärder</span><div className="admin-row-actions"><button type="button" className="text-link" disabled={pending} onClick={() => { if (financeBusyRef.current || administration.busyRef.current) return; setCompanyDetail(null); setReview({ company, status: company.status === 'active' ? 'suspended' : 'active', reason: '', confirmed: false }); setError(null); setNotice(null); }}>Hantera status<span className="sr-only"> för {company.name}</span></button>{(['members', 'advertising', 'billing', 'blocket'] as const).map(view => <button key={view} type="button" className="text-link" disabled={pending} onClick={event => openCompany(company, view, event.currentTarget)}>{companyViewLabels[view]}<span className="sr-only"> för {company.name}</span></button>)}</div></td>
         </tr>)}</tbody></table></div>
         {!companies.length && <div className="empty-state"><h2>Inga företag hittades</h2><p>Ändra sökningen eller läs in listan igen.</p></div>}
         <div className="table-footer"><span>{companies.length} företag inlästa</span>{nextPageKey && <button type="button" className="text-link" disabled={pending} onClick={() => loadCompanies(true)}>Läs in fler</button>}</div>
       </section>
       {companyDetail && <section className="admin-company-detail" aria-label="Valt företags administration"><div className="panel-heading"><div><p className="eyebrow">Valt företag{companyDetail.company.organisationNumber ? ` · ${companyDetail.company.organisationNumber}` : ''}</p><h2 ref={companyHeading} tabIndex={-1}>{companyViewLabels[companyDetail.view]} för {companyDetail.company.name}</h2></div><button type="button" className="text-link" disabled={pending} onClick={closeCompany}>Stäng företagsvy</button></div>
-        <nav className="admin-company-views" aria-label="Företagets administrationsvyer">{(['members', 'advertising', 'billing', 'blocket'] as const).map(view => <button key={view} type="button" className={`button ${companyDetail.view === view ? 'button-green' : 'button-outline'}`} aria-pressed={companyDetail.view === view} disabled={pending} onClick={() => { if (!financeBusyRef.current) setCompanyDetail(previous => previous ? { ...previous, view } : null); }}>{companyViewLabels[view]}</button>)}</nav>
-        {companyDetail.view === 'members' && <PlatformCompanyMembers key={`${actorUserId}:${companyDetail.company.id}`} companyId={companyDetail.company.id} actorUserId={actorUserId} onAccessDenied={message => handleFailure({ code: 'access_denied', message })}/>}
+        <nav className="admin-company-views" aria-label="Företagets administrationsvyer">{(['members', 'advertising', 'billing', 'blocket'] as const).map(view => <button key={view} type="button" className={`button ${companyDetail.view === view ? 'button-green' : 'button-outline'}`} aria-pressed={companyDetail.view === view} disabled={pending} onClick={() => { if (!financeBusyRef.current && !administration.busyRef.current) setCompanyDetail(previous => previous ? { ...previous, view } : null); }}>{companyViewLabels[view]}</button>)}</nav>
+        {companyDetail.view === 'members' && <PlatformCompanyMembers onBusyChange={administration.report} key={`${actorUserId}:${companyDetail.company.id}`} companyId={companyDetail.company.id} actorUserId={actorUserId} onAccessDenied={message => handleFailure({ code: 'access_denied', message })}/>}
         {companyDetail.view === 'advertising' && <AdvertisingUsagePanel companyId={companyDetail.company.id} userId={actorUserId} role="platform_admin" superadmin onDenied={message => handleFailure({ code: 'access_denied', message })}/>}
         {companyDetail.view === 'billing' && <AdvertisingBillingPanel companyId={companyDetail.company.id} userId={actorUserId} role="platform_admin" superadmin onBusyChange={handleFinanceBusy} onDenied={message => handleFailure({ code: 'access_denied', message })}/>}
         {companyDetail.view === 'blocket' && <BlocketProvisioning companyId={companyDetail.company.id} userId={actorUserId} onAccessDenied={message => handleFailure({ code: 'access_denied', message })}/>}

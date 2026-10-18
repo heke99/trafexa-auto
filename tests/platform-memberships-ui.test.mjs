@@ -86,3 +86,31 @@ test('known membership conflict starts a new request after fresh review even whe
  try{await review(p);await confirm(p);await expect(p.getByText('Aktuella medlemmar har lästs in. Granska ändringen på nytt.',{exact:true})).toBeVisible();await review(p);await confirm(p);const calls=await p.evaluate(()=>window.fixture.memberUpdateCalls);assert.equal(calls.length,2);assert.equal(calls[0].expectedVersion,calls[1].expectedVersion);assert.notEqual(calls[0].requestId,calls[1].requestId);}
  finally{await p.close();}
 });
+
+
+test('pending company member write locks every enclosing company control, then unknown result releases navigation and retains exact request',async()=>{
+ const p=await setup({mode:'admin',overrides:{memberUpdateResponses:[{defer:true}]}});
+ try{
+  await p.getByRole('button',{name:'Företag',exact:true}).click();await p.getByRole('button',{name:'Medlemmar för Bilfirman AB',exact:true}).click();await review(p);await confirm(p);
+  await p.waitForFunction(()=>typeof window.fixture.resolveMembership==='function');
+  for(const name of ['Översikt','Företag','Inkomna ansökningar','Konton','Annonsfakturor','Stäng företagsvy','Medlemmar','Annonsunderlag','Fakturering','Blocketkoppling','Sök','Uppdatera medlemmar','Avbryt medlemsändring'])await expect(p.getByRole('button',{name,exact:true})).toBeDisabled();
+  await expect(p.getByPlaceholder('Namn eller organisationsnummer')).toBeDisabled();
+  await p.evaluate(()=>{for(const label of ['Stäng företagsvy','Hantera status','Fakturering','Konton']){const button=[...document.querySelectorAll('button')].find(e=>e.textContent.startsWith(label));Object.values(button).find(v=>v&&typeof v==='object'&&typeof v.onClick==='function').onClick({currentTarget:button});}});
+  await expect(p.getByRole('heading',{name:'Bekräfta medlemsändring',exact:true})).toBeVisible();
+  await p.evaluate(()=>window.fixture.resolveMembership({ok:false,code:'unavailable',message:'Resultatet är okänt. Försök igen med samma begäran.'}));
+  await expect(p.getByRole('alert')).toContainText('okänt');await expect(p.getByRole('button',{name:'Konton',exact:true})).toBeEnabled();
+  await p.getByRole('button',{name:'Bekräfta medlemsändringen',exact:true}).click();await expect(p.getByText('Ändringen har registrerats. Listan visar företagets aktuella medlemskap.')).toBeVisible();
+  const calls=await p.evaluate(()=>window.fixture.memberUpdateCalls);assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);
+  await p.getByRole('button',{name:'Stäng företagsvy',exact:true}).click();await expect(p.getByRole('region',{name:'Valt företags administration'})).toHaveCount(0);
+ }finally{await p.close();}
+});
+test('company member write stays locked through late receipt status reconciliation and fresh denial clears parent data',async()=>{
+ const p=await setup({mode:'admin',overrides:{membersResponses:[{ok:true,...memberPage()},{defer:true}]}});
+ try{
+  await p.getByRole('button',{name:'Företag',exact:true}).click();await p.getByRole('button',{name:'Medlemmar för Bilfirman AB',exact:true}).click();await review(p);await confirm(p);
+  await p.waitForFunction(()=>typeof window.fixture.resolveMembership==='function');
+  await expect(p.getByRole('button',{name:'Konton',exact:true})).toBeDisabled();await expect(p.getByRole('button',{name:'Stäng företagsvy',exact:true})).toBeDisabled();
+  await p.evaluate(()=>window.fixture.resolveMembership({ok:false,code:'access_denied',message:'Åtkomst återkallad efter beslutet.'}));
+  await expect(p.getByRole('alert')).toContainText('återkallad');await expect(p.getByRole('table')).toHaveCount(0);await expect(p.getByRole('button',{name:'Konton',exact:true})).toBeDisabled();
+ }finally{await p.close();}
+});

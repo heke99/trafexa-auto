@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { lazy, Suspense, useEffect, useRef, useState, useTransition } from 'react';
 const OwnershipTransfer = lazy(() => import('./company-ownership-transfer').then(module => ({ default: module.CompanyOwnershipTransfer })));
 import { cancelCompanyInvitationAction, inviteCompanyMemberAction, listCompanyTeamAction, updateCompanyMemberAction } from '@/lib/company-team/actions';
@@ -18,9 +19,13 @@ const roleLabels: Record<Role, string> = { owner: 'Ägare', admin: 'Administrat�
 const statusLabel = (status: string) => ({ active: 'Aktiv', suspended: 'Avstängd', pending: 'Väntar på svar', accepted: 'Accepterad', cancelled: 'Återkallad', revoked: 'Återkallad', expired: 'Utgången' }[status] ?? status);
 const dateLabel = (value: string) => new Intl.DateTimeFormat('sv-SE', { dateStyle: 'medium', timeZone: 'Europe/Stockholm' }).format(new Date(value));
 const validReason = (reason: string) => reason.trim().length > 0 && reason.trim().length <= 500 && !/[\u0000-\u001f\u007f]/.test(reason);
+const sameId = (left: unknown, right: string) => typeof left === 'string' && left.toLowerCase() === right.toLowerCase();
 const lowerRoles: InviteRole[] = ['sales', 'finance', 'viewer'];
 
-export function CompanyTeam({ companyId, companyRole, userId }: { companyId: string; companyRole: string; userId: string }) {
+type Props = { companyId: string; companyRole: string; userId: string };
+export function CompanyTeam(props: Props) { return <TeamPanel key={`${props.companyId.toLowerCase()}:${props.userId.toLowerCase()}:${props.companyRole}`} {...props}/>; }
+function TeamPanel({ companyId, companyRole, userId }: Props) {
+  const router = useRouter();
   const [ownershipOpen, setOwnershipOpen] = useState(false);
   const [page, setPage] = useState<TeamPage | null>(null);
   const [review, setReview] = useState<Review | null>(null);
@@ -38,21 +43,22 @@ export function CompanyTeam({ companyId, companyRole, userId }: { companyId: str
   const allowed = ['owner', 'admin'].includes(companyRole) && !denied;
   const actorRole = page?.actorRole ?? companyRole;
   const roles: InviteRole[] = actorRole === 'owner' ? ['admin', ...lowerRoles] : lowerRoles;
-  const canManage = (member: Member) => member.role !== 'owner' && member.userId !== (page?.actorUserId ?? userId) && (actorRole === 'owner' || lowerRoles.some(role => role === member.role));
+  const canManage = (member: Member) => member.role !== 'owner' && !sameId(member.userId, page?.actorUserId ?? userId) && (actorRole === 'owner' || lowerRoles.some(role => role === member.role));
   const canCancel = (invitation: Invitation) => invitation.status === 'pending' && new Date(invitation.expiresAt).getTime() > Date.now() && (actorRole === 'owner' || lowerRoles.some(role => role === invitation.role));
   useEffect(() => { heading.current?.focus(); }, [review?.kind, review?.confirmed]);
 
   function failure(result: { code: string; message: string }) {
     setError(result.message);
-    if (['access_denied', 'unauthenticated'].includes(result.code)) { ++generation.current; setDenied(true); setPage(null); setReview(null); setInvited(false); }
+    if (['access_denied', 'unauthenticated'].includes(result.code)) { ++generation.current; setDenied(true); setPage(null); setReview(null); setInvited(false); setEmail(''); setInviteRole('sales'); setNotice(null); setOwnershipOpen(false); nonces.current.clear(); }
   }
   async function readCurrent(requestGeneration: number, append = false, previousPage?: TeamPage | null) {
+    if (append && previousPage && (!sameId(previousPage.companyId, companyId) || !sameId(previousPage.actorUserId, userId) || previousPage.actorRole !== companyRole)) { failure({ code: 'access_denied', message: 'Teamets konto eller behörighet har ändrats. Läs in sidan igen.' }); return false; }
     const membersPageKey = append ? previousPage?.nextMembersPageKey : null;
     const invitationsPageKey = append ? previousPage?.nextInvitationsPageKey : null;
     const result = await listCompanyTeamAction({ companyId, membersPageKey, invitationsPageKey, limit: 50 });
     if (generation.current !== requestGeneration) return false;
     if (!result.ok) { setPage(null); failure(result); return false; }
-    if (result.companyId !== companyId || !['owner', 'admin'].includes(result.actorRole)) { failure({ code: 'access_denied', message: 'Du har inte längre behörighet att hantera teamet.' }); return false; }
+    if (!sameId(result.companyId, companyId) || !sameId(result.actorUserId, userId) || result.actorRole !== companyRole || !['owner', 'admin'].includes(result.actorRole)) { failure({ code: 'access_denied', message: 'Du har inte längre behörighet att hantera teamet.' }); return false; }
     setInviteRole(previous => result.actorRole === 'owner' || lowerRoles.includes(previous) ? previous : 'sales');
     setPage(previous => append && previous ? { ...result,
       members: membersPageKey ? [...previous.members, ...result.members.filter(member => !previous.members.some(item => item.id === member.id))] : previous.members,
@@ -125,7 +131,7 @@ export function CompanyTeam({ companyId, companyRole, userId }: { companyId: str
     <div className="surface"><div className="panel-heading"><h2>Företagets team</h2><button type="button" className="text-link" disabled={pending} onClick={() => load()}>Uppdatera teamet</button></div>
       <p className="settings-note">Företagsroller styr endast åtkomst till det här företaget. Ägare och din egen behörighet ändras inte här.</p>
       {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="notice" role="status">{notice}</p>}{pending && <p role="status">Verifierar företagets team…</p>}
-      {page && <><div className="table-scroll"><table className="data-table"><caption className="sr-only">Företagets medlemmar</caption><thead><tr><th scope="col">Medlem</th><th scope="col">Roll</th><th scope="col">Status</th><th scope="col">Åtgärd</th></tr></thead><tbody>{page.members.map(member => <tr key={member.id}><td><strong>{member.email || 'Medlem'}</strong>{member.email && <small className="cell-subtext" style={{ overflowWrap: 'anywhere' }}>{member.email}</small>}{member.userId === page.actorUserId && <span className="badge">Du</span>}</td><td>{roleLabels[member.role as Role]}</td><td>{statusLabel(member.status)}</td><td>{canManage(member) ? <button type="button" className="text-link" disabled={pending} onClick={() => { setReview({ kind: 'member', member, role: member.role as Role, status: member.status as MemberStatus, reason: '', confirmed: false }); setError(null); setNotice(null); }}>Hantera medlem<span className="sr-only"> {member.email}</span></button> : <span className="muted">Skyddad behörighet</span>}</td></tr>)}</tbody></table></div>
+      {page && <><div className="table-scroll"><table className="data-table"><caption className="sr-only">Företagets medlemmar</caption><thead><tr><th scope="col">Medlem</th><th scope="col">Roll</th><th scope="col">Status</th><th scope="col">Åtgärd</th></tr></thead><tbody>{page.members.map(member => <tr key={member.id}><td><strong>{member.email || 'Medlem'}</strong>{member.email && <small className="cell-subtext" style={{ overflowWrap: 'anywhere' }}>{member.email}</small>}{sameId(member.userId, page.actorUserId) && <span className="badge">Du</span>}</td><td>{roleLabels[member.role as Role]}</td><td>{statusLabel(member.status)}</td><td>{canManage(member) ? <button type="button" className="text-link" disabled={pending} onClick={() => { setReview({ kind: 'member', member, role: member.role as Role, status: member.status as MemberStatus, reason: '', confirmed: false }); setError(null); setNotice(null); }}>Hantera medlem<span className="sr-only"> {member.email}</span></button> : <span className="muted">Skyddad behörighet</span>}</td></tr>)}</tbody></table></div>
         <div className="panel-heading"><h3>Inbjudningar</h3></div><div className="table-scroll"><table className="data-table"><caption className="sr-only">Företagets inbjudningar</caption><thead><tr><th scope="col">E-post</th><th scope="col">Roll</th><th scope="col">Status</th><th scope="col">Giltig till</th><th scope="col">Åtgärd</th></tr></thead><tbody>{page.invitations.map(invitation => <tr key={invitation.id}><td style={{ overflowWrap: 'anywhere' }}>{invitation.email}</td><td>{roleLabels[invitation.role as Role]}</td><td>{statusLabel(invitation.status)}</td><td>{dateLabel(invitation.expiresAt)}</td><td>{canCancel(invitation) ? <button type="button" className="text-link" disabled={pending} onClick={() => { setReview({ kind: 'cancel', invitation, reason: '', confirmed: false }); setError(null); setNotice(null); }}>Återkalla inbjudan<span className="sr-only"> {invitation.email}</span></button> : '—'}</td></tr>)}</tbody></table></div>
         {!page.members.length && !page.invitations.length && <p className="quiet-empty">Inga medlemmar eller inbjudningar i den här listan.</p>}
         <div className="table-footer"><span>{page.members.length} medlemmar · {page.invitations.length} inbjudningar inlästa</span>{(page.nextMembersPageKey || page.nextInvitationsPageKey) && <button type="button" className="text-link" disabled={pending} onClick={() => load(true)}>Läs in fler</button>}</div></>}
@@ -136,7 +142,7 @@ export function CompanyTeam({ companyId, companyRole, userId }: { companyId: str
       {invited && <div className="notice" role="status"><p>Inbjudan har sparats. Dela länken med kollegan, som loggar in med den inbjudna e-postadressen:</p><a href="https://app.trafexa.com/invitations">https://app.trafexa.com/invitations</a></div>}
     </div>
     <button type="button" className="button button-outline" aria-expanded={ownershipOpen} onClick={() => setOwnershipOpen(open => !open)}>{ownershipOpen ? 'Stäng ägarroll' : 'Hantera ägarroll'}</button>
-    {ownershipOpen && <Suspense fallback={<p role="status">Läser in ägarrollen…</p>}><OwnershipTransfer companyId={companyId} userId={userId} companyRole={companyRole} onChanged={async () => { const token = ++generation.current; if (!await readCurrent(token)) throw Error('Team access could not be verified'); }}/></Suspense>}
+    {ownershipOpen && <Suspense fallback={<p role="status">Läser in ägarrollen…</p>}><OwnershipTransfer companyId={companyId} userId={userId} companyRole={companyRole} onChanged={async () => { const token = ++generation.current; if (!await readCurrent(token)) { router.refresh(); throw Error('Team access could not be verified'); } }}/></Suspense>}
     {review && <section className="surface" style={{ marginTop: 24 }} aria-labelledby="team-review-title"><div className="panel-heading"><h2 id="team-review-title" tabIndex={-1} ref={heading}>{review.confirmed ? 'Bekräfta ändringen' : review.kind === 'member' ? 'Granska medlemsbehörighet' : review.kind === 'invite' ? 'Granska inbjudan' : 'Granska återkallande'}</h2></div><form className="workspace-form" style={{ padding: 20 }} onSubmit={event => { event.preventDefault(); if (review.confirmed) save(); else if (review.kind === 'invite' || validReason(review.reason)) setReview({ ...review, confirmed: true }); }}>
       {review.kind === 'member' ? <><p><strong>{review.member.email || 'Medlem'}</strong></p><p>{roleLabels[review.member.role as Role]} / {statusLabel(review.member.status)} → {roleLabels[review.role]} / {statusLabel(review.status)}</p>{review.confirmed ? <><p><strong>Motivering:</strong> {review.reason.trim()}</p><p>Den nya rollen och statusen påverkar kollegans åtkomst till företagets uppgifter.</p></> : <><label>Ny roll<select value={review.role} disabled={pending} onChange={event => setReview({ ...review, role: event.target.value as Role })}>{roles.map(role => <option key={role} value={role}>{roleLabels[role]}</option>)}</select></label><label>Ny status<select value={review.status} disabled={pending} onChange={event => setReview({ ...review, status: event.target.value as MemberStatus })}><option value="active">Aktiv</option><option value="suspended">Avstängd</option></select></label><label>Motivering (obligatorisk)<input type="text" required maxLength={500} value={review.reason} disabled={pending} onChange={event => setReview({ ...review, reason: event.target.value })}/></label><p className="form-privacy">En rad, högst 500 tecken.</p></>}</>
         : review.kind === 'invite' ? <><p><strong>{review.email}</strong> · {roleLabels[review.role]}</p><p>Inbjudan gäller i sju dagar och ger denna roll först efter kollegans uttryckliga accept.</p></>

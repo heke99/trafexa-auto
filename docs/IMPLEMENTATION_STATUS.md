@@ -1,5 +1,10 @@
 # Implementationsstatus
 
+## Samlad projektgranskning 18 oktober
+
+[Projektgenomgången](PROJECT_REVIEW_20261018.md) samlar verifierade rättningar i superadminens arbetsflöden, handlarens kund-/teamvyer, utloggning och aktuell cookie-/integritetsinformation. Ursprunglig helkörning och separata nästlade databastester har skilts från de riktade rättningsproven. Slutlig verifiering och publiceringsidentitet följs i releasens PR; tvåfasuppgradering av ansökans informationsversion beskrivs i [driftinstruktionen](WEB_PRIVACY_OPERATIONS.md). Verkligt godkänt testmejl till alternativ mottagare är levererat; superadminkontot är oförändrat.
+
+
 ## Arkivpaket och isolerat återställningsprov, 18 oktober 2026
 
 [Portabel export och återställningsprov](CONTRACT_ARCHIVE_BACKUP.md) fortsätter från PR #54. Användaren har valt förberedelse innan separat lagringsplats bestäms. Ett verifierat befintligt avtalsoriginal exporteras som ett standard-USTAR-paket med PDF, JSON-evidens och versionsmärkt underlag. Paketet och dess metadata kontrolleras i webbläsaren före nedladdning; kontrollsumman kan sparas separat. Ingen automatisk extern backup aktiveras.

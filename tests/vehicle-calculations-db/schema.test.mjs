@@ -27,20 +27,20 @@ async function fixture() {
  return db;
 }
 test('actual complete migration chain and rollback SQL grant/security contract',async()=>{const result=await runSqlTests();assert.ok(result.some(x=>x.rows.some(r=>r.result?.startsWith('PASS:'))));});
-test('exact financial reads allow all active dealer roles, restrict company/identity and retain unsafe numeric amounts as text',async()=>{
+test('exact private financial reads allow owner admin finance, deny sales viewer and retain unsafe numeric amounts as text',async()=>{
  const db=await fixture();try{
-  for(const role of ['owner','admin','sales','finance','viewer']){const source=await get(db,users[role]);assert.equal(source.purchaseGrossOre,'10000000');assert.equal(source.costs[0].grossOre,'1250000');assert.equal(source.purchaseVatOre,null);assert.equal(typeof source.version,'string');}
+  for(const role of ['owner','admin','finance']){const source=await get(db,users[role]);assert.equal(source.purchaseGrossOre,'10000000');assert.equal(source.costs[0].grossOre,'1250000');assert.equal(source.purchaseVatOre,null);assert.equal(typeof source.version,'string');}
   const precise=await get(db,users.other,STOCK2,C2);assert.equal(precise.purchaseGrossOre,'9007199254740993');
-  for(const user of [null,users.other,users.unverified,users.anonymous])await fails(()=>get(db,user),'42501');
+  for(const user of [null,users.sales,users.viewer,users.other,users.unverified,users.anonymous])await fails(()=>get(db,user),'42501');
   await fails(()=>get(db,users.owner,STOCK2,C),'P0002');
   for(const role of ['anon','service_role'])await fails(()=>rpc(db,users.owner,'inventory_dashboard_totals',{p_company_id:C},role),'42501');
   await db.query("update public.memberships set status='suspended' where company_id=$1 and user_id=$2",[C,users.owner]);await fails(()=>get(db),'42501');
  }finally{await db.close();}
 });
-test('explicit metadata saves use financial CAS and owner/admin/sales authorization, never blanket grants',async()=>{
+test('explicit metadata saves use financial CAS and owner/admin authorization, deny finance sales viewer and direct grants',async()=>{
  const db=await fixture();try{
-  for(const user of [users.owner,users.admin,users.sales]){const current=await get(db,user);const result=await save(db,{user,version:current.version});assert.equal(result.purchaseVatOre,'2000000');assert.equal(result.costs[0].deductibleVatOre,'250000');}
-  for(const user of [users.finance,users.viewer,users.other])await fails(()=>save(db,{user,version:'1'}),'42501');
+  for(const user of [users.owner,users.admin]){const current=await get(db,user);const result=await save(db,{user,version:current.version});assert.equal(result.purchaseVatOre,'2000000');assert.equal(result.costs[0].deductibleVatOre,'250000');}
+  for(const user of [users.finance,users.sales,users.viewer,users.other])await fails(()=>save(db,{user,version:'1'}),'42501');
   await fails(()=>asRole(db,'authenticated',users.owner,tx=>tx.query('update public.stock_items set purchase_vat_ore=0 where id=$1',[STOCK])),'42501');
   await fails(()=>asRole(db,'authenticated',users.owner,tx=>tx.query('update public.vehicle_costs set deductible_vat_ore=0 where id=$1',[COST])),'42501');
   await fails(()=>asRole(db,'authenticated',users.owner,tx=>tx.query("insert into public.vehicle_costs(company_id,stock_item_id,category,description,amount_ore,deductible_vat_ore) values($1,$2,'other','forged',100,20)",[C,STOCK])),'42501');
@@ -62,7 +62,8 @@ test('price or VAT-model changes clear purchase/VMB assertions and old CAS versi
 test('cost changes reset that receipt deduction and advance the aggregate financial version',async()=>{
  const db=await fixture();try{
   const saved=await save(db);
-  await asRole(db,'authenticated',users.sales,tx=>tx.query('update public.vehicle_costs set amount_ore=amount_ore+1 where id=$1',[COST]));
+  const deniedUpdate=await asRole(db,'authenticated',users.sales,tx=>tx.query('update public.vehicle_costs set amount_ore=amount_ore+1 where id=$1',[COST]));assert.equal(deniedUpdate.affectedRows,0);
+  const updated=await asRole(db,'authenticated',users.owner,tx=>tx.query('update public.vehicle_costs set amount_ore=amount_ore+1 where id=$1',[COST]));assert.equal(updated.affectedRows,1);
   const changed=await get(db);assert.equal(changed.costs[0].deductibleVatOre,null);assert.ok(BigInt(changed.version)>BigInt(saved.version));
   await fails(()=>save(db,{version:saved.version}),'40001');
   await db.query("insert into public.vehicle_costs(company_id,stock_item_id,category,description,amount_ore) values($1,$2,'other','new receipt',0)",[C,STOCK]);
@@ -88,13 +89,14 @@ test('evidence is bounded to its purchase/cost gross and exact full cost set; VM
   await fails(()=>save(db,{purchase:null,confirmed:true,costs:[{costId:alpha,deductibleVatOre:'0'},{costId:alpha.toUpperCase(),deductibleVatOre:'0'}]}),'40001');
  }finally{await db.close();}
 });
-test('full-company dashboard counts/sums include more than500 rows and exact sums above PGbigint',async()=>{
+test('full-company dashboard masks viewer purchase totals while authorized counts/sums cover more than500 rows and exceed PGbigint',async()=>{
  const db=await fixture();try{
   await db.query('update public.stock_items set purchase_price_ore=9223372036854775807 where id=$1',[STOCK]);
   await db.query("insert into public.vehicles(company_id,registration_number,make,model,model_year) select $1,'CAL'||n,'Fixture','Bulk',2020 from generate_series(1,501) n",[C]);
   await db.query("insert into public.stock_items(company_id,vehicle_id,purchase_price_ore,asking_price_ore,vat_scheme) select $1,id,9223372036854775807,0,'unknown' from public.vehicles where company_id=$1 and registration_number<>'CAL001'",[C]);
   await db.query("insert into public.customers(company_id,name) select $1,'Customer '||n from generate_series(1,501) n",[C]);
-  const result=await totals(db,users.viewer);
+  const masked=await totals(db,users.viewer);assert.equal(masked.purchaseValueOre,null);
+  const result=await totals(db,users.owner);
   assert.equal(result.activeStockCount,'502');assert.equal(result.availableStockCount,'502');assert.equal(result.customerCount,'501');
   assert.equal(result.purchaseValueOre,(9223372036854775807n*502n).toString());
   assert.equal(typeof result.purchaseValueOre,'string');

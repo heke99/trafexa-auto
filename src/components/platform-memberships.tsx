@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { useDescendantBusy } from './use-descendant-busy';
 import { listPlatformCompanyMembersAction, listPlatformAccountMembershipsAction, updatePlatformCompanyMemberAction } from '@/lib/platform-admin/membership-actions';
 import type { PlatformCompanyMembersPage, PlatformAccountMembershipsPage, PlatformCompanyMember } from '@/lib/platform-admin/membership-types';
 
-type Common = { actorUserId: string; onAccessDenied: (message: string) => void };
+type Common = { onBusyChange?: (busy: boolean) => void; actorUserId: string; onAccessDenied: (message: string) => void };
 type CompanyTarget = { id: string; name: string; status: 'active' | 'suspended' };
 type EditableRole = 'admin' | 'sales' | 'finance' | 'viewer';
 type Review = { member: PlatformCompanyMember; role: EditableRole; status: 'active' | 'suspended'; reason: string; confirmed: boolean };
@@ -15,7 +16,8 @@ function protection(member: PlatformCompanyMember, actor: string) { return membe
 function canActivate(member: PlatformCompanyMember) { return member.companyStatus === 'active' && member.accountStatus === 'approved' && member.emailVerified; }
 
 export function PlatformCompanyMembers(props: Common & { companyId: string }) { return <CompanyMembersPanel key={`${props.actorUserId}:${props.companyId}`} {...props}/>; }
-function CompanyMembersPanel({ companyId, actorUserId, onAccessDenied }: Common & { companyId: string }) {
+function CompanyMembersPanel({ companyId, actorUserId, onAccessDenied, onBusyChange }: Common & { companyId: string }) {
+  const mutation = useDescendantBusy(onBusyChange);
   const [page, setPage] = useState<PlatformCompanyMembersPage | null>(null), [review, setReview] = useState<Review | null>(null), [ack, setAck] = useState(false);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState(''), [denied, setDenied] = useState(false);
   const live = useRef(true), serial = useRef(0), locked = useRef(false), nonces = useRef(new Map<string, string>()), heading = useRef<HTMLHeadingElement>(null), id = useId();
@@ -40,7 +42,7 @@ function CompanyMembersPanel({ companyId, actorUserId, onAccessDenied }: Common 
     if (!review?.confirmed || !ack || denied || locked.current || protection(review.member, actorUserId) || !reasonValid(review.reason) || review.status === 'active' && !canActivate(review.member)) return;
     const selected = review, payload = { companyId, membershipId: selected.member.membershipId, expectedVersion: selected.member.version, role: selected.role, status: selected.status, reason: selected.reason.trim() };
     const fingerprint = JSON.stringify(payload); if (!nonces.current.has(fingerprint)) nonces.current.set(fingerprint, crypto.randomUUID());
-    const requestId = nonces.current.get(fingerprint)!, token = ++serial.current; locked.current = true; setBusy(true); setError(''); setNotice(''); let received = false;
+    const requestId = nonces.current.get(fingerprint)!, token = ++serial.current; mutation.report(true); locked.current = true; setBusy(true); setError(''); setNotice(''); let received = false;
     try {
       const result = await updatePlatformCompanyMemberAction({ ...payload, requestId });
       if (!live.current || serial.current !== token) return;
@@ -59,7 +61,7 @@ function CompanyMembersPanel({ companyId, actorUserId, onAccessDenied }: Common 
       received = true; setReview(null); setAck(false); setPage(null);
       if (await read(token) && live.current && serial.current === token) setNotice('Ändringen har registrerats. Listan visar företagets aktuella medlemskap.');
     } catch { if (live.current && serial.current === token) { if (received) { setPage(null); setError('Ändringen är registrerad, men aktuella medlemskap kunde inte verifieras. Uppdatera listan.'); } else setError('Resultatet är okänt. Försök igen med samma granskning och begäran.'); } }
-    finally { if (live.current && serial.current === token) { locked.current = false; setBusy(false); } }
+    finally { mutation.report(false); if (live.current && serial.current === token) { locked.current = false; setBusy(false); } }
   }
   return <section className="surface" aria-label="Företagets medlemskap" style={{marginTop:20,overflowWrap:'anywhere'}}>
     <div className="panel-heading" style={{flexWrap:'wrap'}}><div style={{minWidth:0}}><h2>Medlemmar {page ? `i ${page.companyName}` : 'i företaget'}</h2><p>Företagsrollen är separat från kontots godkännande och plattformsadministration.</p></div><button type="button" className="text-link" style={{flexShrink:0}} disabled={busy || denied} onClick={() => void load()}>Uppdatera medlemmar</button></div>

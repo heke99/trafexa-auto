@@ -47,8 +47,11 @@ test('two same-UUID bootstrap claims produce one role and one activation audit',
 });
 
 
-test('platform DDL works on the live foundation without pending signing/archive migrations',async t=>{
- const db=await createDatabase({includeSigningArchive:false});t.after(()=>db.close());
+test('initial platform DDL works on its historical foundation without pending signing/archive migrations',async t=>{
+ // Pin the deployment checkpoint this compatibility proof represents. Later
+ // migrations deliberately bootstrap the archive, so omitting its original DDL
+ // while applying every future migration no longer models this foundation.
+ const db=await createDatabase({includeSigningArchive:false,throughMigration:'20261013184149_platform_admin.sql'});t.after(()=>db.close());
  const tables=(await db.query("select to_regclass('public.signing_jobs') as signing,to_regclass('public.offer_document_archives') as archives")).rows[0];
  assert.deepEqual(tables,{signing:null,archives:null});
  assert.equal((await db.query('select count(*)::integer as n from private.platform_admins')).rows[0].n,0);

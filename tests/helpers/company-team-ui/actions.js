@@ -6,7 +6,9 @@ function response(queue) {
 }
 export async function listCompanyTeamAction(input) {
   window.fixture.teamCalls.push({ ...input });
-  return response(window.fixture.teamResponses) ?? { ok: true, ...window.fixture.team };
+  const next=response(window.fixture.teamResponses);
+  if(next?.hold)return new Promise(resolve=>{window.fixture.teamPending??=[];window.fixture.teamPending.push(resolve);});
+  return next ?? { ok: true, ...window.fixture.team };
 }
 export async function getMyInvitationsAction(input) {
   window.fixture.myCalls.push({ ...input });

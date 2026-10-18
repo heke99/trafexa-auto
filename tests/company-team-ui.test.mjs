@@ -24,6 +24,7 @@ before(async () => {
   bundle = resolve(directory, 'fixture.js');
   styles = await readFile(resolve(repo, 'src/app/globals.css'), 'utf8');
   const config = {
+    plugins: [new webpack.optimize.LimitChunkCountPlugin({maxChunks:1})],
     mode: 'development', target: 'web', devtool: false, context: repo,
     entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js', publicPath: '' },
     resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/company-team/actions': resolve(helpers, 'actions.js'), '@/lib/company-ownership/actions': resolve(repo, 'tests/helpers/company-ownership-ui/actions.js'), 'next/navigation': resolve(repo, 'tests/helpers/company-ownership-ui/navigation.js'), '@': resolve(repo, 'src') } },
@@ -40,7 +41,7 @@ before(async () => {
 });
 after(async () => { await browser?.close(); if (directory) await rm(directory, { recursive: true, force: true }); });
 
-async function setup({ invitations = false, strict = false, companyRole = 'owner', state = team(), ...overrides } = {}) {
+async function setup({ invitations = false, strict = false, companyRole = 'owner', state = team(), skipWait = false, ...overrides } = {}) {
   const page = await browser.newPage();
   await page.route('**/*', route => route.abort());
   await page.setContent(`<style>${styles}</style><div class="wrap" id="root"></div>`);
@@ -52,7 +53,7 @@ async function setup({ invitations = false, strict = false, companyRole = 'owner
   }, { state, overrides });
   await page.addScriptTag({ path: bundle });
   await page.evaluate(props => window.mountTeamFixture(props), { invitations, strict, companyId: COMPANY, companyRole, userId: ACTOR });
-  await expect(page.getByRole('status').filter({ hasText: 'Verifierar' })).toHaveCount(0);
+  if (!skipWait) await expect(page.getByRole('status').filter({ hasText: 'Verifierar' })).toHaveCount(0);
   return page;
 }
 
@@ -202,4 +203,32 @@ test('revoked acceptance cannot expose a dashboard success link or retain invita
     await expect(page.getByRole('link', { name: 'Öppna företaget', exact: true })).toHaveCount(0);
     await expect(page.getByText('Fixture AB <script>alert(1)</script>', { exact: true })).toHaveCount(0);
   } finally { await page.close(); }
+});
+
+for(const mismatch of [{actorUserId:id(99)},{actorRole:'admin'},{companyId:id(99)}])test(`team read rejects a foreign current actor context before displaying private data ${JSON.stringify(mismatch)}`,async()=>{
+ const page=await setup({state:{...team(),...mismatch}});try{await expect(page.getByRole('alert')).toContainText('behörighet');await expect(page.getByRole('button',{name:/Hantera medlem/})).toHaveCount(0);await expect(page.getByText('colleague3@example.com',{exact:true})).toHaveCount(0);await expect(page.getByLabel('Kollegans e-postadress')).toHaveCount(0);assert.equal(await page.evaluate(()=>window.fixture.updateCalls.length+window.fixture.inviteCalls.length+window.fixture.cancelCalls.length),0);}finally{await page.close();}
+});
+test('team UUID casing remains valid and still protects the actual actor from editing itself',async()=>{
+ const actor='abcdef00-1234-4000-8000-000000000002',state=team();state.actorUserId=actor.toUpperCase();state.members=[{...member(5,'admin'),userId:actor},member(6)];const page=await setup();try{await page.evaluate(({state,actor,company})=>{window.fixture.team=state;window.mountTeamFixture({companyId:company,companyRole:'owner',userId:actor});},{state,actor,company:COMPANY});await expect(page.getByRole('button',{name:/Hantera medlem/})).toHaveCount(1);await expect(page.getByText('Du',{exact:true})).toBeVisible();await expect(page.getByRole('alert')).toHaveCount(0);}finally{await page.close();}
+});
+test('actor mismatch after unknown invitation clears review, recipient and retry nonce; fresh actor props start a new verified scope',async()=>{
+ const page=await setup({inviteResponses:[{throw:true}]});const email='reviewed@example.com';try{await page.getByLabel('Kollegans e-postadress').fill(email);await page.getByRole('button',{name:'Granska inbjudan',exact:true}).click();await page.getByRole('button',{name:'Granska ändring',exact:true}).click();await page.getByRole('button',{name:'Spara inbjudan',exact:true}).click();await expect(page.getByRole('alert')).toContainText('samma begäran');const original=await page.evaluate(()=>window.fixture.inviteCalls[0]);await page.evaluate(actor=>window.fixture.team.actorUserId=actor,id(99));await page.getByRole('button',{name:'Uppdatera teamet',exact:true}).click();await expect(page.getByRole('alert')).toContainText('behörighet');await expect(page.getByText(email,{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Spara inbjudan',exact:true})).toHaveCount(0);await expect(page.getByLabel('Kollegans e-postadress')).toHaveCount(0);
+ await page.evaluate(props=>window.mountTeamFixture(props),{companyId:COMPANY,companyRole:'owner',userId:id(99)});await expect(page.getByLabel('Kollegans e-postadress')).toHaveValue('');await page.getByLabel('Kollegans e-postadress').fill(email);await page.getByRole('button',{name:'Granska inbjudan',exact:true}).click();await page.getByRole('button',{name:'Granska ändring',exact:true}).click();await page.getByRole('button',{name:'Spara inbjudan',exact:true}).click();await expect(page.getByRole('link',{name:'https://app.trafexa.com/invitations',exact:true})).toBeVisible();const calls=await page.evaluate(()=>window.fixture.inviteCalls);assert.equal(calls.length,2);assert.notEqual(calls[1].requestId,original.requestId);}finally{await page.close();}
+});
+test('role mismatch is cleared before a current admin prop scope can read lower-role management afresh',async()=>{
+ const page=await setup();try{await page.getByLabel('Kollegans e-postadress').fill('old@example.com');await page.evaluate(()=>window.fixture.team.actorRole='admin');await page.getByRole('button',{name:'Uppdatera teamet',exact:true}).click();await expect(page.getByRole('alert')).toContainText('behörighet');await expect(page.getByLabel('Kollegans e-postadress')).toHaveCount(0);await page.evaluate(props=>window.mountTeamFixture(props),{companyId:COMPANY,companyRole:'admin',userId:ACTOR});await expect(page.getByLabel('Kollegans e-postadress')).toHaveValue('');assert.deepEqual(await page.getByLabel('Roll för kollegan').locator('option').allTextContents(),['Säljare','Finansansvarig','Läsbehörighet']);assert.equal(await page.evaluate(()=>window.fixture.inviteCalls.length),0);}finally{await page.close();}
+});
+test('appended team pages cannot mix another actor into the verified current list',async()=>{
+ const initial={...team(),nextMembersPageKey:'page2'},page=await setup({state:initial});try{await page.evaluate(response=>window.fixture.teamResponses.push(response),{ok:true,...team(),actorUserId:id(99),members:[member(88)]});await page.getByRole('button',{name:'Läs in fler',exact:true}).click();await expect(page.getByRole('alert')).toContainText('behörighet');await expect(page.getByText('colleague88@example.com',{exact:true})).toHaveCount(0);await expect(page.getByText('colleague3@example.com',{exact:true})).toHaveCount(0);assert.equal(await page.evaluate(()=>window.fixture.updateCalls.length),0);}finally{await page.close();}
+});
+test('late previous actor read cannot populate fresh team props',async()=>{
+ const page=await setup({teamResponses:[{hold:true}],skipWait:true});try{await page.waitForFunction(()=>window.fixture.teamPending?.length===1);await page.evaluate(({actor,company})=>{window.fixture.team={...window.fixture.team,actorUserId:actor,members:[{id:'10000000-0000-4000-8000-000000000077',userId:'10000000-0000-4000-8000-000000000078',email:'current@example.com',role:'sales',status:'active',version:1,createdAt:'2026-10-18T10:00:00Z'}]};window.mountTeamFixture({companyId:company,companyRole:'owner',userId:actor});},{actor:id(99),company:COMPANY});await expect(page.getByText('current@example.com',{exact:true}).first()).toBeVisible();await page.evaluate(response=>window.fixture.teamPending[0](response),{ok:true,...team()});await expect(page.getByText('colleague3@example.com',{exact:true})).toHaveCount(0);await expect(page.getByText('current@example.com',{exact:true}).first()).toBeVisible();assert.equal(await page.evaluate(()=>window.fixture.inviteCalls.length+window.fixture.updateCalls.length),0);}finally{await page.close();}
+});
+
+test('a reviewed ownership acceptance refreshes server props even when the old admin team scope rejects its new owner role',async()=>{
+ const previousOwner={membershipId:id(40),userId:id(41),email:'previous@example.com',version:1},target={membershipId:id(42),userId:ACTOR,email:'current@example.com',version:1};
+ const transfer={id:id(43),companyId:COMPANY,from:previousOwner,to:target,status:'pending',version:1,teamVersionAtRequest:5,reason:'Nytt ansvar',attestationVersion:'2026-10-15',createdAt:'2026-10-18T10:00:00Z',expiresAt:'2099-10-20T10:00:00Z',resolvedAt:null,cancelReason:null};
+ const before={companyId:COMPANY,actorUserId:ACTOR,actorRole:'admin',teamVersion:5,serverNow:'2026-10-18T10:00:00Z',owner:previousOwner,candidates:[],nextPageKey:null,transfer,canRequest:false,canAccept:true,canCancel:false,blockReason:'pending_transfer'};
+ const current={...before,actorRole:'owner',teamVersion:6,owner:target,transfer:{...transfer,status:'accepted',version:2},canAccept:false,canRequest:true,blockReason:null};
+ const page=await setup({companyRole:'admin',state:{...team(),actorRole:'admin'},page:current,getCalls:[],acceptCalls:[],requestCalls:[],cancelCalls:[],getResponses:[{ok:true,...before},{ok:true,...current}],acceptResponses:[],refreshes:0});try{await page.evaluate(()=>window.fixture.team.actorRole='owner');await page.getByRole('button',{name:'Hantera ägarroll',exact:true}).click();await page.getByRole('button',{name:'Granska accept av ägarroll',exact:true}).click();await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Acceptera ägarrollen',exact:true}).click();await page.waitForFunction(()=>window.fixture.refreshes>=1);await expect(page.getByRole('alert')).toContainText('behörighet');assert.equal(await page.evaluate(()=>window.fixture.acceptCalls.length),1);await page.evaluate(props=>window.mountTeamFixture(props),{companyId:COMPANY,userId:ACTOR,companyRole:'owner'});await expect(page.getByLabel('Kollegans e-postadress')).toBeEnabled();await expect(page.getByRole('alert')).toHaveCount(0);}finally{await page.close();}
 });

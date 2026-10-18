@@ -1,5 +1,10 @@
 # Planläge 18 oktober 2026
 
+## Samlad projektgranskning 18 oktober
+
+[Projektgenomgången](PROJECT_REVIEW_20261018.md) samlar verifierade rättningar i superadminens arbetsflöden, handlarens kund-/teamvyer, utloggning och aktuell cookie-/integritetsinformation. Ursprunglig helkörning och separata nästlade databastester har skilts från de riktade rättningsproven. Slutlig verifiering och publiceringsidentitet följs i releasens PR; tvåfasuppgradering av ansökans informationsversion beskrivs i [driftinstruktionen](WEB_PRIVACY_OPERATIONS.md). Verkligt godkänt testmejl till alternativ mottagare är levererat; superadminkontot är oförändrat.
+
+
 ## Aktuell dokumentfortsättning: arkivpaket och återställningsprov
 
 Användaren har valt att förbereda export och återställningsprov innan separat lagringsplats bestäms. [Arkivpaketet](CONTRACT_ARCHIVE_BACKUP.md) samlar exakta original, signeringsbevis och kontrollunderlag. Ett offlineverktyg verifierar mot separat sparad SHA-256 och återställer bara till en ny privat provkatalog. Ingen automatisk extern backup eller produktionsåterställning aktiveras. Verifiering och release följs i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).

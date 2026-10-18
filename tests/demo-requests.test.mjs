@@ -16,7 +16,7 @@ hook.deregister();
 const ENV_KEYS = ['NODE_ENV', 'NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'NEXT_PUBLIC_SITE_URL', 'VERCEL_URL', 'VERCEL_BRANCH_URL'];
 const requestId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const success={success:true,receipt:{requestId,accepted:true}};
-const valid = { requestId,name: ' Test Buyer ', company: 'Test Dealer', email: 'buyer@example.com', phone: '+46 123456', organisationNumber:'556855-4884',seeking:['system'],message: 'Help with inventory',privacyVersion:'2026-10-14',privacyAcknowledged:true,website: '' };
+const valid = { requestId,name: ' Test Buyer ', company: 'Test Dealer', email: 'buyer@example.com', phone: '+46 123456', organisationNumber:'556855-4884',seeking:['system'],message: 'Help with inventory',privacyVersion:'2026-10-18',privacyAcknowledged:true,website: '' };
 let savedEnv, calls, provider;
 beforeEach(t => {
   savedEnv = new Map(ENV_KEYS.map(key => [key, process.env[key]]));
@@ -64,7 +64,7 @@ test('a valid inquiry uses the actual typed RPC and returns an explicit success 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].options.method, 'POST');
   assert.ok(calls[0].options.signal instanceof AbortSignal);
-  assert.deepEqual(calls[0].payload, {p_request_id:requestId,p_name:'Test Buyer',p_email:valid.email,p_company:valid.company,p_phone:valid.phone,p_organisation_number:'5568554884',p_seeking:['system'],p_message:valid.message,p_privacy_version:'2026-10-14',p_privacy_acknowledged:true});
+  assert.deepEqual(calls[0].payload, {p_request_id:requestId,p_name:'Test Buyer',p_email:valid.email,p_company:valid.company,p_phone:valid.phone,p_organisation_number:'5568554884',p_seeking:['system'],p_message:valid.message,p_privacy_version:'2026-10-18',p_privacy_acknowledged:true});
 });
 
 test('empty or incorrectly bound RPC receipts never report a saved application', async () => {
@@ -192,4 +192,9 @@ test('the actual RPC fetch aborts after ten seconds and returns a safe timeout a
   assert.equal(calls.length, 1);
   assert.equal(calls[0].options.signal.aborted, true);
   assert.equal(cleared, true);
+});
+
+test('historical receipt replay preserves the submitted policy version while stale new requests receive a reload instruction from SQL',async()=>{
+ const old={...valid,privacyVersion:'2026-10-14'};const replay=await request(old);assert.equal(replay.status,201);assert.equal(calls[0].payload.p_privacy_version,'2026-10-14');
+ provider=async()=>new Response(JSON.stringify({code:'22023',message:'Application notice changed'}),{status:400});const stale=await request({...old,requestId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab'});assert.equal(stale.status,400);assert.match((await stale.json()).error,/Läs in sidan igen/);
 });
