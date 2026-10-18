@@ -6,7 +6,7 @@ Bilköpare använder [personliga dokumentlänkar](CUSTOMER_PORTAL.md) utan Trafe
 
 Den aktuella genomgången följer hela fortsättningen från godkännande till betalningsregistrering och leverans, samt återhämtning efter konflikt eller oklart utskick. Dialoger, sökningar och privata detaljvyer ska alltid följa aktuellt företag och aktuella uppgifter. Verifierade rättelser och releasebevis redovisas i [implementationsstatus](IMPLEMENTATION_STATUS.md).
 
-Efter denna genomgång återstår ett separat granskat flöde för att förnya utgångna dokumentlänkar. Det ska skapa en ny spårbar länk och bevara tidigare utskick och godkännanden. Okända utskicksutfall får inte automatiskt skickas om. Inbyte/skuldlösen och externa partneranslutningar följer sina separata kontrakt.
+Den aktuella dokumentetappen bygger [granskad förnyelse av utgångna kundlänkar](CUSTOMER_DOCUMENT_LINK_RENEWAL.md). Den skapar en ny spårbar länk till samma frysta dokumentversion och sparade mottagare, med bevarade tidigare utskick och godkännanden. Verifiering och publicering redovisas separat i IMPLEMENTATION_STATUS. Okända utskicksutfall får inte automatiskt skickas om. Inbyte/skuldlösen och externa partneranslutningar följer sina separata kontrakt.
 
 Efter CSV-exporten byggs [superadminens globala annonsfakturaöversikt](ADVERTISING_RECEIVABLES.md), med registrerade saldon, förfallna fordringar och direkt åtkomst till fakturaoriginal och avstämning. Statistik och manuellt bankunderlag är separata från verklig bankverifiering och bokföring.
 

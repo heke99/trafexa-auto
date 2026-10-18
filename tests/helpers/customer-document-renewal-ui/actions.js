@@ -1,0 +1,12 @@
+export async function getCustomerDocumentRenewalAction(input){window.renewalCalls.push({operation:'read',...structuredClone(input)});const next=window.renewalReads.shift();if(next?.hold)return new Promise((resolve,reject)=>window.releaseRenewalRead={resolve,reject});if(next?.throw)throw Error('Read unavailable');return next??{ok:true,lifecycle:structuredClone(window.renewalLifecycle)};}
+export async function renewCustomerDocumentAction(input){
+ window.renewalCalls.push({operation:'renew',...structuredClone(input)});window.onRenewalIo?.();
+ const next=window.renewalWrites.shift();if(next?.hold)return new Promise((resolve,reject)=>window.releaseRenewalWrite={resolve,reject});if(next?.throw)throw Error('Unknown before commit');if(next&&!next.throwAfter)return next;
+ const saved=window.renewalSaved[input.requestId];if(saved){if(saved.payload!==JSON.stringify(input))return{ok:false,code:'conflict',message:'Request reused',mutationStarted:false};return{...structuredClone(saved.result),lifecycle:structuredClone(window.renewalLifecycle)};}
+ const source=window.renewalLifecycle,newEmail='10000000-0000-4000-8000-000000000007',newInvite='10000000-0000-4000-8000-000000000008',expiresAt='2026-11-01T10:00:00Z';
+ const receipt={companyId:input.companyId,dealId:input.dealId,referenceId:input.referenceId,kind:input.kind,actorUserId:source.actorUserId,actorRole:source.actorRole,requestId:input.requestId,previousEmailId:input.expectedEmailId,previousInvitationId:input.expectedInvitationId,emailId:newEmail,invitationId:newInvite,generation:input.expectedGeneration+1,recipientEmail:input.expectedRecipientEmail,documentHash:input.expectedDocumentHash,documentVersion:input.expectedDocumentVersion,reason:input.reason,reviewToken:input.expectedReviewToken,expiresAt};
+ window.renewalLifecycle={...source,emailId:newEmail,invitationId:newInvite,generation:receipt.generation,expiresAt,linkStatus:'active',canRenew:false,blockedReason:'not_expired',status:'pending',reviewToken:'d'.repeat(64)};
+ const result={ok:true,receipt,lifecycle:structuredClone(window.renewalLifecycle),dispatchStatus:'pending'};window.renewalSaved[input.requestId]={payload:JSON.stringify(input),result:structuredClone(result)};window.renewalNewIntents++;
+ if(window.fixture)window.fixture.deliveryResponse={ok:true,delivery:{recipientEmail:source.recipientEmail,status:'pending',transport:source.transport}};
+ if(next?.throwAfter)throw Error('Unknown after durable commit');return result;
+}

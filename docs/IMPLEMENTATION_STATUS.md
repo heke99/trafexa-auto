@@ -1,5 +1,13 @@
 # Implementationsstatus
 
+## Granskad förnyelse av kundens dokumentlänkar, 18 oktober 2026
+
+[Dokumentlänkens status och förnyelse](CUSTOMER_DOCUMENT_LINK_RENEWAL.md) kompletterar handlarens offert-, signerings- och färdigavtalsmejl. Status öppnas uttryckligen och visar sparad mottagare, dokumentversion och giltighetstid. En ny länk kräver motivering och två bekräftelser. Den gäller samma frysta dokument och mottagare; tidigare länkar, utskick, underskrifter och revisionsbevis bevaras.
+
+Förnyelsen binder ett beständigt granskningskvitto till exakt ny köpost och åtkomstpost. Identiska återförsök återger samma kvitto efter ny behörighetskontroll. Gamla workers och personliga länkar kan inte använda den nya generationen. Endast en faktiskt utgången länk kan ersättas. Känt slutligt utskicksutfall eller strikt verifierat avbrott före första providersändning tillåter granskning; aktiv lease, okänt providerutfall och ändrat underlag blockerar. Förnya gäller ursprunglig, fortsatt behörig handlaraktör. Funktionen skapar inget kundkonto och förlänger inte offertens giltighet.
+
+Aktuell checkpoint: produktionsbygge inklusive TypeScript passerar. Nio berörda regressionsfiler passerar i en sekventiell körning; den första parallella körningens isolerade avbrott i färdigavtalsprovet återkom inte vid separat eller samlad omkörning. Oberoende worker-/dispatchprov, serveråtgärdsgranskning och 54 browserfall för befintliga dokumentvyer passerar. Nya browserprov, sista native-samtidighetsprovet, hosted migrationer och main-/produktionspublicering verifieras före release. Inga verkliga kundmejl skickas i verifieringen.
+
 ## Superadminens globala annonsfakturor, 18 oktober 2026
 
 [Administration → Annonsfakturor](ADVERTISING_RECEIVABLES.md) samlar alla utfärdade annonsfakturor med globala saldon, statusantal, filter och 25-raders nyckelbaserad sidindelning. Superadmin kan öppna det bevarade originalet, PDF och betalningsavstämning direkt. Fakturans frysta mottagare skiljs från företagets aktuella namn/status; avstängda gäldenärsföretags historik bevaras. Förfallen betyder positivt restbelopp och förfallodag före dagens datum i Europe/Stockholm. Dagens förfallodag är inte förfallen. Full kredit tar bort fordran och bevarar registrerade inbetalningar som eventuellt överskott.
