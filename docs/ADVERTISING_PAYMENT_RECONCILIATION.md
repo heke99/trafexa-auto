@@ -37,3 +37,7 @@ Historiken hämtas med nyckelbaserad sidindelning, 50 poster per sida i fallande
 ## Avgränsningar och verifiering
 
 Ingen bankanslutning, import av kontoutdrag, verklig återbetalning, automatisk överföring till annan faktura, ränta, påminnelse, inkasso eller bokföringsexport aktiveras. Ekonomisystem är fortfarande inte valt. Inga betalningar eller verkliga kundposter skapas av testerna. Lokal SQL, rollgränser, rättelsekedjor, exakta stora belopp och oberoende samtidighetsanslutningar ska verifieras före hosted migration och publicering. Faktiskt verifierat leveransläge rapporteras separat från detta kontrakt.
+
+## Separat export av avstämningsunderlag
+
+[CSV-export per faktura](ADVERTISING_PAYMENT_EXPORT.md) samlar den verifierade historiken och saldona för vidare granskning. Exporten bokför inga poster och är inget importformat för valt ekonomisystem. Den administrativa avstämningen och bankens faktiska transaktioner förblir separata.

@@ -30,4 +30,4 @@ Bankens transaktions-ID hålls skilt från OCR eller bankmeddelande. Samma OCR k
 
 Browserprover använder riktiga komponenter och CSS med syntetiska svar vid externa gränser. Databasprov använder riktiga migrationer; separata PostgreSQL-processer verifierar låsväntan och konkurrerande beslut. Produktionskontroller och fullständiga slutresultat följs i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md) och releasens PR.
 
-Ingen verklig faktura, betalning, återbetalning eller mejlleverans skapas för att verifiera etappen. Bankanslutning, bokföringsintegration och faktisk mottagarleverans kräver separata kontroller. Nästa ekonomiarbete är export och avstämning mot valt bokföringssystem; leverantör är ännu inte bestämd.
+Ingen verklig faktura, betalning, återbetalning eller mejlleverans skapas för att verifiera etappen. Bankanslutning, bokföringsintegration och faktisk mottagarleverans kräver separata kontroller. Fortsättningen lägger till [CSV-underlag per annonsfaktura](ADVERTISING_PAYMENT_EXPORT.md). Avstämning mot valt bokföringssystem återstår; leverantör är ännu inte bestämd.
