@@ -4,7 +4,7 @@ import {readFile,readdir} from 'node:fs/promises';
 import {createDatabase,asRole} from '../crm-db/helpers.mjs';
 const id=n=>`ec181800-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const expand='20261018184303_web_application_privacy_revision.sql';
-const enforce='20261018184304_web_application_privacy_revision_enforce.sql';
+const enforce='20261018185525_web_application_privacy_revision_enforce.sql';
 const args=(n,version,patch={})=>Object.values({request:id(n),name:'Historical Applicant',email:`policy-fixture-${n}@example.invalid`,company:'Policy Fixture AB',phone:'0701234567',organisation:'5568554884',seeking:['system'],message:'Access application under displayed notice',version,ack:true,...patch});
 const submit=(db,values)=>asRole(db,'anon',null,async tx=>(await tx.query('select public.submit_web_application($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) r',values)).rows[0].r);
 test('expand supports both deployed forms before strict enforcement while exact historical receipts remain unchanged across both phases',async()=>{
