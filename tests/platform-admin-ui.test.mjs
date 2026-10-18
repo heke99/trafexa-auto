@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { createSourceLoader } from './helpers/source-loader.mjs';
+import { overviewPage as receivablesPage, item as receivableItem, issuedInvoice as receivableInvoice, paymentPage as receivablePayment } from './helpers/advertising-receivables-ui/fixtures.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium: playwright, expect } = require('@playwright/test');
@@ -26,7 +27,7 @@ before(async () => {
   const config = {
     plugins: [new LimitChunkCountPlugin({maxChunks:1})], mode: 'development', target: 'web', devtool: false, context: repo,
     entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js', publicPath: '' },
-    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/platform-admin/membership-actions': resolve(repo, 'tests/helpers/platform-memberships-ui/membership-actions.js'), '@/lib/platform-admin/application-invitation-actions': resolve(helpers, 'application-invitation-actions.js'), '@/lib/platform-admin/application-invitation-send-actions': resolve(helpers, 'application-invitation-send-actions.js'), '@/lib/platform-admin/application-invitation-renew-actions': resolve(helpers, 'application-invitation-renew-actions.js'), '@/lib/advertising/payment-actions': resolve(repo,'tests/helpers/advertising-payment-ui/unavailable-actions.js'), '@/lib/advertising/invoice-email-actions': resolve(repo, 'tests/helpers/advertising-invoice-email-ui/actions.js'), '@/lib/advertising/invoice-email-send-actions': resolve(repo, 'tests/helpers/advertising-invoice-email-ui/send-actions.js'), '@/lib/blocket-provisioning/actions': resolve(repo, 'tests/helpers/blocket-provisioning-ui/actions.js'), '@/lib/advertising/credit-actions': resolve(repo, 'tests/helpers/advertising-credit-ui/actions.js'), '@/lib/advertising/issuance-actions': resolve(repo, 'tests/helpers/advertising-issuance-ui/actions.js'), '@/lib/advertising/financial-actions': resolve(repo, 'tests/helpers/advertising-financial-ui/actions.js'), '@/lib/advertising/invoice-actions': resolve(repo, 'tests/helpers/advertising-invoice-ui/actions.js'), '@/lib/advertising/correction-actions': resolve(repo, 'tests/helpers/advertising-corrections-ui/actions.js'), '@/lib/advertising/billing-actions': resolve(repo, 'tests/helpers/advertising-billing-ui/actions.js'), '@/lib/calculations/vehicle-calculation': resolve(repo, 'src/lib/calculations/vehicle-calculation.ts'), '@/lib/advertising/usage-actions': resolve(repo, 'tests/helpers/advertising-usage-ui/actions.js'), '@/lib/advertising/actions': resolve(repo, 'tests/helpers/advertising-ui/actions.js'), '@/lib/platform-admin/actions': resolve(helpers, 'actions.js'), 'next/navigation': resolve(helpers, 'navigation.js'), '@/lib/platform-admin/overview-actions': resolve(helpers, 'overview-actions.js'), '@/lib/platform-admin/account-actions': resolve(helpers, 'account-actions.js') } },
+    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/platform-admin/membership-actions': resolve(repo, 'tests/helpers/platform-memberships-ui/membership-actions.js'), '@/lib/platform-admin/application-invitation-actions': resolve(helpers, 'application-invitation-actions.js'), '@/lib/platform-admin/application-invitation-send-actions': resolve(helpers, 'application-invitation-send-actions.js'), '@/lib/platform-admin/application-invitation-renew-actions': resolve(helpers, 'application-invitation-renew-actions.js'), '@/lib/advertising/receivables-actions': resolve(repo,'tests/helpers/platform-admin-ui/receivables-actions.js'), '@/lib/advertising/payment-export-actions': resolve(repo,'tests/helpers/platform-admin-ui/receivables-export-actions.js'), '@/lib/advertising/payment-actions': resolve(repo,'tests/helpers/platform-admin-ui/receivables-payment-actions.js'), '@/lib/advertising/invoice-email-actions': resolve(repo, 'tests/helpers/advertising-invoice-email-ui/actions.js'), '@/lib/advertising/invoice-email-send-actions': resolve(repo, 'tests/helpers/advertising-invoice-email-ui/send-actions.js'), '@/lib/blocket-provisioning/actions': resolve(repo, 'tests/helpers/blocket-provisioning-ui/actions.js'), '@/lib/advertising/credit-actions': resolve(repo, 'tests/helpers/advertising-credit-ui/actions.js'), '@/lib/advertising/issuance-actions': resolve(repo, 'tests/helpers/platform-admin-ui/receivables-issuance-actions.js'), '@/lib/advertising/financial-actions': resolve(repo, 'tests/helpers/advertising-financial-ui/actions.js'), '@/lib/advertising/invoice-actions': resolve(repo, 'tests/helpers/advertising-invoice-ui/actions.js'), '@/lib/advertising/correction-actions': resolve(repo, 'tests/helpers/advertising-corrections-ui/actions.js'), '@/lib/advertising/billing-actions': resolve(repo, 'tests/helpers/advertising-billing-ui/actions.js'), '@/lib/calculations/vehicle-calculation': resolve(repo, 'src/lib/calculations/vehicle-calculation.ts'), '@/lib/advertising/usage-actions': resolve(repo, 'tests/helpers/advertising-usage-ui/actions.js'), '@/lib/advertising/actions': resolve(repo, 'tests/helpers/advertising-ui/actions.js'), '@/lib/platform-admin/actions': resolve(helpers, 'actions.js'), 'next/navigation': resolve(helpers, 'navigation.js'), '@/lib/platform-admin/overview-actions': resolve(helpers, 'overview-actions.js'), '@/lib/platform-admin/account-actions': resolve(helpers, 'account-actions.js') } },
     module: { rules: [{ test: /\.tsx?$/, use: resolve(helpers, 'swc-loader.cjs') }] },
   };
   await new Promise((resolveBuild, reject) => {
@@ -324,6 +325,7 @@ test('reviewed invitation fits mobile widths and blocks navigation and competing
   await page.waitForFunction(()=>typeof window.releaseInvitation==='function');
   await expect(page.getByRole('button',{name:/Tillbaka till ansökningar/})).toBeDisabled();
   await expect(page.getByRole('button',{name:'Inkomna ansökningar',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Annonsfakturor',exact:true})).toBeDisabled();
   await expect(page.getByLabel('Ny handläggningsstatus')).toBeDisabled();
   await expect(page.getByRole('button',{name:'Radera personuppgifter',exact:true})).toBeDisabled();
   await page.evaluate(()=>window.releaseInvitation({ok:true,status:'sent',invitationId:'50000000-0000-4000-8000-000000000001',email:window.fixture.application.email}));
@@ -660,5 +662,75 @@ test('lost replacement approval response preserves the new review nonce and relo
   await expect(page.getByLabel('Motivering för kontogodkännande')).toHaveValue(updated.invitation.reason);await expect(page.getByText(/Handläggningen har ändrats sedan det tidigare godkännandet/)).toHaveCount(0);
   const calls=await page.evaluate(()=>window.fixture.invitationCalls);assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);assert.notEqual(calls[0].requestId,initial.invitation.requestId);
   await page.getByRole('button',{name:'Uppdatera kontoinbjudans status'}).click();await expect(page.getByLabel('Motivering för kontogodkännande')).toBeDisabled();await expect(page.getByLabel('Motivering för kontogodkännande')).toHaveValue(updated.invitation.reason);await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();await expect(page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'})).not.toBeChecked();
+ }finally{await page.close();}
+});
+
+test('global advertising invoices are a lazy real child tab and ordinary read errors keep parent navigation usable',async()=>{
+ const page=await setup({overviewTab:true});
+ try{
+  assert.equal(await page.evaluate(()=>window.fixture.receivablesCalls?.length??0),0);
+  await page.getByRole('button',{name:'Företag',exact:true}).click();assert.equal(await page.evaluate(()=>window.fixture.receivablesCalls?.length??0),0);
+  await page.getByRole('button',{name:'Annonsfakturor',exact:true}).click();await page.waitForFunction(()=>window.fixture.receivablesCalls?.length===1);
+  await expect(page.getByRole('button',{name:'Annonsfakturor',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(page.getByRole('alert')).toContainText('Avstämningsöversikten kunde inte läsas in.');
+  await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Företag',exact:true}).click();await expect(page.getByText('Fixture AB',{exact:true})).toBeVisible();
+ }finally{await page.close();}
+});
+test('global advertising invoice denial clears cached parent companies and disables every administration view',async()=>{
+ const page=await setup();
+ try{
+  await page.evaluate(()=>{window.fixture.receivablesResponses=[{ok:false,code:'access_denied',message:'Aktuell superadminåtkomst saknas.'}];});
+  await page.getByRole('button',{name:'Annonsfakturor',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('Aktuell superadminåtkomst saknas.');
+  await expect(page.getByText('Fixture AB',{exact:true})).toHaveCount(0);
+  for(const label of ['Översikt','Företag','Inkomna ansökningar','Konton','Annonsfakturor'])await expect(page.getByRole('button',{name:label,exact:true})).toBeDisabled();
+ }finally{await page.close();}
+});
+test('leaving the finance tab discards a late private response and retains accessible navigation at mobile widths',async()=>{
+ const page=await setup();
+ try{
+  await page.evaluate(()=>{window.fixture.receivablesResponses=[{hold:true}];});
+  await page.getByRole('button',{name:'Annonsfakturor',exact:true}).click();await page.waitForFunction(()=>typeof window.releaseReceivables==='function');
+  for(const width of [320,375,768]){await page.setViewportSize({width,height:900});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);}
+  await page.getByRole('button',{name:'Företag',exact:true}).click();
+  await page.evaluate(()=>window.releaseReceivables({ok:false,code:'access_denied',message:'Late private denial must be discarded'}));
+  await expect(page.getByText('Fixture AB',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Annonsfakturor',exact:true})).toBeEnabled();
+  await expect(page.getByText('Late private denial must be discarded')).toHaveCount(0);
+ }finally{await page.close();}
+});
+
+test('actual financial CSV work locks parent tab navigation only until its response finishes',async()=>{
+ const page=await setup(),row=receivableItem(),actor='30000000-0000-4000-8000-000000000001';
+ try{
+  await page.evaluate(({receivables,invoice,payment})=>{
+   window.fixture.receivablesResponses=[{ok:true,page:receivables}];window.fixture.receivablesInvoice=invoice;window.fixture.enableReceivablesPayment=true;
+   window.paymentPage=payment;window.paymentCalls=[];window.paymentReads=[];window.paymentWrites=[];window.paymentLookups=[];window.paymentSaved={};window.paymentExports=[{hold:true}];
+  },{receivables:receivablesPage({actorUserId:actor,items:[row]}),invoice:receivableInvoice(row),payment:{...receivablePayment(row),actorUserId:actor}});
+  await page.getByRole('button',{name:'Annonsfakturor',exact:true}).click();
+  await page.getByRole('button',{name:new RegExp(`Visa faktura ${row.invoiceNumber}`)}).click();
+  await page.getByRole('button',{name:'Exportera avstämningsunderlag (CSV)',exact:true}).click();await page.waitForFunction(()=>typeof window.releasePaymentExport==='object');
+  for(const label of ['Översikt','Företag','Inkomna ansökningar','Konton','Annonsfakturor'])await expect(page.getByRole('button',{name:label,exact:true})).toBeDisabled();
+  await page.evaluate(()=>window.releasePaymentExport.resolve({ok:false,code:'unavailable',message:'Det aktiva CSV-anropet är avslutat; uppdatera och försök igen.'}));
+  await expect(page.getByRole('alert')).toContainText('Det aktiva CSV-anropet är avslutat');
+  await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeEnabled();await page.getByRole('button',{name:'Företag',exact:true}).click();await expect(page.getByText('Fixture AB',{exact:true})).toBeVisible();
+ }finally{await page.close();}
+});
+
+test('actual payment mutation locks parent navigation and an unknown completed result releases it without retrying on leave',async()=>{
+ const page=await setup(),row=receivableItem(),actor='30000000-0000-4000-8000-000000000001';
+ try{
+  await page.evaluate(({receivables,invoice,payment})=>{
+   window.fixture.receivablesResponses=[{ok:true,page:receivables}];window.fixture.receivablesInvoice=invoice;window.fixture.enableReceivablesPayment=true;
+   window.paymentPage=payment;window.paymentCalls=[];window.paymentReads=[];window.paymentWrites=[{hold:true}];window.paymentLookups=[];window.paymentSaved={};window.paymentExports=[];
+  },{receivables:receivablesPage({actorUserId:actor,items:[row]}),invoice:receivableInvoice(row),payment:{...receivablePayment(row),actorUserId:actor}});
+  await page.getByRole('button',{name:'Annonsfakturor',exact:true}).click();await page.getByRole('button',{name:`Visa faktura ${row.invoiceNumber}`,exact:true}).click();
+  await page.getByRole('button',{name:'Registrera mottagen betalning',exact:true}).click();
+  await page.getByLabel('Bankhändelsens unika transaktions-ID',{exact:true}).fill('SYNTHETIC/PARENT-1');await page.getByLabel('Mottaget belopp, kr',{exact:true}).fill('125,00');await page.getByLabel('Bankreferens / OCR',{exact:true}).fill('Syntetisk OCR');await page.getByLabel('Bokföringsdag i bankunderlaget',{exact:true}).fill('2026-10-17');await page.getByLabel('Motivering och kontrollerat underlag',{exact:true}).fill('Granskad syntetisk avstämning');
+  await page.getByRole('button',{name:'Granska registreringen',exact:true}).click();await page.getByRole('checkbox',{name:'Jag har granskat bankunderlaget, fakturan, beloppet och datumet och bekräftar denna administrativa registrering.',exact:true}).check();await page.getByRole('button',{name:'Bekräfta mottagen betalning',exact:true}).click();
+  await page.waitForFunction(()=>typeof window.releasePayment==='object');
+  for(const label of ['Översikt','Företag','Inkomna ansökningar','Konton','Annonsfakturor'])await expect(page.getByRole('button',{name:label,exact:true})).toBeDisabled();
+  await page.evaluate(()=>window.releasePayment.resolve({ok:false,code:'unavailable',message:'Resultatet behöver kontrolleras med samma begäran.'}));
+  await expect(page.getByRole('button',{name:'Försök samma bekräftelse igen',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeEnabled();await page.getByRole('button',{name:'Företag',exact:true}).click();await expect(page.getByText('Fixture AB',{exact:true})).toBeVisible();assert.equal(await page.evaluate(()=>window.paymentCalls.filter(call=>call.kind==='register').length),1);
  }finally{await page.close();}
 });

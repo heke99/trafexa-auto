@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { activatePlatformAdminAction, erasePlatformWebApplicationAction, getPlatformWebApplicationAction, setPlatformWebApplicationStatusAction, listPlatformCompaniesAction, listPlatformContactRequestsAction, setPlatformCompanyStatusAction } from '@/lib/platform-admin/actions';
@@ -11,11 +11,14 @@ import { getPlatformOverviewAction } from '@/lib/platform-admin/overview-actions
 import type { PlatformOverview } from '@/lib/platform-admin/overview-types';
 import type { CompanyPage, CompanyStatus, PlatformCompany, PlatformContact } from '@/lib/platform-admin/database.types';
 
+const PlatformAdvertisingReceivables = dynamic(() => import('./platform-advertising-receivables').then(module => module.PlatformAdvertisingReceivables), { loading: () => <p role="status">Läser in annonsfakturor…</p> });
+
 const PlatformCompanyMembers = dynamic(() => import('./platform-memberships').then(module => module.PlatformCompanyMembers), { loading: () => <p role="status">Läser in företagsmedlemmar…</p> });
 const AdvertisingBillingPanel = dynamic(() => import('./advertising-billing-panel').then(module => module.AdvertisingBillingPanel), { loading: () => <p role="status">Läser in kanalpriser…</p> });
 const AdvertisingUsagePanel = dynamic(() => import('./advertising-usage-panel').then(module => module.AdvertisingUsagePanel), { loading: () => <p role="status">Läser in annonsunderlag…</p> });
 const BlocketProvisioning = dynamic(() => import('./blocket-provisioning').then(module => module.BlocketProvisioning), { loading: () => <p role="status">Läser in Blocketadministration…</p> });
 
+type AdminTab = 'overview' | 'companies' | 'contacts' | 'accounts' | 'receivables';
 type Review = { company: PlatformCompany; status: CompanyStatus; reason: string; confirmed: boolean };
 type CompanyView = 'members' | 'advertising' | 'billing' | 'blocket';
 type CompanyDetailTarget = Pick<PlatformCompany, 'id' | 'name' | 'status'> & { organisationNumber?: string };
@@ -38,7 +41,7 @@ export function PlatformAdminActivation() {
 export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId }: { initialPage: CompanyPage; initialError: string | null; actorUserId: string }) {
   const [accountQuery,setAccountQuery]=useState<{filter:'all'|'pending'|'approved'|'rejected'|'suspended';search:string}>({filter:'pending',search:''});
   const accountCompanyReturn=useRef(false);
-  const [tab, setTab] = useState<'overview' | 'companies' | 'contacts' | 'accounts'>('overview');
+  const [tab, setTab] = useState<AdminTab>('overview');
   const [overview, setOverview] = useState<PlatformOverview | null>(null);
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
@@ -70,7 +73,10 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
   const [actionPending, startTransition] = useTransition();
   const [invitationBusy, setInvitationBusy] = useState(false);
   const invitationBusyRef = useRef(false);
-  const pending = actionPending || invitationBusy;
+  const [financeBusy, setFinanceBusy] = useState(false);
+  const financeBusyRef = useRef(false);
+  const handleFinanceBusy = useCallback((busy: boolean) => { financeBusyRef.current = busy; setFinanceBusy(busy); }, []);
+  const pending = actionPending || invitationBusy || financeBusy;
   function handleInvitationBusy(busy: boolean) { invitationBusyRef.current = busy; setInvitationBusy(busy); }
   const generation = useRef(0);
   const reviewHeading = useRef<HTMLHeadingElement>(null);
@@ -84,6 +90,7 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
   function handleFailure(result: { code: string; message: string }) {
     setError(result.message);
     if (result.code === 'access_denied') {
+      financeBusyRef.current = false; setFinanceBusy(false);
       ++generation.current; ++overviewGeneration.current; setOverview(null); setOverviewError(null); setOverviewLoading(false); setDenied(true); setCompanyDetail(null); companyTrigger.current = null; setCompanies([]); setContacts([]); setNextPageKey(null); setContactCursor(null); setReview(null); setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null);
     }
   }
@@ -105,8 +112,8 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
     })();
   }
   useEffect(() => { loadOverview(); return () => { ++overviewGeneration.current; ++generation.current; }; }, []);
-  function navigate(nextTab: 'overview' | 'companies' | 'contacts' | 'accounts') {
-    if (invitationBusyRef.current) return;
+  function navigate(nextTab: AdminTab) {
+    if (invitationBusyRef.current || financeBusyRef.current) return;
     if (pending || denied) return;
     ++generation.current;
     accountCompanyReturn.current=false;
@@ -284,13 +291,14 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
 
   return <main className="workspace-main platform-admin-workspace" style={{ paddingInline: 0 }}>
     <style>{`.platform-admin-workspace nav .table-controls{flex-wrap:wrap;gap:8px;justify-content:flex-start}.platform-admin-workspace nav .button{white-space:normal}.platform-admin-workspace .workspace-heading{min-width:0}.platform-admin-workspace .workspace-heading h1{overflow-wrap:anywhere}.platform-admin-workspace .admin-company-detail{margin-top:24px;min-width:0}.platform-admin-workspace .admin-company-detail h2{overflow-wrap:anywhere}.platform-admin-workspace .admin-company-views{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}.platform-admin-workspace .admin-row-actions{display:flex;flex-direction:column;align-items:flex-start;gap:8px}.platform-admin-workspace .admin-cell-label{display:none}.platform-admin-workspace .admin-responsive-table td{overflow-wrap:anywhere}.platform-admin-workspace .admin-account-controls{flex-wrap:wrap;align-items:flex-end}.platform-admin-workspace .admin-account-controls label{flex:1 1 220px;min-width:0}.platform-admin-workspace .admin-account-controls button{flex:0 0 auto}@media(max-width:600px){.platform-admin-workspace .admin-responsive-table,.platform-admin-workspace .admin-responsive-table tbody{display:block;min-width:0;width:100%}.platform-admin-workspace .admin-responsive-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.platform-admin-workspace .admin-responsive-table tbody{padding:0 16px}.platform-admin-workspace .admin-responsive-table tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:18px 0;border-bottom:1px solid var(--line)}.platform-admin-workspace .admin-responsive-table td{display:block;border:0;padding:0;min-width:0;font-size:12px;line-height:1.5;white-space:normal}.platform-admin-workspace .admin-responsive-table td:first-child,.platform-admin-workspace .admin-responsive-table td:last-child,.platform-admin-workspace .admin-account-table td:nth-child(2){grid-column:1/-1}.platform-admin-workspace .admin-cell-label{display:block;font-size:10px;font-weight:600;color:var(--muted);margin-bottom:4px}.platform-admin-workspace .admin-responsive-table td:first-child strong{font-size:14px}.platform-admin-workspace .admin-row-actions{flex-direction:row;flex-wrap:wrap;gap:8px 18px}.platform-admin-workspace .admin-responsive-table .text-link{min-height:40px;font-size:12px}.platform-admin-workspace .admin-company-detail>.panel-heading{flex-wrap:wrap;gap:16px}.platform-admin-workspace .admin-company-views .button{flex:1 1 auto;min-width:0;white-space:normal}.platform-admin-workspace .admin-account-controls{justify-content:flex-start}.platform-admin-workspace .admin-account-controls label{flex-basis:100%}}`}</style>
-    <div className="workspace-heading"><div><p className="eyebrow">Trafexa · Administration</p><h1>Plattformsadministration</h1><p>Följ plattformens aktivitet, hantera företagens åtkomst och handlägg ansökningar.</p></div></div>
-    <nav className="table-toolbar" aria-label="Administrationsvyer"><div className="table-controls">{([['overview', 'Översikt'], ['companies', 'Företag'], ['contacts', 'Inkomna ansökningar'], ['accounts', 'Konton']] as const).map(([view, label]) => <button key={view} ref={view==='companies'?companyTab:view==='accounts'?accountTab:undefined} className={`button ${tab === view ? 'button-green' : 'button-outline'}`} type="button" aria-pressed={tab === view} disabled={pending || denied} onClick={() => navigate(view)}>{label}</button>)}</div></nav>
+    <div className="workspace-heading"><div><p className="eyebrow">Trafexa · Administration</p><h1>Plattformsadministration</h1><p>Följ plattformens aktivitet, hantera företagens åtkomst, följ annonsfakturor och handlägg ansökningar.</p></div></div>
+    <nav className="table-toolbar" aria-label="Administrationsvyer"><div className="table-controls">{([['overview', 'Översikt'], ['companies', 'Företag'], ['contacts', 'Inkomna ansökningar'], ['accounts', 'Konton'], ['receivables', 'Annonsfakturor']] as const).map(([view, label]) => <button key={view} ref={view==='companies'?companyTab:view==='accounts'?accountTab:undefined} className={`button ${tab === view ? 'button-green' : 'button-outline'}`} type="button" aria-pressed={tab === view} disabled={pending || denied} onClick={() => navigate(view)}>{label}</button>)}</div></nav>
     {error && <p role="alert" className="form-error">{error}</p>}
     {notice && <p role="status" className="notice">{notice}</p>}
     {pending && <p role="status">Läser in och verifierar…</p>}
     {!denied && tab === 'overview' && <PlatformAdminOverview overview={overview} loading={overviewLoading} error={overviewError} onRefresh={loadOverview} onNavigate={navigate}/> }
     {!denied && tab === 'accounts' && <PlatformAccountAccess key={actorUserId} actorUserId={actorUserId} onOpenApplications={() => navigate('contacts')} initialFilter={accountQuery.filter} initialSearch={accountQuery.search} onQueryChange={(filter,search)=>setAccountQuery({filter,search})} onOpenCompany={(company, trigger) => { navigate('companies'); accountCompanyReturn.current=true; openCompany(company, 'members', trigger); }} onAccessDenied={() => handleFailure({code:'access_denied',message:'Du har inte längre tillgång till plattformsadministrationen.'})}/> }
+    {!denied && tab === 'receivables' && <PlatformAdvertisingReceivables key={actorUserId} actorUserId={actorUserId} onBusyChange={handleFinanceBusy} onDenied={message => handleFailure({ code: 'access_denied', message })}/>}
     {!denied && tab === 'companies' && <>
       <section className="surface" aria-label="Företag">
         <form className="table-toolbar" onSubmit={event => { event.preventDefault(); loadCompanies(); }}><div className="table-controls"><label className="search-field"><span className="sr-only">Sök företag eller organisationsnummer</span><input placeholder="Namn eller organisationsnummer" value={search} onChange={event => setSearch(event.target.value)} maxLength={160} disabled={pending}/></label><button type="submit" className="button button-outline" disabled={pending}>Sök</button></div></form>

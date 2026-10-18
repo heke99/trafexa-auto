@@ -5,7 +5,7 @@ import {getPlatformAdvertisingPaymentPageAction,listAdvertisingPaymentPageAction
 import {getPlatformAdvertisingPaymentExportAction,getAdvertisingPaymentExportAction} from '@/lib/advertising/payment-export-actions';
 import type {AdvertisingPaymentEntry,AdvertisingPaymentPage,AdvertisingPaymentRegistration,AdvertisingPaymentReversal} from '@/lib/advertising/payment-types';
 
-type Props={companyId:string;userId:string;role:string;superadmin?:boolean;invoiceId:string;invoiceSourceHash:string;onDenied?:(message:string)=>void};
+type Props={companyId:string;userId:string;role:string;superadmin?:boolean;invoiceId:string;invoiceSourceHash:string;onDenied?:(message:string)=>void;onBusyChange?:(busy:boolean)=>void};
 type Editor={kind:'receipt'|'correction'|'reversal';amount:string;paymentIdentifier:string;bankReference:string;bookedDate:string;reason:string;source:AdvertisingPaymentEntry|null};
 type Review={kind:'receipt'|'correction';input:AdvertisingPaymentRegistration;source:AdvertisingPaymentEntry|null;invoiceNumber:string;acknowledged:boolean}|{kind:'reversal';input:AdvertisingPaymentReversal;source:AdvertisingPaymentEntry;invoiceNumber:string;acknowledged:boolean};
 const statusNames={unpaid:'Obetald',partial:'Delbetald',settled:'Avstämd',overpaid:'Överskott att stämma av',credited:'Krediterad'};
@@ -17,19 +17,20 @@ function decimal(value:string){const amount=BigInt(value);return `${amount/100n}
 function parseAmount(value:string){if(!/^(0|[1-9][0-9]*)(?:[,.][0-9]{1,2})?$/.test(value.trim()))throw Error('Ange ett positivt belopp i kronor med högst två decimaler.');const [whole,fraction='']=value.trim().replace(',','.').split('.');const amount=BigInt(whole)*100n+BigInt(fraction.padEnd(2,'0'));if(amount<=0n||amount>9223372036854775807n)throw Error('Betalningsbeloppet måste vara positivt och inom tillåten gräns.');return amount.toString();}
 function Source({entry}:{entry:AdvertisingPaymentEntry}){return <dl className="detail-list" style={{padding:'8px 0'}}><div style={detailRowStyle}><dt>Ursprunglig faktura</dt><dd style={{textAlign:'left',minWidth:0}}>{entry.invoiceNumber}</dd></div><div style={detailRowStyle}><dt>Transaktions-ID</dt><dd style={{textAlign:'left',minWidth:0}}>{entry.paymentIdentifier}</dd></div><div style={detailRowStyle}><dt>Bankreferens / OCR</dt><dd style={{textAlign:'left',minWidth:0}}>{entry.bankReference}</dd></div><div style={detailRowStyle}><dt>Registrerat belopp</dt><dd style={{textAlign:'left',minWidth:0}}>{money(entry.amountOre)}</dd></div><div style={detailRowStyle}><dt>Bokföringsdag i bankunderlaget</dt><dd style={{textAlign:'left',minWidth:0}}>{entry.bookedDate}</dd></div><div style={detailRowStyle}><dt>Motivering</dt><dd style={{textAlign:'left',minWidth:0}}>{entry.reason}</dd></div></dl>;}
 export function AdvertisingPaymentPanel(props:Props){return <Payments key={`${props.companyId}:${props.userId}:${props.role}:${!!props.superadmin}:${props.invoiceId}:${props.invoiceSourceHash}`} {...props}/>;}
-function Payments({companyId,userId,role,superadmin=false,invoiceId,invoiceSourceHash,onDenied}:Props){
+function Payments({companyId,userId,role,superadmin=false,invoiceId,invoiceSourceHash,onDenied,onBusyChange}:Props){
  const [page,setPage]=useState<AdvertisingPaymentPage|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[denied,setDenied]=useState(false),[uncertain,setUncertain]=useState(false),[refresh,setRefresh]=useState(0);
  const [cursors,setCursors]=useState<(string|null)[]>([null]),[position,setPosition]=useState(0),[editor,setEditor]=useState<Editor|null>(null),[review,setReview]=useState<Review|null>(null);
  const [lookupBusy,setLookupBusy]=useState(false),[lookupDone,setLookupDone]=useState(false),[exporting,setExporting]=useState(false);
  const [,startExport]=useTransition();
+ const busyCallback=useRef(onBusyChange);busyCallback.current=onBusyChange;
  const alive=useRef(false),generation=useRef(0),lookupGeneration=useRef(0),locked=useRef(false),denial=useRef(onDenied),heading=useRef<HTMLHeadingElement>(null);denial.current=onDenied;
  const cursor=cursors[position]??null;
  const writeProps=superadmin&&role==='platform_admin';
  const canWrite=writeProps&&page?.canWrite===true&&page.actorRole==='platform_admin'&&!denied;
- useEffect(()=>{alive.current=true;return()=>{alive.current=false;++generation.current;++lookupGeneration.current;};},[]);
+ useEffect(()=>{alive.current=true;return()=>{alive.current=false;++generation.current;++lookupGeneration.current;busyCallback.current?.(false);};},[]);
  useEffect(()=>{if(review)heading.current?.focus();},[review]);
- function fail(result:{code?:string;message:string}){setError(result.message);if(['access_denied','unauthenticated'].includes(result.code??'')){++generation.current;++lookupGeneration.current;setPage(null);setEditor(null);setReview(null);setNotice('');setUncertain(false);setLookupBusy(false);setLoading(false);setDenied(true);denial.current?.(result.message);}}
+ function fail(result:{code?:string;message:string}){setError(result.message);if(['access_denied','unauthenticated'].includes(result.code??'')){++generation.current;++lookupGeneration.current;setPage(null);setEditor(null);setReview(null);setNotice('');setUncertain(false);setLookupBusy(false);setLoading(false);setDenied(true);setBusy(false);setExporting(false);busyCallback.current?.(false);denial.current?.(result.message);}}
  useEffect(()=>{
   const token=++generation.current;++lookupGeneration.current;setPage(null);setEditor(null);setReview(null);setLookupDone(false);setLookupBusy(false);
   if(denied){setLoading(false);return;}
@@ -54,7 +55,7 @@ function Payments({companyId,userId,role,superadmin=false,invoiceId,invoiceSourc
   const amountOre=parseAmount(editor.amount),paymentIdentifier=editor.paymentIdentifier.trim(),bankReference=editor.bankReference.trim();if(!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(paymentIdentifier))throw Error('Ange bankhändelsens unika transaktions-ID.');if(!bankReference||bankReference.length>200)throw Error('Ange bankreferens eller OCR från betalningsunderlaget.');const date=new Date(`${editor.bookedDate}T00:00:00Z`);if(!/^20\d{2}-\d{2}-\d{2}$/.test(editor.bookedDate)||Number.isNaN(date.getTime())||date.toISOString().slice(0,10)!==editor.bookedDate||editor.bookedDate>page.businessDate)throw Error('Ange en giltig bokföringsdag som inte ligger i framtiden.');
   setReview({kind:editor.kind,input:{...common,amountOre,paymentIdentifier,bankReference,bookedDate:editor.bookedDate,reason,replacesEntryId:editor.source?.id??null,expectedReplacedEntryHash:editor.source?.sourceHash??null},source:editor.source,invoiceNumber:page.invoiceNumber,acknowledged:false});
  }catch(e){setError(e instanceof Error?e.message:'Kontrollera betalningsuppgifterna innan granskning.');}}
- async function confirm(){if(!canWrite||!review?.acknowledged||loading||locked.current||denied)return;const frozen=review,scope=generation.current;locked.current=true;setBusy(true);setError('');try{
+ async function confirm(){if(!canWrite||!review?.acknowledged||loading||locked.current||denied)return;const frozen=review,scope=generation.current;locked.current=true;busyCallback.current?.(true);setBusy(true);setError('');try{
   const result=frozen.kind==='reversal'?await reverseAdvertisingPaymentAction(frozen.input):await registerAdvertisingPaymentAction(frozen.input);
   if(!alive.current||generation.current!==scope)return;
   if(!result.ok){fail(result);if(result.code==='conflict'){setUncertain(false);setReview(null);setEditor(null);setPage(null);setPosition(0);setCursors([null]);setRefresh(v=>v+1);setNotice('Avstämningen har ändrats. Granska aktuella uppgifter innan du skapar en ny begäran.');}else if(!['access_denied','unauthenticated','invalid_input'].includes(result.code)){setUncertain(true);}else setUncertain(false);return;}
@@ -63,11 +64,11 @@ function Payments({companyId,userId,role,superadmin=false,invoiceId,invoiceSourc
   const operation=frozen.kind==='reversal'?entry.kind==='reversal'&&entry.reversesEntryId===frozen.input.entryId&&entry.amountOre===frozen.source.amountOre:entry.kind==='receipt'&&entry.amountOre===frozen.input.amountOre&&entry.paymentIdentifier===frozen.input.paymentIdentifier&&entry.bankReference===frozen.input.bankReference&&entry.bookedDate===frozen.input.bookedDate&&entry.replacesEntryId===frozen.input.replacesEntryId;
   if(!same||!operation){fail({code:'access_denied',message:'Betalningskvittot kunde inte verifieras för denna begäran. Läs in sidan igen.'});return;}
   setUncertain(false);setPage(null);setReview(null);setEditor(null);setPosition(0);setCursors([null]);setNotice(frozen.kind==='reversal'?'Registreringen har återförts administrativt. Ingen banköverföring eller återbetalning har utförts.':'Betalningsregistreringen är sparad. Ingen banköverföring har utförts.');setRefresh(v=>v+1);
- }catch{if(alive.current&&generation.current===scope){setUncertain(true);setError('Resultatet är okänt. Behåll den granskade begäran och försök samma bekräftelse igen.');}}finally{locked.current=false;if(alive.current)setBusy(false);}}
+ }catch{if(alive.current&&generation.current===scope){setUncertain(true);setError('Resultatet är okänt. Behåll den granskade begäran och försök samma bekräftelse igen.');}}finally{locked.current=false;if(alive.current&&generation.current===scope){setBusy(false);busyCallback.current?.(false);}}}
  function exportCsv(){
   if(!page||editor||review||busy||lookupBusy||loading||denied||locked.current)return;
   const scope=generation.current,frozen=page;
-  locked.current=true;setExporting(true);setError('');setNotice('');
+  locked.current=true;busyCallback.current?.(true);setExporting(true);setError('');setNotice('');
   // Busy state is urgent; only server work belongs to the asynchronous transition.
   startExport(async()=>{
   try{
@@ -85,7 +86,7 @@ function Payments({companyId,userId,role,superadmin=false,invoiceId,invoiceSourc
    const link=document.createElement('a');link.href=url;link.download=value.fileName;link.hidden=true;document.body.appendChild(link);
    try{link.click();setNotice('Nedladdningen av CSV-underlaget har startats. Ingen bokföringsregistrering har gjorts.');}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),0);}
   }catch{if(alive.current&&generation.current===scope)setError('CSV-exporten kunde inte slutföras. Ingen fil har hämtats. Försök igen.');}
-  finally{locked.current=false;if(alive.current)setExporting(false);}
+  finally{locked.current=false;if(alive.current&&generation.current===scope){setExporting(false);busyCallback.current?.(false);}}
   });
  }
  const controlsDisabled=busy||lookupBusy||exporting||loading||denied||!!review;

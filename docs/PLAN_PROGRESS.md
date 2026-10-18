@@ -2,6 +2,9 @@
 
 ## Aktuell fortsättning 18 oktober
 
+[Superadminens fakturaöversikt](ADVERTISING_RECEIVABLES.md) är nästa fortsättning efter CSV-exporten: en separat flik samlar utfärdade annonsfakturor, globala exakta saldon och filter för registrerad betalningsstatus och förfallna restbelopp. En vald rad öppnar det bevarade originalet, PDF och betalningsavstämning direkt. Totalsiffrorna gäller hela beståndet; listan har 25-raders sidindelning. Pågående registrering och export spärrar konkurrerande byte av adminvy.
+
+
 [Sammanhängande användarflöden](WORKFLOW_CONTINUITY_20261018.md) rättar företagsval, återgång från ytterligare företagsanslutning och tomma register. Superadmins kontoinbjudningar får beständig status, samordnad upptagetspärr, granskad förnyelse och en väg för ny granskning när handläggningen ändrats före kontoskapandet. Öppen registrering förblir stängd.
 
 Nästa punkt har byggts parallellt: [manuell betalningsavstämning av annonsfakturor](ADVERTISING_PAYMENT_RECONCILIATION.md), med delbetalning, överskott, oföränderliga journalposter och granskad rättelse. Detta gäller Trafexas annonsfakturor; handlarens affärsbetalningar och leverans finns sedan tidigare. Banköverföring och återbetalning utförs inte av avstämningen.
