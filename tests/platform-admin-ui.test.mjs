@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {companyInvoiceFixtures} from './helpers/platform-admin-ui/company-invoice-fixtures.mjs';
 import { before, after, test } from 'node:test';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -770,5 +771,63 @@ test('actual payment mutation locks parent navigation and an unknown completed r
   for(const label of ['Översikt','Företag','Inkomna ansökningar','Konton','Annonsfakturor'])await expect(page.getByRole('button',{name:label,exact:true})).toBeDisabled();
   await page.evaluate(()=>window.releasePayment.resolve({ok:false,code:'unavailable',message:'Resultatet behöver kontrolleras med samma begäran.'}));
   await expect(page.getByRole('button',{name:'Försök samma bekräftelse igen',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeEnabled();await page.getByRole('button',{name:'Företag',exact:true}).click();await expect(page.getByText('Fixture AB',{exact:true})).toBeVisible();assert.equal(await page.evaluate(()=>window.paymentCalls.filter(call=>call.kind==='register').length),1);
+ }finally{await page.close();}
+});
+
+
+for(const [operation,width] of [['write',320],['export',390],['export',1440]])test(`company invoice ${operation} at ${width}px locks every enclosing admin and financial navigation until the result is known`,async()=>{
+ const page=await setup();try{
+  await page.setViewportSize({width,height:844});
+  await page.evaluate(values=>{Object.assign(window,values);window.fixture.enableReceivablesPayment=true;window.paymentCalls=[];window.paymentReads=[];window.paymentWrites=[];window.paymentExports=[];window.paymentSaved={};},companyInvoiceFixtures(COMPANY,'30000000-0000-4000-8000-000000000001'));
+  await page.getByRole('button',{name:'Fakturering för Fixture AB',exact:true}).click();
+  await page.getByLabel('Avstämningsmånad').fill('2026-09');
+  await page.getByRole('button',{name:'Visa faktureringsuppgifter och utkast',exact:true}).click();
+  await page.getByRole('button',{name:'Visa sparat utkast version 1',exact:true}).click();
+  await page.getByRole('button',{name:'Visa moms- och betalningsunderlag',exact:true}).click();
+  await page.getByRole('button',{name:'Visa granskat underlag version 1',exact:true}).click();
+  await page.getByRole('button',{name:'Visa fakturering och nummerserie',exact:true}).click();
+  await page.getByRole('button',{name:'Visa den utfärdade fakturan',exact:true}).click();
+  await page.getByRole('button',{name:'Visa betalningsavstämning',exact:true}).click();
+  if(operation==='write'){
+   await page.getByRole('button',{name:'Registrera mottagen betalning',exact:true}).click();
+   await page.getByLabel('Bankhändelsens unika transaktions-ID').fill('bank-test-chain-001');
+   await page.getByLabel('Mottaget belopp, kr').fill('50');
+   await page.getByLabel('Bankreferens / OCR',{exact:true}).fill('OCR-001');
+   await page.getByLabel('Motivering och kontrollerat underlag').fill('Kontrollerat bankunderlag');
+   await page.getByRole('button',{name:'Granska registreringen',exact:true}).click();
+   await page.getByRole('checkbox',{name:'Jag har granskat bankunderlaget, fakturan, beloppet och datumet och bekräftar denna administrativa registrering.'}).check();
+   await page.evaluate(()=>window.paymentWrites.push({hold:true}));
+   await page.getByRole('button',{name:'Bekräfta mottagen betalning',exact:true}).click();
+   await page.waitForFunction(()=>!!window.releasePayment);
+  }else{
+   await page.evaluate(()=>window.paymentExports.push({hold:true}));
+   await page.getByRole('button',{name:'Exportera avstämningsunderlag (CSV)',exact:true}).click();
+   await page.waitForFunction(()=>!!window.releasePaymentExport);
+  }
+  for(const name of ['Annonsfakturor','Konton','Stäng företagsvy','Medlemmar','Fakturering','Uppdatera prisunderlag','Dölj faktureringsuppgifter och utkast','Uppdatera faktureringsuppgifter','Visa sparat utkast version 1','Dölj moms- och betalningsunderlag','Uppdatera moms- och betalningsunderlag','Visa granskat underlag version 1','Dölj fakturering och nummerserie','Uppdatera fakturering','Visa den utfärdade fakturan','Dölj betalningsavstämning'])await expect(page.getByRole('button',{name,exact:true})).toBeDisabled();
+  await expect(page.getByLabel('Avstämningsmånad')).toBeDisabled();
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  const paymentPanel=page.getByRole('region',{name:'Fakturans betalningsavstämning',exact:true});
+  const paymentWidth=await paymentPanel.evaluate(element=>element.getBoundingClientRect().width);
+  assert.equal(await paymentPanel.evaluate(element=>getComputedStyle(element).paddingLeft),width<=760?'0px':'20px');
+  assert.ok(paymentWidth>=240,`Nested payment panel must retain a usable mobile width, got ${paymentWidth}px`);
+  await page.getByRole('region',{name:'Fakturans betalningsavstämning',exact:true}).screenshot({path:`/tmp/trafexa-company-invoice-${operation}-pending-${width}.png`});
+  await page.getByRole('navigation',{name:'Företagets administrationsvyer',exact:true}).screenshot({path:`/tmp/trafexa-company-invoice-${operation}-pending-admin-nav-${width}.png`});
+  await page.getByRole('button',{name:'Stäng företagsvy',exact:true}).evaluate(button=>button.click());
+  await expect(page.getByRole('region',{name:'Fakturans betalningsavstämning'})).toBeVisible();
+  if(operation==='write'){
+   await page.evaluate(()=>window.releasePayment.reject(Error('Lost response')));
+   await expect(page.getByRole('button',{name:'Försök samma bekräftelse igen',exact:true})).toBeVisible();
+   await expect(page.getByRole('button',{name:'Stäng företagsvy',exact:true})).toBeEnabled();
+   await page.getByRole('button',{name:'Försök samma bekräftelse igen',exact:true}).click();
+   await expect(page.getByRole('heading',{name:'Faktura TFX-2026-000001 · Delbetald',exact:true})).toBeVisible();
+   const calls=await page.evaluate(()=>window.paymentCalls.filter(call=>call.kind==='register'));assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);
+  }else{
+   await page.evaluate(()=>window.releasePaymentExport.reject(Error('Unavailable export')));
+   await expect(page.getByRole('alert')).toContainText('CSV-exporten kunde inte slutföras');
+   await expect(page.getByRole('button',{name:'Stäng företagsvy',exact:true})).toBeEnabled();
+  }
+  await page.getByRole('button',{name:'Stäng företagsvy',exact:true}).click();
+  await expect(page.getByRole('region',{name:'Valt företags administration'})).toHaveCount(0);
  }finally{await page.close();}
 });

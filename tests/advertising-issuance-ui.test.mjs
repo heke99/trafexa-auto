@@ -100,3 +100,39 @@ test('payment reconciliation loads only for an opened issued original and fresh 
  await page.getByRole('button',{name:'Visa betalningsavstämning',exact:true}).click();await expect(page.getByRole('heading',{name:'Faktura TFX-2026-000041 · Obetald'})).toBeVisible();const calls=await page.evaluate(()=>window.paymentCalls);assert.equal(calls[0].invoiceId,await page.evaluate(()=>window.issuedInvoice.id));assert.equal(calls[0].platform,true);
  await page.evaluate(()=>window.paymentReads.push({ok:false,code:'access_denied',message:'Betalningsbehörighet återkallad'}));await page.getByRole('button',{name:'Uppdatera betalningsavstämning',exact:true}).click();await expect(page.getByRole('alert')).toHaveText('Betalningsbehörighet återkallad');await expect(page.getByRole('region',{name:'Vald utfärdad faktura'})).toHaveCount(0);await expect(page.getByRole('link')).toHaveCount(0);await expect(page.getByRole('button',{name:'Uppdatera fakturering',exact:true})).toBeDisabled();
  }finally{await page.close();}});
+
+test('nested invoice payment confirmation cannot be unmounted or replaced by invoice controls while pending',async()=>{
+ const page=await setup();try{
+  await page.setViewportSize({width:320,height:844});
+  await page.evaluate(()=>{
+   window.issuancePage={...window.issuancePage,invoice:window.issuanceSummary,preview:null,canIssue:false};
+   window.paymentCalls=[];window.paymentReads=[];window.paymentWrites=[{hold:true}];window.paymentSaved={};
+   window.paymentPage={companyId:window.issuedInvoice.companyId,invoiceId:window.issuedInvoice.id,invoiceNumber:window.issuedInvoice.invoiceNumber,actorUserId:window.issuancePage.actorUserId,actorRole:'platform_admin',canWrite:true,invoiceSourceHash:window.issuedInvoice.sourceHash,reviewToken:'b'.repeat(64),businessDate:'2026-10-18',grossTotalOre:'12500',receivableOre:'12500',receivedOre:'0',outstandingOre:'12500',surplusOre:'0',status:'unpaid',entryCount:'0',latestSequence:'0',entries:[],nextBeforeSequence:null,credit:null};
+  });
+  await page.getByRole('button',{name:'Uppdatera fakturering',exact:true}).click();
+  await page.getByRole('button',{name:'Visa den utfärdade fakturan',exact:true}).click();
+  await page.getByRole('button',{name:'Visa betalningsavstämning',exact:true}).click();
+  await page.getByRole('button',{name:'Registrera mottagen betalning',exact:true}).click();
+  await page.getByLabel('Bankhändelsens unika transaktions-ID').fill('bank-001');
+  await page.getByLabel('Mottaget belopp, kr').fill('50');
+  await page.getByLabel('Bankreferens / OCR',{exact:true}).fill('OCR-001');
+  await page.getByLabel('Motivering och kontrollerat underlag').fill('Kontrollerat bankunderlag');
+  await page.getByRole('button',{name:'Granska registreringen',exact:true}).click();
+  await page.getByRole('checkbox',{name:'Jag har granskat bankunderlaget, fakturan, beloppet och datumet och bekräftar denna administrativa registrering.'}).check();
+  await page.getByRole('button',{name:'Bekräfta mottagen betalning',exact:true}).click();
+  await page.waitForFunction(()=>!!window.releasePayment);
+  for(const name of ['Uppdatera fakturering','Visa den utfärdade fakturan','Dölj betalningsavstämning','Visa fakturans mejlutskick','Visa kreditering av fakturan'])await expect(page.getByRole('button',{name,exact:true})).toBeDisabled();
+  await page.getByRole('button',{name:'Dölj betalningsavstämning',exact:true}).evaluate(button=>button.click());
+  await expect(page.getByRole('region',{name:'Slutgranskning av betalningsregistrering'})).toBeVisible();
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.screenshot({path:'/tmp/trafexa-nested-invoice-payment-pending-320.png',fullPage:true});
+  await page.evaluate(()=>window.releasePayment.reject(Error('Lost payment response')));
+  await expect(page.getByRole('button',{name:'Försök samma bekräftelse igen',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Dölj betalningsavstämning',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Försök samma bekräftelse igen',exact:true}).click();
+  await expect(page.getByText('Betalningsregistreringen är sparad. Ingen banköverföring har utförts.',{exact:true})).toBeVisible();
+  const calls=await page.evaluate(()=>window.paymentCalls.filter(call=>call.kind==='register'));
+  assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);
+  await expect(page.getByRole('heading',{name:'Faktura TFX-2026-000041 · Delbetald',exact:true})).toBeVisible();
+ }finally{await page.close();}
+});

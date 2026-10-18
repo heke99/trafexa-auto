@@ -42,11 +42,11 @@ test('contract roles separate finance read from owner/admin write and deny cross
  await denied(renew(h,r,id(92),U,{dealId:id(999)}),'42501');await denied(renew(h,r,id(93),U,{emailId:id(999)}),'42501');
  assert.equal((await h.db.query('select count(*)::int n from private.guest_invitation_renewal_audit')).rows[0].n,0);
 });
-test('pending processing unknown rejected cancelled live and revoked invitations cannot be renewed',async t=>{
+test('unsafe pending with historical provider receipt, processing unknown rejected cancelled and revoked invitations cannot be renewed',async t=>{
  const h=await setup(t),r=await review(h,h.kind,h.reference);
  for(const status of['pending','processing','unknown','rejected','cancelled']){
   await h.db.query("update private.transactional_email_outbox set status=$1,lease_id=case when $1='processing' then gen_random_uuid() end,lease_until=case when $1='processing' then now()+interval '1 minute' end where id=$2",[status,r.emailId]);
-  assert.equal((await review(h,h.kind,h.reference)).canRenew,false);await denied(renew(h,r,id(91)),'40001');
+  assert.equal((await review(h,h.kind,h.reference)).canRenew,false);assert.equal((await review(h,h.kind,h.reference)).canRecoverPending,false);await denied(renew(h,r,id(91)),'40001');
  }
  await h.db.query("update private.transactional_email_outbox set status='accepted' where id=$1",[r.emailId]);
  await h.db.query('update private.guest_document_invitations set revoked_at=now() where id=$1',[h.cap.invitationId]);assert.equal((await review(h,h.kind,h.reference)).canRenew,false);await denied(renew(h,r,id(92)),'40001');

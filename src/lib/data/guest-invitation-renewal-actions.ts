@@ -17,13 +17,13 @@ function failure(error: unknown, invalid = false): GuestInvitationRenewalFailure
 }
 function parse(value: unknown, write = false): GuestInvitationRenewalInput {
   const r = input(value, ['companyId', 'dealId', 'kind', 'referenceId', ...(write ? ['expectedEmailId', 'expectedGeneration', 'expectedDocumentHash', 'requestId', 'reviewAcknowledged'] : [])]);
-  if (r.kind !== 'offer_invitation' && r.kind !== 'contract_invitation') throw Error('Invalid invitation kind');
+  if (r.kind !== 'offer_invitation' && r.kind !== 'contract_invitation' && r.kind !== 'contract_completed') throw Error('Invalid invitation kind');
   return { companyId: id(r.companyId), dealId: id(r.dealId), kind: r.kind, referenceId: id(r.referenceId) };
 }
-function writable(v: GuestInvitationRenewalInput, role: string) { return (v.kind === 'contract_invitation' ? ['owner', 'admin'] : ['owner', 'admin', 'sales']).includes(role); }
+function writable(v: GuestInvitationRenewalInput, role: string) { return (v.kind !== 'offer_invitation' ? ['owner', 'admin'] : ['owner', 'admin', 'sales']).includes(role); }
 async function context(v: GuestInvitationRenewalInput, write = false): Promise<Context> {
-  const c = v.kind === 'contract_invitation' ? await requireDealerSigningContext(v.companyId, write) : await requireDealerReviewContext(v.companyId, write ? 'write' : 'read');
-  const roles = v.kind === 'contract_invitation' ? ['owner', 'admin', 'finance'] : ['owner', 'admin', 'sales', 'finance', 'viewer'];
+  const c = v.kind !== 'offer_invitation' ? await requireDealerSigningContext(v.companyId, write) : await requireDealerReviewContext(v.companyId, write ? 'write' : 'read');
+  const roles = v.kind !== 'offer_invitation' ? ['owner', 'admin', 'finance'] : ['owner', 'admin', 'sales', 'finance', 'viewer'];
   const approved = await requireApprovedAccountAccess();
   if (c.companyId !== v.companyId || !roles.includes(c.role) || write && !writable(v, c.role) || approved.userId !== c.userId) throw Object.assign(Error('Access denied'), { code: 'access_denied' });
   return c;
@@ -39,11 +39,12 @@ function scoped(r: Record<string, unknown>, v: GuestInvitationRenewalInput, c: C
 function review(value: unknown, v: GuestInvitationRenewalInput, c: Context): GuestInvitationRenewalReview {
   const r = record(value); scoped(r, v, c);
   const emailId = r.emailId === null ? null : id(r.emailId), invitationId = r.invitationId === null ? null : id(r.invitationId), generation = integer(r.generation, 0);
-  if (r.status !== null && !['pending', 'processing', 'accepted', 'rejected', 'unknown', 'cancelled'].includes(String(r.status)) || typeof r.canWrite !== 'boolean' || r.canWrite !== writable(v, c.role) || typeof r.canRenew !== 'boolean') throw Error('Invalid renewal status');
+  if (r.status !== null && !['pending', 'processing', 'accepted', 'rejected', 'unknown', 'cancelled'].includes(String(r.status)) || typeof r.canWrite !== 'boolean' || r.canWrite !== writable(v, c.role) || typeof r.canRenew !== 'boolean' || typeof r.canRecoverPending !== 'boolean') throw Error('Invalid renewal status');
   const expiresAt = r.expiresAt === null ? null : r.expiresAt;
   if (expiresAt !== null && (typeof expiresAt !== 'string' || !Number.isFinite(Date.parse(expiresAt))) || (emailId === null) !== (r.status === null) || emailId === null && (generation !== 0 || invitationId !== null || expiresAt !== null) || (invitationId === null) !== (expiresAt === null)) throw Error('Invalid invitation state');
   if (r.canRenew && (!r.canWrite || r.status !== 'accepted' || !emailId || !invitationId || !expiresAt || Date.parse(expiresAt as string) > Date.now())) throw Error('Invalid renewal eligibility');
-  return { ...v, actorUserId: c.userId, actorRole: c.role, recipientEmail: email(r.recipientEmail), documentHash: hash(r.documentHash), documentVersion: integer(r.documentVersion), emailId, invitationId, generation, status: r.status as GuestInvitationRenewalReview['status'], expiresAt: expiresAt as string | null, canWrite: r.canWrite, canRenew: r.canRenew, transport: contractEmailConfigurationStatus().transport };
+  if (r.canRecoverPending && (!r.canWrite || r.status !== 'pending' || !emailId || !invitationId || !expiresAt || Date.parse(expiresAt as string) > Date.now()) || r.canRenew && r.canRecoverPending) throw Error('Invalid pending recovery eligibility');
+  return { ...v, actorUserId: c.userId, actorRole: c.role, recipientEmail: email(r.recipientEmail), documentHash: hash(r.documentHash), documentVersion: integer(r.documentVersion), emailId, invitationId, generation, status: r.status as GuestInvitationRenewalReview['status'], expiresAt: expiresAt as string | null, canWrite: r.canWrite, canRenew: r.canRenew, canRecoverPending: r.canRecoverPending, transport: contractEmailConfigurationStatus().transport };
 }
 export async function getGuestInvitationRenewalReviewAction(value: GuestInvitationRenewalInput): Promise<{ ok: true; review: GuestInvitationRenewalReview } | GuestInvitationRenewalFailure> {
   let v: GuestInvitationRenewalInput; try { v = parse(value); } catch (e) { return failure(e, true); }

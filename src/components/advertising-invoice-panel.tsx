@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import {useDescendantBusy} from './use-descendant-busy';
 import { createAdvertisingInvoiceDraftAction, getPlatformAdvertisingInvoicePageAction, listAdvertisingInvoicePageAction, saveAdvertisingBuyerProfileAction, savePlatformAdvertisingBuyerProfileAction, saveAdvertisingSellerProfileAction, getAdvertisingInvoiceDraftAction, getPlatformAdvertisingInvoiceDraftAction } from '@/lib/advertising/invoice-actions';
 import type { AdvertisingInvoicePage, AdvertisingInvoiceProfile } from '@/lib/advertising/invoice-types';
 import { formatOre } from '@/lib/calculations/vehicle-calculation';
 
 const AdvertisingFinancialPanel = dynamic(() => import('./advertising-financial-panel').then(module => module.AdvertisingFinancialPanel), { loading: () => <p role="status">Läser in moms- och betalningsunderlag…</p> });
 
-type Props = { companyId: string; userId: string; role: string; superadmin?: boolean; month: string; onDenied?: (message: string) => void };
+type Props = { companyId: string; userId: string; role: string; superadmin?: boolean; month: string; onDenied?: (message: string) => void; onBusyChange?: (busy: boolean) => void };
 type Fields = AdvertisingInvoiceProfile['fields'];
 type Review = { kind: 'buyer' | 'seller'; fields: Fields; expectedVersion: number; confirmed: boolean } | { kind: 'draft'; buyerVersion: number; sellerVersion: number; reviewToken: string; confirmed: boolean };
 const labels: Record<keyof Fields, string> = { legalName: 'Juridiskt företagsnamn', organisationNumber: 'Organisationsnummer', invoiceEmail: 'Fakturaepost', addressLine1: 'Postadress', addressLine2: 'Adressrad 2', postalCode: 'Postnummer', city: 'Ort', countryCode: 'Landkod', reference: 'Fakturareferens' };
@@ -20,16 +21,18 @@ function Missing({ fields }: { fields: string[] }) { return fields.length ? <p c
 function Profile({ profile }: { profile: Pick<AdvertisingInvoiceProfile, 'version' | 'fields' | 'missingFields'> & { updatedAt?: string | null } }) { return <><p>Version {profile.version}{profile.updatedAt ? ` · ${date(profile.updatedAt)}` : profile.version === 0 ? ' · Ej sparad' : ''}</p><dl className="detail-list">{allKeys.map(key => <div key={key}><dt>{labels[key]}</dt><dd style={{ overflowWrap: 'anywhere' }}>{profile.fields[key] || 'Ej angivet'}</dd></div>)}</dl><Missing fields={profile.missingFields}/></>; }
 
 export function AdvertisingInvoicePanel(props: Props) { return <Invoices key={`${props.companyId}:${props.userId}:${props.role}:${props.superadmin}:${props.month}`} {...props}/>; }
-function Invoices({ companyId, userId, role, superadmin = false, month, onDenied }: Props) {
+function Invoices({ companyId, userId, role, superadmin = false, month, onDenied, onBusyChange }: Props) {
   const [page, setPage] = useState<AdvertisingInvoicePage | null>(null);
   const [showFinancial, setShowFinancial] = useState(false);
   const [editor, setEditor] = useState<{ kind: 'buyer' | 'seller'; fields: Fields } | null>(null);
   const [review, setReview] = useState<Review | null>(null);
   const [error, setError] = useState(''), [notice, setNotice] = useState('');
-  const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [denied, setDenied] = useState(false);
+  const [loading, setLoading] = useState(true), [operationBusy, setBusy] = useState(false), [denied, setDenied] = useState(false);
   const [refresh, setRefresh] = useState(0), [beforeVersion, setBeforeVersion] = useState<number | null>(null);
   const [selected, setSelected] = useState<Extract<Awaited<ReturnType<typeof getAdvertisingInvoiceDraftAction>>, { ok: true }> | null>(null);
   const [selectedLoading, setSelectedLoading] = useState(false);
+  const descendant = useDescendantBusy(onBusyChange);
+  const busy = operationBusy || descendant.busy;
   const generation = useRef(0), selectedGeneration = useRef(0), alive = useRef(true), inFlight = useRef(false);
   const requests = useRef(new Map<string, string>()), deniedCallback = useRef(onDenied), heading = useRef<HTMLHeadingElement>(null); deniedCallback.current = onDenied;
   useEffect(() => { alive.current = true; return () => { alive.current = false; ++generation.current; ++selectedGeneration.current; }; }, []);
@@ -62,7 +65,7 @@ function Invoices({ companyId, userId, role, superadmin = false, month, onDenied
     setError(''); setNotice(''); setReview({ kind: editor.kind, fields, expectedVersion: (editor.kind === 'buyer' ? page.buyerProfile : page.sellerProfile).version, confirmed: false });
   }
   async function confirm() {
-    if (!page || !review?.confirmed || loading || denied || inFlight.current) return;
+    if (!page || !review?.confirmed || loading || denied || descendant.busyRef.current || inFlight.current) return;
     if ((review.kind === 'buyer' && !page.canEditBuyer) || (review.kind === 'seller' && !page.canEditSeller) || (review.kind === 'draft' && !superadmin)) return;
     const request = generation.current;
     const input = review.kind === 'draft'
@@ -107,7 +110,7 @@ function Invoices({ companyId, userId, role, superadmin = false, month, onDenied
     } catch { if (alive.current && request === selectedGeneration.current && scope === generation.current) setError('Utkastet kunde inte verifieras. Försök igen.'); }
     finally { if (alive.current && request === selectedGeneration.current && scope === generation.current) setSelectedLoading(false); }
   }
-  return <section className="surface" style={{ padding: 20, marginTop: 24, minWidth: 0 }} aria-label="Faktureringsuppgifter och fakturautkast">
+  return <section className="surface advertising-financial-flow" style={{ padding: 20, marginTop: 24, minWidth: 0 }} aria-label="Faktureringsuppgifter och fakturautkast">
     <h3>Faktureringsuppgifter och fakturautkast</h3><p>Utkast för annonseringsavgifter i SEK exklusive moms. Moms, fakturanummer, betalningsvillkor och förfallodatum är ännu inte fastställda. Ingen faktura utfärdas, skickas eller betalas här.</p>
     <button type="button" className="button button-outline" disabled={loading || busy || denied} onClick={() => { setPage(null); setEditor(null); setReview(null); setSelected(null); ++selectedGeneration.current; setNotice(''); setRefresh(value => value + 1); }}>Uppdatera faktureringsuppgifter</button>
     {loading && <p role="status">Verifierar faktureringsuppgifter…</p>}{error && <p role="alert" className="form-error">{error}</p>}{notice && <p role="status">{notice}</p>}
@@ -127,8 +130,8 @@ function Invoices({ companyId, userId, role, superadmin = false, month, onDenied
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>{beforeVersion !== null && <button type="button" className="button button-outline" disabled={busy || loading} onClick={() => setBeforeVersion(null)}>Visa senaste utkasten</button>}{page.nextBeforeVersion !== null && <button type="button" className="button button-outline" disabled={busy || loading} onClick={() => setBeforeVersion(page.nextBeforeVersion)}>Visa äldre fakturautkast</button>}</div>
       {selectedLoading && <p role="status">Verifierar valt fakturautkast…</p>}
       {selected && <section aria-label="Valt fakturautkast" className="surface" style={{ padding: 18, marginTop: 20 }}><h4>UTKAST / EJ UTFÄRDAD · Version {selected.draft.version}</h4>{selected.isOutdated && <p className="form-privacy">Detta utkast bygger på äldre uppgifter. Originalets PDF ändras inte.</p>}<p>Utkastreferens: {selected.draft.id}</p><dl className="detail-list"><div><dt>Original i utkastet, exkl. moms</dt><dd>{selected.draft.snapshot.basis.original ? formatOre(selected.draft.snapshot.basis.original.totalOre) : 'Kan inte verifieras'}</dd></div><div><dt>Reduktioner i utkastet, exkl. moms</dt><dd>{formatOre(selected.draft.snapshot.basis.reductionTotalOre)}</dd></div><div><dt>Återstående belopp i utkastet, exkl. moms</dt><dd>{selected.draft.snapshot.basis.netTotalOre === null ? 'Kan inte verifieras' : formatOre(selected.draft.snapshot.basis.netTotalOre)}</dd></div></dl><p>Moms: ej fastställd. Belopp inklusive moms: kan inte beräknas.</p><h5>Köpare i sparat utkast</h5><Profile profile={selected.draft.snapshot.buyerProfile}/><h5>Säljare i sparat utkast</h5><Profile profile={selected.draft.snapshot.sellerProfile}/><Missing fields={selected.draft.snapshot.missingFields}/><a className="text-link" href={`/api/advertising/invoices/${encodeURIComponent(selected.draft.id)}/pdf${superadmin ? `?companyId=${encodeURIComponent(companyId)}` : ''}`}>Hämta PDF av sparat utkast version {selected.draft.version}</a></section>}
-      {!review && !editor && <button type="button" className="button button-outline" style={{ marginTop: 20 }} aria-expanded={showFinancial} onClick={() => setShowFinancial(value => !value)}>{showFinancial ? 'Dölj moms- och betalningsunderlag' : 'Visa moms- och betalningsunderlag'}</button>}
-      {showFinancial && <AdvertisingFinancialPanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={month} draftId={selected?.draft.id ?? null} onDenied={message => failure({ code: 'access_denied', message })}/>}
+      {!review && !editor && <button type="button" className="button button-outline" style={{ marginTop: 20 }} disabled={busy} aria-expanded={showFinancial} onClick={() => setShowFinancial(value => !value)}>{showFinancial ? 'Dölj moms- och betalningsunderlag' : 'Visa moms- och betalningsunderlag'}</button>}
+      {showFinancial && <AdvertisingFinancialPanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={month} draftId={selected?.draft.id ?? null} onBusyChange={descendant.report} onDenied={message => failure({ code: 'access_denied', message })}/>}
     </>}
   </section>;
 }

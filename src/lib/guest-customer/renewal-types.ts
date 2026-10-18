@@ -1,7 +1,7 @@
 export type GuestInvitationRenewalInput = {
   companyId: string;
   dealId: string;
-  kind: 'offer_invitation' | 'contract_invitation';
+  kind: 'offer_invitation' | 'contract_invitation' | 'contract_completed';
   referenceId: string;
 };
 export type GuestInvitationRenewalReview = GuestInvitationRenewalInput & {
@@ -17,6 +17,7 @@ export type GuestInvitationRenewalReview = GuestInvitationRenewalInput & {
   expiresAt: string | null;
   canWrite: boolean;
   canRenew: boolean;
+  canRecoverPending: boolean;
   transport: 'paused' | 'unconfigured' | 'configured';
 };
 export type RenewGuestDocumentInvitationInput = GuestInvitationRenewalInput & {
