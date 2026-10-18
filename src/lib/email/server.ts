@@ -5,7 +5,7 @@ import {EMAIL_KINDS,validRecipient,type TransactionalEmail} from './templates';
 import {emailConfigurationStatus,sendTransactionalEmail} from './transport';
 import {requirePlatformAdminContext} from '@/lib/platform-admin/context';
 import {accountInvitationConfigured} from './account-invitation-server';
-type EmailDatabase=Omit<Database,'public'>&{public:Omit<Database['public'],'Functions'>&{Functions:{claim_transactional_email:{Args:{p_kind?:string;p_reference?:string};Returns:Json};check_transactional_email_lease:{Args:{p_id:string;p_lease_id:string};Returns:boolean};finish_transactional_email:{Args:{p_id:string;p_lease_id:string;p_status:string;p_provider_id:string|null};Returns:boolean}}}};
+type EmailDatabase=Omit<Database,'public'>&{public:Omit<Database['public'],'Functions'>&{Functions:{claim_transactional_email:{Args:{p_kind?:string;p_reference?:string};Returns:Json};claim_transactional_email_exact:{Args:{p_email_id:string};Returns:Json};check_transactional_email_lease:{Args:{p_id:string;p_lease_id:string};Returns:boolean};finish_transactional_email:{Args:{p_id:string;p_lease_id:string;p_status:string;p_provider_id:string|null};Returns:boolean}}}};
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function config(kind?:string|null){const customer=kind==='offer_invitation'||kind?.startsWith('contract_');return {enabled:(customer?process.env.CONTRACT_EMAIL_ENABLED==='true':process.env.TRANSACTIONAL_EMAIL_ENABLED==='true')&&process.env.TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED==='true'&&!!process.env.SUPABASE_SECRET_KEY&&process.env.NEXT_PUBLIC_SUPABASE_URL==='https://buqdtssxrotkzndublrt.supabase.co',apiKey:process.env.RESEND_API_KEY};}
 export function contractEmailConfigurationStatus(){return {transport:process.env.CONTRACT_EMAIL_ENABLED!=='true'?'paused' as const:emailConfigurationStatus(config('contract_invitation'))==='configured'?'configured' as const:'unconfigured' as const};}
@@ -22,19 +22,24 @@ export async function dispatchTransactionalEvent(kind:TransactionalEmail['kind']
  if(!EMAIL_KINDS.includes(kind)||typeof reference!=='string'||!UUID.test(reference))return {status:'unavailable'};
  return dispatch(kind,reference.toLowerCase(),false);
 }
-async function dispatch(kind:TransactionalEmail['kind']|null,reference:string|null,admin:boolean):Promise<{status:string}>{
+/** A reviewed renewal must never claim an older message for the same document. */
+export async function dispatchGuestInvitationEmail(kind:'offer_invitation'|'contract_invitation',reference:string,emailId:string){
+ if(!['offer_invitation','contract_invitation'].includes(kind)||typeof reference!=='string'||!UUID.test(reference)||typeof emailId!=='string'||!UUID.test(emailId))return {status:'unavailable'};
+ return dispatch(kind,reference.toLowerCase(),false,emailId.toLowerCase());
+}
+async function dispatch(kind:TransactionalEmail['kind']|null,reference:string|null,admin:boolean,emailId?:string):Promise<{status:string}>{
  const actor=admin?await requirePlatformAdminContext():null;
  if(emailConfigurationStatus(config(kind))!=='configured')return {status:'unconfigured'};
  const key=process.env.SUPABASE_SECRET_KEY,url=process.env.NEXT_PUBLIC_SUPABASE_URL;
  if(!key||url!=='https://buqdtssxrotkzndublrt.supabase.co')return {status:'unconfigured'};
  const db:SupabaseClient<EmailDatabase>=createClient<EmailDatabase>(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:(input,init)=>fetch(input,{...init,signal:AbortSignal.timeout(10_000)})}});
- const claim=await db.rpc('claim_transactional_email',kind&&reference?{p_kind:kind,p_reference:reference}:{});
+ const claim=emailId?await db.rpc('claim_transactional_email_exact',{p_email_id:emailId}):await db.rpc('claim_transactional_email',kind&&reference?{p_kind:kind,p_reference:reference}:{});
  if(claim.error)return {status:'unavailable'};
  if(claim.data===null)return {status:'empty'};
  if(!claim.data||typeof claim.data!=='object'||Array.isArray(claim.data))return {status:'unavailable'};
  const row=claim.data;
  if(typeof row.id!=='string'||!UUID.test(row.id)||typeof row.leaseId!=='string'||!UUID.test(row.leaseId)||typeof row.reference!=='string'||!UUID.test(row.reference)||!validRecipient(row.recipient)||typeof row.createdAt!=='string'||!EMAIL_KINDS.includes(row.kind as TransactionalEmail['kind']))return {status:'unavailable'};
- if(kind&&row.kind!==kind||reference&&row.reference!==reference)return {status:'unavailable'};
+ if(kind&&row.kind!==kind||reference&&row.reference!==reference||emailId&&row.id!==emailId)return {status:'unavailable'};
  const finish=async(savedStatus:string,responseStatus=savedStatus,providerId:string|null=null)=>{
   let status='unknown';
   try{const saved=await db.rpc('finish_transactional_email',{p_id:row.id as string,p_lease_id:row.leaseId as string,p_status:savedStatus,p_provider_id:providerId});if(!saved.error&&saved.data===true)status=responseStatus;}catch{/* A failed acknowledgement never proves a final queue status. */}

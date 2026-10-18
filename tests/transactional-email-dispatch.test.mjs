@@ -5,7 +5,7 @@ const reference='a1300000-0000-4000-8000-000000000001';
 async function harness(options={}){
  let sent=0,proofs=0;const calls=[];
  const loader=await createSourceLoader({'server-only':{},
- '@supabase/supabase-js':{createClient(){return {async rpc(name,args){calls.push([name,args]);if(name==='claim_transactional_email')return{data:{id:reference,kind:'contract_completed_company',reference,recipient:'customer@example.invalid',createdAt:new Date().toISOString(),firstAttemptAt:new Date().toISOString(),leaseId:reference,...options.row}};if(name==='check_transactional_email_lease'){if(options.leaseThrows)throw Error('private db detail');return options.lease??{data:true};}if(name==='finish_transactional_email'){if(options.finishThrows)throw Error('private db detail');return options.finish??{data:true};}throw Error('Unexpected RPC');}};}},
+ '@supabase/supabase-js':{createClient(){return {async rpc(name,args){calls.push([name,args]);if(name==='claim_transactional_email'||name==='claim_transactional_email_exact')return{data:{id:reference,kind:'contract_completed_company',reference,recipient:'customer@example.invalid',createdAt:new Date().toISOString(),firstAttemptAt:new Date().toISOString(),leaseId:reference,...options.row}};if(name==='check_transactional_email_lease'){if(options.leaseThrows)throw Error('private db detail');return options.lease??{data:true};}if(name==='finish_transactional_email'){if(options.finishThrows)throw Error('private db detail');return options.finish??{data:true};}throw Error('Unexpected RPC');}};}},
  '@/lib/platform-admin/context':{async requirePlatformAdminContext(){proofs++;if(options.revoke&&proofs>1||options.revokeAfterSend&&sent>0)throw Error('Private denial');return{userId:reference};}},
  './transport':{emailConfigurationStatus:()=> 'configured',async sendTransactionalEmail(){sent++;return options.sendResult??{status:'accepted',providerId:'fixture-provider-id'};}},
  });return {server:loader.load('src/lib/email/server.ts'),counts:()=>({sent,proofs,calls})};
@@ -44,4 +44,17 @@ test('only persisted provider acknowledgement is reported as accepted; safe rate
   const h=await harness(options);assert.equal((await h.server.dispatchTransactionalEvent('contract_completed_company',reference)).status,'unknown');assert.equal(h.counts().sent,1);
  }
  const h=await harness({sendResult:{status:'retryable'}});assert.equal((await h.server.dispatchTransactionalEvent('contract_completed_company',reference)).status,'retryable');assert.equal(h.counts().calls.at(-1)[1].p_status,'pending');assert.equal(h.counts().calls.at(-1)[1].p_provider_id,null);
+}));
+
+test('reviewed guest renewal claims exact email ID and rejects substituted rows before sending',()=>configured(async()=>{
+ for(const row of [{id:reference,kind:'offer_invitation'}, {id:reference,kind:'contract_invitation'}]){
+  // Stop before the guest worker by rejecting the lease; the exact claim is the boundary under test.
+  const denied=await harness({row,lease:{data:false}});
+  assert.equal((await denied.server.dispatchGuestInvitationEmail(row.kind,reference,reference)).status,'cancelled');
+  assert.deepEqual(denied.counts().calls[0],['claim_transactional_email_exact',{p_email_id:reference}]);
+ }
+ for(const row of [{id:'a1300000-0000-4000-8000-000000000002',kind:'offer_invitation'},{kind:'contract_completed_company'}]){
+  const h=await harness({row});assert.equal((await h.server.dispatchGuestInvitationEmail('offer_invitation',reference,reference)).status,'unavailable');assert.equal(h.counts().sent,0);assert.equal(h.counts().calls.length,1);
+ }
+ for(const args of [['contract_completed',reference,reference],['offer_invitation','bad',reference],['offer_invitation',reference,'bad']]){const h=await harness();assert.equal((await h.server.dispatchGuestInvitationEmail(...args)).status,'unavailable');assert.equal(h.counts().calls.length,0);}
 }));
