@@ -8,6 +8,8 @@ Den aktuella genomgången följer hela fortsättningen från godkännande till b
 
 Efter denna genomgång återstår ett separat granskat flöde för att förnya utgångna dokumentlänkar. Det ska skapa en ny spårbar länk och bevara tidigare utskick och godkännanden. Okända utskicksutfall får inte automatiskt skickas om. Inbyte/skuldlösen och externa partneranslutningar följer sina separata kontrakt.
 
+Fortsättning efter PR #48: [CSV för annonsfakturors betalningsavstämning](ADVERTISING_PAYMENT_EXPORT.md) samlar hela fakturans verifierade journal med exakta saldon. Underlaget är avsett för granskning inför bokföringen; ekonomisystem och bankanslutning är ännu inte valda eller aktiverade.
+
 Aktuell fortsättning 18 oktober: [sammanhängande handlar- och adminflöden](WORKFLOW_CONTINUITY_20261018.md) samt [manuell avstämning av annonsfakturor](ADVERTISING_PAYMENT_RECONCILIATION.md). Företagsval, inbjudningsstatus, granskad förnyelse och återhämtning efter ändrad handläggning kompletteras; betalningar och rättelser behåller oföränderliga original och exakta ören. Banköverföring, återbetalning och bokföringsintegration ingår inte. Slutlig releaseverifiering följs i IMPLEMENTATION_STATUS. Äldre daterade avsnitt nedan är historiska checkpoints.
 
 Den senaste fortsättningen har implementerade kontrakt för [säkra återförsök, superadminsökning, dokumentöversikt, manuell avstämning, leverans och ett opt-in-handlarnätverk](DEALER_NEXT_STEPS_20261015.md). Nedanstående fasbeskrivningar innehåller även historiska checkpoints; aktuell verifierad produktionsstatus rapporteras separat. Inbyte/skuldlösen, bindande B2B-affärer och skarpa bank-/partneranslutningar kräver fortsatt egna kontrakt.
