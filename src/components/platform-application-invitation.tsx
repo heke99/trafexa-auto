@@ -49,9 +49,11 @@ export function PlatformApplicationInvitation({ application, actorUserId, disabl
   const invitation = snapshot?.ok ? snapshot.invitation : null;
   const lifecycle = snapshot?.ok ? snapshot.lifecycle : null;
   const requiresNewApprovalReview = !!invitation && !invitation.userId && invitation.applicationVersion !== application.version;
-  const correctReview = !invitation || lifecycle?.applicationVersion === application.version && invitation.actorUserId === actorUserId && (invitation.applicationVersion === application.version || !!invitation.userId || lifecycle.delivery.canRetry);
+  const applicationEligible = !application.legacy && application.status !== 'closed';
+  const applicationCurrent = lifecycle?.applicationVersion === application.version;
+  const correctReview = applicationEligible && applicationCurrent && (!invitation || invitation.actorUserId === actorUserId && (invitation.applicationVersion === application.version || !!invitation.userId || lifecycle.delivery.canRetry));
   const canRenew = correctReview && lifecycle?.applicationVersion === application.version && lifecycle.canRenew;
-  const deliveryBlocksSend = !!invitation && (!lifecycle?.delivery.canRetry || !correctReview);
+  const deliveryBlocksSend = !correctReview || !!invitation && !lifecycle?.delivery.canRetry;
   function applySnapshot(result: Awaited<ReturnType<typeof getPlatformApplicationInvitationAction>>) {
     setSnapshot(result);
     if (!result.ok) {
@@ -61,6 +63,10 @@ export function PlatformApplicationInvitation({ application, actorUserId, disabl
       return;
     }
     setReady(true);
+    if (!applicationEligible || result.lifecycle.applicationVersion !== application.version) {
+      setFinished(true); setReviewing(false); setAcknowledged(false); setRenewReview(false); setRenewAcknowledged(false);
+      return;
+    }
     if (loadedDeliveryId.current !== null && loadedDeliveryId.current !== result.lifecycle.delivery.id) { setRenewReview(false); setRenewAcknowledged(false); renewIntent.current = null; }
     loadedDeliveryId.current = result.lifecycle.delivery.id;
     if (result.invitation) {
@@ -153,6 +159,9 @@ export function PlatformApplicationInvitation({ application, actorUserId, disabl
   return <section className="admin-application-approval-content" aria-labelledby="application-invitation-heading">
     <h3 id="application-invitation-heading">Godkänn ansökan och bjud in</h3>
     <p>Godkänn kontot och skicka ett välkomstmejl till ansökans e-postadress. Mejlet bekräftar godkännandet och innehåller en personlig länk för att aktivera kontot och välja lösenord. Företags- och produktbehörigheter samt finansiering hanteras separat.</p>
+    {ready && !applicationCurrent && <p role="status">Ansökan har ändrats sedan den öppnades. Läs in aktuell ansökan och granska uppgifterna på nytt innan du godkänner eller förnyar en kontoinbjudan.</p>}
+    {application.legacy && <p>Den här äldre förfrågan kan inte användas för en kontoinbjudan. Be kunden lämna en ny, fullständig ansökan via Trafexas webbplats.</p>}
+    {!application.legacy && application.status === 'closed' && <p>Ansökan är avslutad. Ändra handläggningsstatus och granska det aktuella underlaget innan en kontoinbjudan kan skickas.</p>}
     {lifecycle && invitation && <div className="admin-application-approval-review" aria-label="Kontoinbjudans aktuella status">
       <dl className="admin-application-fields"><div><dt>Utskick</dt><dd>{({ not_started: 'Inte påbörjat', generating: 'Förbereder inbjudan', sending: 'Utskick pågår', sent: 'Mottaget av mejltjänsten', retryable: 'Kan försöka igen med samma utskick', rejected: 'Utskicket avvisades', unknown: 'Okänt utskicksresultat' } as const)[lifecycle.delivery.state]}</dd></div>
       <div><dt>Sändningsförsök</dt><dd>{lifecycle.delivery.attemptCount}</dd></div>{lifecycle.delivery.updatedAt && <div><dt>Senast registrerat</dt><dd><time dateTime={lifecycle.delivery.updatedAt}>{new Intl.DateTimeFormat('sv-SE', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Stockholm' }).format(new Date(lifecycle.delivery.updatedAt))}</time></dd></div>}<div><dt>E-postaktivering</dt><dd>{lifecycle.account.emailVerified === true ? 'E-post bekräftad' : lifecycle.account.emailVerified === false ? 'E-post ej bekräftad' : 'Kontot har inte skapats ännu'}</dd></div>

@@ -1,3 +1,4 @@
+import {AuthSubmit} from '@/components/auth-submit';
 import Link from 'next/link';
 import {redirect} from 'next/navigation';
 import {getWorkspaceSnapshot} from '@/lib/data/workspace';
@@ -17,6 +18,6 @@ export default async function OnboardingPage({searchParams}:{searchParams:Promis
  <p className="auth-links">Inbjuden till ett befintligt företag? <Link href="/invitations">Mina företagsinbjudningar</Link></p>
  {snapshot.memberships.length>0?<p className="auth-links"><Link href="/settings#settings-account">Tillbaka till företagsinställningar</Link></p>:null}
  <CompanyOnboarding userId={snapshot.user.id} loginEmail={snapshot.user.email}/>
- <p className="form-note">Företagskonto och finansgodkännande hanteras separat. Ingen kreditlimit tilldelas i detta steg.</p><form action={signOutAction}><button className="text-link" type="submit">Logga ut</button></form>
+ <p className="form-note">Företagskonto och finansgodkännande hanteras separat. Ingen kreditlimit tilldelas i detta steg.</p><form action={signOutAction}><AuthSubmit pendingLabel="Loggar ut…" className="text-link">Logga ut</AuthSubmit></form>
  </AuthShell>;
 }

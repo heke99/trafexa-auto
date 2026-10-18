@@ -1,0 +1,11 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {flushSync} from 'react-dom';
+import Login from '../../../src/app/login/page';
+import Activate from '../../../src/app/activate-account/page';
+import Forgot from '../../../src/app/forgot-password/page';
+import Reset from '../../../src/app/reset-password/page';
+import Onboarding from '../../../src/app/onboarding/page';
+import Pending from '../../../src/app/account-pending/page';
+const root=createRoot(document.getElementById('root')),pages={login:Login,activate:Activate,forgot:Forgot,reset:Reset,onboarding:Onboarding,pending:Pending};
+window.mountAccountPage=async(name,query={})=>{try{const element=await pages[name]({searchParams:Promise.resolve(query)});flushSync(()=>root.render(React.createElement(React.Fragment,{key:++window.auth.mount},element)));}catch(error){if(!error.url)throw error;window.auth.redirects.push(error.url);flushSync(()=>root.render(null));}};

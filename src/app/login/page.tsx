@@ -1,3 +1,4 @@
+import {AuthSubmit} from '@/components/auth-submit';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { loginAction } from '@/lib/data/actions';
@@ -15,14 +16,14 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   if(query.error!==savedPasswordSignOutWarning&&query.error!==passwordChangeUnconfirmedWarning&&query.error!==sessionSignOutUnconfirmedWarning)redirect(landing);
   return <AuthShell title="Kontrollera din inloggning." subtitle="En inloggad session finns kvar i den här webbläsaren.">
    <p className="notice error" role="alert">{query.error}</p>
-   <form action={retryPasswordSignOutAction}><input type="hidden" name="next" value={nextPath}/><button className="button button-green" type="submit">Försök logga ut igen</button></form>
+   <form action={retryPasswordSignOutAction}><input type="hidden" name="next" value={nextPath}/><AuthSubmit pendingLabel="Loggar ut…">Försök logga ut igen</AuthSubmit></form>
    <p className="auth-links"><Link href={landing}>Fortsätt med aktuell session</Link></p>
    <p className="auth-links"><Link href={`/forgot-password?${new URLSearchParams({next:nextPath})}`}>Begär en ny återställningslänk</Link></p>
   </AuthShell>;
  }
  return <AuthShell title="Välkommen tillbaka." subtitle={nextPath==='/my-offers'?'Logga in med den verifierade e-postadress som bilhandlaren har angett i din offert. Du behöver inget företagskonto.':nextPath==='/invitations'?'Logga in med din inbjudna e-postadress för att granska dina företagsinbjudningar.':'Logga in till ditt företags lager, kunder och affärer.'}>
  {query.error?<p className="notice error" role="alert">{query.error}</p>:null}{query.success?<p className="notice success" role="status">{query.success}</p>:null}
- <form action={loginAction}><input type="hidden" name="next" value={nextPath}/><label>E-post<input required type="email" name="email" autoComplete="email" maxLength={254} placeholder="namn@bilfirma.se" /></label><label>Lösenord<input required type="password" name="password" autoComplete="current-password" maxLength={256} /></label><button className="button button-green" type="submit">Logga in</button></form>
+ <form action={loginAction}><input type="hidden" name="next" value={nextPath}/><label>E-post<input required type="email" name="email" autoComplete="email" maxLength={254} placeholder="namn@bilfirma.se" /></label><label>Lösenord<input required type="password" name="password" autoComplete="current-password" maxLength={256} /></label><AuthSubmit pendingLabel="Loggar in…">Logga in</AuthSubmit></form>
  <p className="auth-links"><Link href={`/forgot-password?${new URLSearchParams({next:nextPath})}`}>Glömt lösenordet?</Link></p><p className="auth-links">Ny hos Trafexa? <a href="https://trafexa.com/#kontakt">Ansök om tillgång</a></p><p className="form-note">Vi granskar din ansökan. Efter godkännande får du en kontoinbjudan via e-post och väljer ditt lösenord.</p><p className="auth-links"><Link href="/demo">Se systemet med exempeldata</Link></p>
  </AuthShell>;
 }

@@ -1,3 +1,4 @@
+import {AuthSubmit} from '@/components/auth-submit';
 import Link from 'next/link';
 import { safeNextPath } from '@/lib/routing.mjs';
 import { getAuthenticatedLandingPath, getAccountPendingPath } from '@/lib/auth/landing';
@@ -27,6 +28,6 @@ export default async function AccountPendingPage({ searchParams }: { searchParam
     <Link className="button button-green" href={pendingPath}>Kontrollera åtkomst igen</Link>
     <p className="auth-links"><a href="mailto:info@trafexa.com">Kontakta info@trafexa.com</a></p>
     <p className="auth-links"><Link href={`/forgot-password?${new URLSearchParams({ next: originalNext })}`}>Glömt lösenordet?</Link></p>
-    <form action={signOutAction}><input type="hidden" name="next" value={originalNext}/><button type="submit" className="text-link">Logga ut</button></form>
+    <form action={signOutAction}><input type="hidden" name="next" value={originalNext}/><AuthSubmit pendingLabel="Loggar ut…" className="text-link">Logga ut</AuthSubmit></form>
   </AuthShell>;
 }

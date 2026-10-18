@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
+import {createHash} from 'node:crypto';
+const invitationFingerprint=value=>createHash('sha256').update(value).digest('hex');
 import {createSourceLoader} from './helpers/source-loader.mjs';
 // Actual GoTrue GenerateTokenHash output is hexadecimal SHA-224 (56 characters).
 const token='a'.repeat(56);
@@ -12,13 +14,13 @@ async function activation(options={}){
   '@/lib/account-access/context':{requireApprovedAccountAccess:async()=>{calls.push('approval');if(options.denied)throw Error('denied');return{userId:options.wrongIdentity?'another-user':'review-user',emailVerified:true,status:'approved'};}},
   '@/lib/supabase/server':{createServerSupabaseClient:async()=>({auth:{
    verifyOtp:async input=>{calls.push(['verify',input]);return{error:options.verifyError?{message:'private token diagnostics'}:null,data:{user:{id:'review-user',email_confirmed_at:'2026-01-01'}}};},
-   updateUser:async input=>{calls.push(['password',input]);return{error:options.passwordError?{message:'private password diagnostics'}:null};},
+   updateUser:async input=>{calls.push(['password',input]);if(options.passwordThrows)throw Error('private ambiguous password diagnostics');return{error:options.passwordError?{message:'private password diagnostics'}:null};},
    signOut:async input=>{calls.push(['signOut',input]);if(options.signOutThrows)throw Error('private logout diagnostics');return{error:options.signOutError?{message:'private logout diagnostics'}:null};},
   }})},
  });
  const action=loader.load('src/lib/auth/activate-account-actions.ts').activateAccountAction;
  return{calls,mutations,async submit(input={}){
-  const f=new FormData();f.set('password',input.password??'a long synthetic password');f.set('acknowledged',input.acknowledged??'yes');f.set('token_hash','b'.repeat(64));f.set('email','forged@example.invalid');
+  const f=new FormData();f.set('invitationFingerprint',input.invitationFingerprint??invitationFingerprint(token));f.set('password',input.password??'a long synthetic password');f.set('acknowledged',input.acknowledged??'yes');f.set('token_hash','b'.repeat(64));f.set('email','forged@example.invalid');
   try{await action(f);assert.fail('Expected redirect');}catch(e){assert.ok(e.url);return new URL(e.url,'https://app.trafexa.com');}
  }};
 }
@@ -89,10 +91,29 @@ test('activation client initialization failure retains invitation for a safe ret
   'next/headers':{cookies:async()=>({get:()=>({value:token}),set:(...args)=>mutations.push(args),delete:(...args)=>mutations.push(args)})},
   '@/lib/supabase/server':{createServerSupabaseClient:async()=>{throw Error('private initialization diagnostic');}},
  });
- const form=new FormData();form.set('password','synthetic-password-long');form.set('acknowledged','yes');
+ const form=new FormData();form.set('invitationFingerprint',invitationFingerprint(token));form.set('password','synthetic-password-long');form.set('acknowledged','yes');
  await assert.rejects(()=>loader.load('@/lib/auth/activate-account-actions').activateAccountAction(form),error=>{
   const url=new URL(error.url,'https://app.trafexa.com');assert.equal(url.pathname,'/activate-account');
   assert.match(url.searchParams.get('error'),/Försök igen med samma inbjudningslänk/);assert.ok(!url.href.includes('private'));return true;
  });
  assert.deepEqual(mutations,[]);
+});
+
+
+test('activation with a lost password-write response reports ambiguity without claiming rejection or replaying the consumed invite',async()=>{
+ const h=await activation({passwordThrows:true}),result=await h.submit();
+ assert.equal(result.pathname,'/login');assert.equal(result.searchParams.has('success'),false);
+ assert.match(result.searchParams.get('error'),/Lösenordsändringen kunde inte bekräftas/);
+ assert.doesNotMatch(result.href,/private|diagnostics|token_hash/);
+ assert.equal(h.calls.filter(v=>Array.isArray(v)&&v[0]==='verify').length,1);
+ assert.equal(h.calls.filter(v=>Array.isArray(v)&&v[0]==='password').length,1);
+ assert.equal(h.calls.some(v=>Array.isArray(v)&&v[0]==='signOut'),false);
+ assert.equal(h.mutations[0][0],'trafexa-account-invitation');assert.equal(h.mutations[0][2].maxAge,0);
+ assert.ok(h.mutations.some(v=>v[0]==='trafexa-company'));
+});
+
+
+test('stale activation form cannot consume a replacement invitation from another tab',async()=>{
+ const h=await activation(),result=await h.submit({invitationFingerprint:invitationFingerprint('b'.repeat(56))});
+ assert.equal(result.pathname,'/activate-account');assert.match(result.searchParams.get('error'),/har ändrats/);assert.deepEqual(h.calls,[]);assert.deepEqual(h.mutations,[]);
 });

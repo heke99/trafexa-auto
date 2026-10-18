@@ -5,9 +5,12 @@ import { domainRedirect, isWorkspacePath, isPlatformAdminPath, isCompanyInvitati
 export async function proxy(request: NextRequest) {
   const { pathname, search, hostname } = request.nextUrl;
   const destination = domainRedirect(hostname, pathname, search);
-  const guestHeaders=(response:NextResponse)=>{response.headers.set('Cache-Control','private, no-store, max-age=0');response.headers.set('Referrer-Policy','no-referrer');response.headers.set('X-Robots-Tag','noindex, nofollow, noarchive');response.headers.set('X-Content-Type-Options','nosniff');return response;};
-  if (destination && ['GET', 'HEAD'].includes(request.method)) {const response=NextResponse.redirect(destination);return isGuestCustomerPath(pathname)?guestHeaders(response):response;}
-  if(isGuestCustomerPath(pathname))return guestHeaders(NextResponse.next());
+  const privateLink=isGuestCustomerPath(pathname)||pathname==='/auth/invitation'||pathname==='/auth/recovery';
+  const privateLinkHeaders=(response:NextResponse)=>{response.headers.set('Cache-Control','private, no-store, max-age=0');response.headers.set('Referrer-Policy','no-referrer');response.headers.set('X-Robots-Tag','noindex, nofollow, noarchive');response.headers.set('X-Content-Type-Options','nosniff');return response;};
+  if (destination && ['GET', 'HEAD'].includes(request.method)) {const response=NextResponse.redirect(destination);return privateLink?privateLinkHeaders(response):response;}
+  // Token-link GET handlers only prepare a clean form. Existing sessions must
+  // not trigger a provider refresh before that inert handoff can complete.
+  if(privateLink)return privateLinkHeaders(NextResponse.next());
   if (!isWorkspacePath(pathname) && !isPlatformAdminPath(pathname) && !isCompanyInvitationsPath(pathname) && !isCustomerOffersPath(pathname) && !isAuthPath(pathname)) return NextResponse.next();
   let response = NextResponse.next({ request });
   response.headers.set('Cache-Control', 'private, no-store');

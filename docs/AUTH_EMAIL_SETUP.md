@@ -39,7 +39,17 @@ En gammal redan skickad mejllänk ändras inte när inställningarna sparas. Beg
 
 Prioritera **Reset password** för befintliga användare. Confirm sign up bevaras för historiska Auth-flöden; webbplatsen erbjuder ingen öppen registrering. De andra mallarna är förberedda och aktiverar inte nya funktioner i Trafexas gränssnitt. Hosted Invite user-mallen används inte av det nya granskade ansökningsflödet.
 
-Behåll `{{ .ConfirmationURL }}` exakt i länkarnas href och länktext. Supabase fyller själv i verifieringslänk och den tillåtna callbackadressen. Mallarna konstruerar inga egna tokens eller hashfragment. Reauthentication använder i stället `{{ .Token }}` som kod; Change email address använder `{{ .NewEmail }}`. Mallarna visar inga påhittade giltighetstider och läser ingen användarmetadata.
+För **Reset password** använder den aktuella mallen `https://app.trafexa.com/auth/recovery?token_hash={{ .TokenHash }}` i både knapp och reservlänk. Supabase fyller i sin befintliga engångstoken; appen skapar ingen egen Auth-token. Övriga länkmallar behåller `{{ .ConfirmationURL }}` exakt i href och länktext. Supabase fyller då i verifieringslänk och den tillåtna callbackadressen. Reauthentication använder i stället `{{ .Token }}` som kod; Change email address använder `{{ .NewEmail }}`. Mallarna visar inga påhittade giltighetstider och läser ingen användarmetadata.
+
+## Återställning på en annan enhet, 18 oktober 2026
+
+Publicera appens nya `/auth/recovery` innan Reset password-mallen byts i hosted Supabase. Kopiera därefter hela `supabase/templates/auth/recovery.html` till **Authentication → Email Templates → Reset password → Body** och behåll ämnesraden från tabellen. Övriga mallar och URL-/SMTP-inställningar behöver inte ändras för denna uppdatering. Verktygen i denna genomgång kan inte läsa eller skriva hosted Auth-mallen; en Vercel-publicering gör inte det åt er.
+
+Den nya mallens direkta applänk kräver ingen ny Supabase redirect-allowlist. `forgotPasswordAction` fortsätter skicka den tidigare tillåtna `/auth/callback` som `redirectTo`, så äldre installerade ConfirmationURL-mallar fortsätter med sitt befintliga PKCE-flöde under utrullningen. Det flödet behöver webbläsaren där återställningen begärdes. Den nya mallens TokenHash-länk fungerar även på en annan enhet och återgår till vanlig inloggning efter lösenordsbytet; den för över ingen ursprunglig dokumentdestination från den andra enheten.
+
+En öppning av den nya länken förbrukar ingen engångstoken och ändrar inget lösenord. Appen sparar bara en HttpOnly-cookie i högst en timme, begränsad till `/reset-password`, och visar en ren formuläradress. Först formulärets uttryckliga POST verifierar token som `recovery`, kontrollerar den färska användaridentiteten och ändrar lösenord. Tokenens verkliga giltighet och engångsanvändning kontrolleras av Supabase. Skanning eller förhandsvisning av mejlet utför ingen lösenordsändring. Utgången, återspelad eller felaktig länk kräver en ny begäran; inget annat redan inloggat konto får sitt lösenord ändrat som reserv.
+
+Begär ett **nytt** mejl efter mallbytet. Redan skickade länkar ändras inte. Den vanliga inloggningen och äldre PKCE-callbacken finns kvar. Testa därefter en uttryckligt avsedd provanvändare från två separata webbläsare; ändra inte superadminens lösenord för att kontrollera funktionen.
 
 ## 3. Förvalta och kontrollera
 
