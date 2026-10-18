@@ -67,7 +67,11 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
   const [error, setError] = useState<string | null>(initialError);
   const [notice, setNotice] = useState<string | null>(null);
   const [denied, setDenied] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [actionPending, startTransition] = useTransition();
+  const [invitationBusy, setInvitationBusy] = useState(false);
+  const invitationBusyRef = useRef(false);
+  const pending = actionPending || invitationBusy;
+  function handleInvitationBusy(busy: boolean) { invitationBusyRef.current = busy; setInvitationBusy(busy); }
   const generation = useRef(0);
   const reviewHeading = useRef<HTMLHeadingElement>(null);
   const selectedCompanyId = review?.company.id;
@@ -102,6 +106,7 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
   }
   useEffect(() => { loadOverview(); return () => { ++overviewGeneration.current; ++generation.current; }; }, []);
   function navigate(nextTab: 'overview' | 'companies' | 'contacts' | 'accounts') {
+    if (invitationBusyRef.current) return;
     if (pending || denied) return;
     ++generation.current;
     accountCompanyReturn.current=false;
@@ -134,6 +139,7 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
     });
   }
   function loadContacts(append = false) {
+    if (invitationBusyRef.current) return;
     const requestGeneration = ++generation.current;
     setError(null); setNotice(null); setReview(null);
     startTransition(async () => {
@@ -183,12 +189,14 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
   }
 
   function closeApplication() {
+    if (invitationBusyRef.current) return;
     setApplication(null); setApplicationReview(null); setErasureReview(null);
     applicationIntent.current = null; erasureIntent.current = null;
     requestAnimationFrame(() => applicationTrigger.current?.focus());
   }
 
   function loadApplication(applicationId: string) {
+    if (invitationBusyRef.current) return;
     const requestGeneration = ++generation.current;
     setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null); setError(null); setNotice(null);
     startTransition(async () => {
@@ -201,6 +209,7 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
     });
   }
   function saveApplicationStatus() {
+    if (invitationBusyRef.current) return;
     if (!application || !applicationReview?.confirmed || pending || denied) return;
     const payload = { applicationId: application.id, expectedVersion: application.version, status: applicationReview.status, reason: applicationReview.reason.trim() };
     const fingerprint = JSON.stringify(payload);
@@ -248,6 +257,7 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
   }
 
   function eraseApplication() {
+    if (invitationBusyRef.current) return;
     if (!application || !erasureReview?.confirmed || pending || denied) return;
     const payload = { applicationId: erasureReview.applicationId, expectedVersion: erasureReview.version, reason: erasureReview.reason };
     const fingerprint = JSON.stringify(payload);
@@ -339,7 +349,7 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
 
           </div>
           <div className="admin-application-actions">
-            <div className="admin-application-card admin-application-approval"><PlatformApplicationInvitation key={`${application.id}:${application.version}`} application={application} actorUserId={actorUserId} disabled={pending || denied || !!erasureReview || !!applicationReview} onAccessDenied={() => handleFailure({ code: 'access_denied', message: 'Administratörsåtkomsten kunde inte verifieras.' })} onComplete={() => loadApplication(application.id)}/></div>
+            <div className="admin-application-card admin-application-approval"><PlatformApplicationInvitation key={`${application.id}:${application.version}`} application={application} actorUserId={actorUserId} disabled={actionPending || denied || !!erasureReview || !!applicationReview} onBusyChange={handleInvitationBusy} onAccessDenied={() => handleFailure({ code: 'access_denied', message: 'Administratörsåtkomsten kunde inte verifieras.' })} onComplete={() => loadApplication(application.id)}/></div>
             <section className="admin-application-card" aria-labelledby="application-status-heading"><h3 id="application-status-heading">Handlägg ansökan</h3><p>Följ ärendet med en handläggningsstatus. Statusändringen ger ingen kontotillgång och skickar inget mejl.</p>
         <form className="workspace-form" onSubmit={event => { event.preventDefault(); if (applicationReview?.confirmed) saveApplicationStatus(); else setApplicationReview(previous => previous ? { ...previous, confirmed: true, reason: previous.reason.trim() } : null); }}><label>Ny handläggningsstatus<select disabled={pending || !!erasureReview || applicationReview?.confirmed} value={applicationReview?.status || application.status} onChange={event => { applicationIntent.current = null; setApplicationReview({ status: event.target.value as 'new' | 'in_review' | 'contacted' | 'closed', reason: '', confirmed: false }); }}><option value="new">Ny</option><option value="in_review">Under granskning</option><option value="contacted">Kontaktad</option><option value="closed">Avslutad</option></select></label>{applicationReview && <><label>Motivering för handläggning<input required maxLength={500} disabled={pending || applicationReview.confirmed} value={applicationReview.reason} onChange={event => setApplicationReview(previous => previous ? { ...previous, reason: event.target.value } : null)}/></label>{applicationReview.confirmed && <p role="status">Granska: {applicationLabels[application.status]} → {applicationLabels[applicationReview.status]}. {applicationReview.reason}</p>}<button type="submit" className="button button-green" disabled={pending || !applicationReview.reason.trim()}>{applicationReview.confirmed ? 'Bekräfta handläggningsstatus' : 'Granska handläggningsstatus'}</button><button type="button" className="text-link" disabled={pending} onClick={() => { setApplicationReview(null); applicationIntent.current = null; }}>Avbryt ändring</button></>}</form></section>
           </div>

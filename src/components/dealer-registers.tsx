@@ -106,6 +106,13 @@ function RegisterPanel(props: DealerRegistersProps) {
   }
   function previous() { if (position > 0 && !loading) { onCriteriaChange?.(); setPosition(value => value - 1); } }
   function refresh() { onCriteriaChange?.(); setRetry(value => value + 1); }
+  function clearCriteria() { setDraftQuery(''); setQuery(''); setStatus('all'); resetPage(); setRetry(value => value + 1); }
+  const canCreate = !demo && (kind === 'inventory' ? ['owner', 'admin'] : ['owner', 'admin', 'sales']).includes(role);
+  const firstRecordGuidance = canCreate ? {
+    inventory: 'Använd ”Lägg till bil” ovan för att registrera företagets första bil.',
+    customers: 'Använd ”Lägg till kund” ovan för att registrera företagets första kund.',
+    deals: 'Registrera en kund och en tillgänglig bil. Använd sedan ”Ny affär” ovan.',
+  }[kind] : demo ? 'Demonstrationen är i läsläge och använder endast fiktiva exempeldata.' : 'Registret fylls när en behörig medarbetare registrerar företagets uppgifter.';
 
   return <section className="surface" aria-label={`${kind === 'inventory' ? 'Fordons' : kind === 'customers' ? 'Kund' : 'Affärs'}register`} aria-busy={loading}>
     <div className="table-toolbar" style={{ alignItems: 'flex-end' }}>
@@ -128,7 +135,7 @@ function RegisterPanel(props: DealerRegistersProps) {
     {demo ? <p className="settings-note">Demonstration · sökning och sidvisning använder endast fiktiva exempeldata.</p> : null}
     {loading ? <p className="quiet-empty" role="status">Hämtar {nouns[kind]} från hela registret…</p> : null}
     {error ? <div className="quiet-empty"><p role="alert">{error}</p><button type="button" className="button button-outline button-small" onClick={refresh}>Försök igen</button>{position > 0 ? <button type="button" className="button button-outline button-small" onClick={() => { resetPage(); setRetry(value => value + 1); }}>Till första sidan</button> : null}</div> : null}
-    {page ? page.rows.length ? renderRows(page) : !loading ? <div className="empty-state"><h3>{position > 0 && page.filteredCount > 0 ? 'Sidan är tom efter en ändring i registret.' : page.totalCount === 0 ? `Inga ${nouns[kind]} har registrerats ännu.` : `Inga ${nouns[kind]} matchar sökningen eller filtret.`}</h3><p>{position > 0 && page.filteredCount > 0 ? 'Gå till föregående sida eller uppdatera registret.' : 'Ändra sökningen eller välj ett annat filter.'}</p></div> : null : null}
+    {page ? page.rows.length ? renderRows(page) : !loading ? <div className="empty-state"><h3>{position > 0 && page.filteredCount > 0 ? 'Sidan är tom efter en ändring i registret.' : page.totalCount === 0 ? `Inga ${nouns[kind]} har registrerats ännu.` : `Inga ${nouns[kind]} matchar sökningen eller filtret.`}</h3><p>{position > 0 && page.filteredCount > 0 ? 'Gå till föregående sida eller uppdatera registret.' : page.totalCount === 0 ? firstRecordGuidance : 'Ändra sökningen eller välj ett annat filter.'}</p>{page.totalCount > 0 && page.filteredCount === 0 ? <button type="button" className="button button-outline button-small" onClick={clearCriteria}>Visa alla {nouns[kind]}</button> : null}</div> : null : null}
     <div className="table-footer" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
       <span>{page ? `Visar ${count(page.rows.length)} av ${count(page.filteredCount)} träffar · ${count(page.totalCount)} ${nouns[kind]} totalt` : 'Antalet visas när registret har verifierats.'}</span>
       <nav aria-label="Registersidor" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>

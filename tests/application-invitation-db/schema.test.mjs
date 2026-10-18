@@ -38,6 +38,7 @@ const bind=(db,i,l,cipher='ciphertext.v1.'+'a'.repeat(100))=>service(db,'bind_pl
 const finish=(db,i,l,outcome,provider=null)=>service(db,'finish_platform_application_invitation_delivery',i,l,[outcome,provider]);
 const denied=work=>assert.rejects(work,e=>e.code==='42501');
 const conflict=work=>assert.rejects(work,e=>e.code==='40001');
+const renew=(db,invitation,generation,version=1,request=id(90))=>rpc(db,admin,'renew_platform_application_invitation',[invitation.id,generation,version,'Reviewed replacement personal invitation',request]);
 
 test('actual Auth role denies open signup, forged metadata, autoconfirmed signup and unapproved invite at COMMIT',async()=>{
  const db=await setup();
@@ -93,7 +94,7 @@ test('approval cannot be consumed after expiry, approver revocation, case mutati
 test('expired unconsumed approval renews only exact original request after fresh review',async()=>{
  const db=await setup(),first=await prepare(db);
  await db.query("update private.application_account_invitations set expires_at=now()-interval '1 minute'");
- assert.equal((await rpc(db,admin,'get_platform_application_invitation',[app])).invitation.status,'expired');
+ const expiredRead=await rpc(db,admin,'get_platform_application_invitation',[app]);assert.equal(expiredRead.invitation.status,'expired');assert.equal(expiredRead.lifecycle.delivery.canRetry,true,'exact expired unconsumed approval may be freshly reviewed, prepared and retried');
  await conflict(()=>prepare(db,{reason:'Ny orsak'}));const renewed=await prepare(db);assert.equal(renewed.id,first.id);assert.equal(renewed.status,'prepared');
  await authInsert(db);assert.equal((await rpc(db,user,'get_account_access')).emailVerified,false);
  await denied(()=>rpc(db,user,'create_company',['Denied unverified','5568554884']));
@@ -147,7 +148,7 @@ test('service payload and finish require fresh application, approver and account
  for(const scenario of ['admin','case','account','verified']){
   const db=await setup(),invitation=await prepare(db),lease=await claim(db,invitation);await authInsert(db);await bind(db,invitation,lease.leaseId);
   if(scenario==='admin')await db.query("update private.platform_admins set status='suspended' where user_id=$1",[admin]);
-  if(scenario==='case')await db.query('update private.demo_requests set version=version+1 where id=$1',[app]);
+  if(scenario==='case')await db.query("update private.demo_requests set status='closed',version=version+1 where id=$1",[app]);
   if(scenario==='account')await db.query("update private.account_approvals set status='suspended' where user_id=$1",[user]);
   await db.query("insert into auth.identities(id,user_id,provider)values($1,$2,'email')",[id(84),user]);
   if(scenario==='historical_signin')await db.query('update auth.users set last_sign_in_at=now() where id=$1',[user]);
@@ -166,6 +167,79 @@ test('application privacy erasure also deletes private invitation and encrypted 
  await assert.rejects(()=>load(db,invitation,lease.leaseId),e=>e.code==='P0002');
  assert.equal((await rpc(db,user,'get_account_access')).emailVerified,false);
  await denied(()=>rpc(db,user,'create_company',['Denied unverified','5568554884']));
+});
+
+test('reviewed generation renewal preserves initial delivery identity, requires current review, and never overwrites historical provider acceptance',async()=>{
+ const db=await setup(),invitation=await prepare(db),first=await claim(db,invitation);assert.equal(first.deliveryId,invitation.id);
+ await authInsert(db);await bind(db,invitation,first.leaseId);await finish(db,invitation,first.leaseId,'sent','provider-initial');
+ await db.query("update private.demo_requests set status='contacted',version=version+1 where id=$1",[app]);
+ const current=await rpc(db,admin,'get_platform_application_invitation',[app]);assert.equal(current.lifecycle.applicationVersion,2);assert.equal(current.lifecycle.delivery.state,'sent');assert.equal(current.lifecycle.account.emailVerified,false);assert.equal(current.lifecycle.canRenew,true);
+ await conflict(()=>renew(db,invitation,first.deliveryId));
+ const replacement=await renew(db,invitation,first.deliveryId,2);assert.notEqual(replacement.deliveryId,first.deliveryId);assert.equal(replacement.invitation.applicationVersion,1);assert.equal(replacement.applicationVersion,2);
+ assert.deepEqual(await renew(db,invitation,first.deliveryId,2),replacement);
+ await conflict(()=>renew(db,invitation,first.deliveryId,2,id(91)));
+ await conflict(()=>rpc(db,admin,'claim_platform_application_invitation_delivery_v2',[invitation.id,first.deliveryId]));
+ const receipt=await finish(db,invitation,first.leaseId,'sent','provider-initial');assert.equal(receipt.deliveryId,first.deliveryId);
+ assert.equal((await db.query('select state from private.application_invitation_deliveries')).rows[0].state,'pending');
+ assert.equal((await db.query('select lease_id from private.application_invitation_deliveries')).rows[0].lease_id,null);
+ const next=await rpc(db,admin,'claim_platform_application_invitation_delivery_v2',[invitation.id,replacement.deliveryId]);assert.equal(next.deliveryId,replacement.deliveryId);assert.equal(next.status,'generate');
+ await bind(db,invitation,next.leaseId);await db.query("update private.application_invitation_deliveries set lease_until=now()-interval '1 second'");
+ assert.equal((await rpc(db,admin,'get_platform_application_invitation',[app])).lifecycle.delivery.state,'unknown');
+ const third=await renew(db,invitation,next.deliveryId,2,id(92));
+ const late=await finish(db,invitation,next.leaseId,'sent','provider-late');assert.equal(late.deliveryId,replacement.deliveryId);
+ assert.equal((await db.query('select state from private.application_invitation_delivery_history where delivery_id=$1',[replacement.deliveryId])).rows[0].state,'sent');
+ assert.equal((await db.query('select delivery_id from private.application_invitation_deliveries')).rows[0].delivery_id,third.deliveryId);
+ await rpc(db,admin,'erase_platform_web_application',[app,2,'rights_request',id(93)]);
+ for(const table of ['application_invitation_deliveries','application_invitation_delivery_history','application_invitation_renewals'])assert.equal((await db.query(`select count(*)::int n from private.${table}`)).rows[0].n,0);
+});
+
+test('renewal refuses a live send lease, known retry within its deduplication window, verified identity and revoked account approval',async()=>{
+ for(const scenario of ['lease','retry','verified','approval']){
+  const db=await setup(),invitation=await prepare(db),first=await claim(db,invitation);await authInsert(db);await bind(db,invitation,first.leaseId);
+  if(scenario==='retry')await finish(db,invitation,first.leaseId,'retryable');
+  if(scenario==='verified'||scenario==='approval')await finish(db,invitation,first.leaseId,'sent','provider-known');
+  if(scenario==='verified')await db.query('update auth.users set email_confirmed_at=now()where id=$1',[user]);
+  if(scenario==='approval')await db.query("update private.account_approvals set status='suspended'where user_id=$1",[user]);
+  await assert.rejects(()=>renew(db,invitation,first.deliveryId),e=>['40001','42501'].includes(e.code));
+  assert.equal((await db.query('select count(*)::int n from private.application_invitation_renewals')).rows[0].n,0);
+ }
+});
+
+test('fresh review supersedes an unconsumed older case version, preserves its approval audit and fences the old unsent generation',async()=>{
+ const db=await setup(),invitation=await prepare(db),first=await claim(db,invitation);
+ await db.query("update private.demo_requests set status='contacted',version=version+1 where id=$1",[app]);
+ const args=[invitation.id,1,2,'Freshly reviewed changed case',id(94)];
+ await conflict(()=>rpc(db,admin,'reprepare_platform_application_invitation',args));
+ await db.query("update private.application_invitation_deliveries set lease_until=now()-interval '1 second'");
+ assert.equal((await rpc(db,admin,'get_platform_application_invitation',[app])).lifecycle.delivery.canRetry,true);
+ await conflict(()=>prepare(db,{version:2,nonce:id(94),reason:args[3]}));
+ const replacement=await rpc(db,admin,'reprepare_platform_application_invitation',args);
+ assert.equal(replacement.invitation.id,invitation.id);assert.equal(replacement.invitation.applicationVersion,2);assert.equal(replacement.invitation.requestId,id(94));assert.notEqual(replacement.deliveryId,first.deliveryId);assert.equal(replacement.previousApplicationVersion,1);
+ assert.deepEqual(await rpc(db,admin,'reprepare_platform_application_invitation',args),replacement);
+ await conflict(()=>rpc(db,admin,'reprepare_platform_application_invitation',[invitation.id,1,2,'Changed reviewed reason',id(94)]));
+ const audit=(await db.query('select previous_approval from private.application_invitation_preparation_history')).rows[0].previous_approval;
+ assert.deepEqual(audit,invitation);
+ await conflict(()=>rpc(db,admin,'claim_platform_application_invitation_delivery_v2',[invitation.id,first.deliveryId]));
+ await conflict(()=>load(db,invitation,first.leaseId));
+ await conflict(()=>bind(db,invitation,first.leaseId));
+ await conflict(()=>finish(db,invitation,first.leaseId,'sent','impossible-old-send'));
+ const next=await rpc(db,admin,'claim_platform_application_invitation_delivery_v2',[invitation.id,replacement.deliveryId]);assert.equal(next.status,'generate');
+ await authInsert(db);await bind(db,replacement.invitation,next.leaseId);await finish(db,replacement.invitation,next.leaseId,'sent','provider-fresh-review');
+ assert.equal((await db.query('select reason from private.account_approval_audit where user_id=$1',[user])).rows[0].reason,args[3]);
+ await conflict(()=>rpc(db,admin,'reprepare_platform_application_invitation',[invitation.id,1,2,args[3],id(95)]));
+ await rpc(db,admin,'erase_platform_web_application',[app,2,'rights_request',id(96)]);
+ assert.equal((await db.query('select count(*)::int n from private.application_invitation_preparation_history')).rows[0].n,0);
+});
+
+test('fresh review refuses a matching existing Auth identity and cannot adopt or change that identity',async()=>{
+ const db=await setup(),invitation=await prepare(db);
+ await db.query('update private.demo_requests set version=2 where id=$1',[app]);
+ await db.query('insert into auth.users(id,email)values($1,$2)',[user,email]);
+ const before=(await db.query('select to_jsonb(u)row from auth.users u where id=$1',[user])).rows[0].row;
+ const current=await rpc(db,admin,'get_platform_application_invitation',[app]);assert.equal(current.lifecycle.delivery.canRetry,false);
+ await conflict(()=>rpc(db,admin,'reprepare_platform_application_invitation',[invitation.id,1,2,'Fresh case review',id(94)]));
+ assert.deepEqual((await db.query('select to_jsonb(u)row from auth.users u where id=$1',[user])).rows[0].row,before);
+ assert.equal((await db.query('select count(*)::int n from private.application_invitation_preparation_history')).rows[0].n,0);
 });
 
 

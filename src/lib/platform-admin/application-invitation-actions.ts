@@ -3,8 +3,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { PlatformAdminError, requirePlatformAdminContext } from './context';
-import type { ApplicationInvitation, ApplicationInvitationDatabase, ApplicationInvitationResult } from './application-invitation-types';
-import { ApplicationInvitationError, invitationRecord, parseApplicationInvitation, parseApplicationInvitationReadInput, parsePrepareApplicationInvitationInput } from './application-invitation-validation';
+import type { ApplicationInvitation, ApplicationInvitationDatabase, ApplicationInvitationLifecycle, ApplicationInvitationResult } from './application-invitation-types';
+import { ApplicationInvitationError, invitationRecord, invitationUuid, parseApplicationInvitation, parseApplicationInvitationLifecycle, parseApplicationInvitationReadInput, parsePrepareApplicationInvitationInput, parseReprepareApplicationInvitationInput } from './application-invitation-validation';
 
 function failure(error: unknown): ApplicationInvitationResult<never> {
   const code = error instanceof PlatformAdminError ? error.code === 'unavailable' ? 'unavailable' : 'access_denied' : error instanceof ApplicationInvitationError ? error.code : 'unavailable';
@@ -15,7 +15,7 @@ function rpcError(error: { code?: string } | null) {
   if (error) throw new ApplicationInvitationError(error.code === '42501' ? 'access_denied' : error.code === '23505' ? 'existing_account' : error.code === '40001' ? 'conflict' : error.code === 'P0002' ? 'not_found' : error.code === '22023' ? 'invalid_input' : 'unavailable');
 }
 
-export async function getPlatformApplicationInvitationAction(value: unknown): Promise<ApplicationInvitationResult<{ invitation: ApplicationInvitation | null }>> {
+export async function getPlatformApplicationInvitationAction(value: unknown): Promise<ApplicationInvitationResult<{ invitation: ApplicationInvitation | null; lifecycle: ApplicationInvitationLifecycle }>> {
   try {
     const { db, userId } = await requirePlatformAdminContext();
     const { applicationId } = parseApplicationInvitationReadInput(value);
@@ -25,9 +25,10 @@ export async function getPlatformApplicationInvitationAction(value: unknown): Pr
     if (row.applicationId !== applicationId) throw new ApplicationInvitationError('unavailable');
     const invitation = row.invitation === null ? null : parseApplicationInvitation(row.invitation);
     if (invitation && invitation.applicationId !== applicationId) throw new ApplicationInvitationError('unavailable');
+    const lifecycle = parseApplicationInvitationLifecycle(row.lifecycle, invitation);
     const fresh = await requirePlatformAdminContext();
     if (fresh.userId !== userId) throw new ApplicationInvitationError('access_denied');
-    return { ok: true, invitation };
+    return { ok: true, invitation, lifecycle };
   } catch (error) { return failure(error); }
 }
 
@@ -46,5 +47,27 @@ export async function preparePlatformApplicationInvitationAction(value: unknown)
     const fresh = await requirePlatformAdminContext();
     if (fresh.userId !== userId) throw new ApplicationInvitationError('access_denied');
     return { ok: true, invitation };
+  } catch (error) { return failure(error); }
+}
+
+/** An unconsumed review can be superseded only after a separate fresh case review. */
+export async function repreparePlatformApplicationInvitationAction(value: unknown): Promise<ApplicationInvitationResult<{ invitation: ApplicationInvitation; deliveryId: string | null }>> {
+  try {
+    const { db, userId } = await requirePlatformAdminContext();
+    const input = parseReprepareApplicationInvitationInput(value);
+    const existing = await getPlatformApplicationInvitationAction({ applicationId: input.applicationId });
+    if (!existing.ok) throw new ApplicationInvitationError(existing.code);
+    if (!existing.invitation || existing.invitation.id !== input.invitationId || existing.invitation.actorUserId !== userId || existing.invitation.userId || existing.lifecycle.applicationVersion !== input.expectedVersion) throw new ApplicationInvitationError('conflict');
+    const result = await (db as unknown as SupabaseClient<ApplicationInvitationDatabase>).rpc('reprepare_platform_application_invitation', {
+      p_invitation_id: input.invitationId, p_expected_application_version: input.expectedApplicationVersion, p_expected_version: input.expectedVersion, p_reason: input.reason, p_request_id: input.requestId,
+    });
+    rpcError(result.error);
+    const row = invitationRecord(result.data), invitation = parseApplicationInvitation(row.invitation);
+    const deliveryId = row.deliveryId === null ? null : invitationUuid(row.deliveryId);
+    if (row.previousApplicationVersion !== input.expectedApplicationVersion || invitation.id !== input.invitationId || invitation.applicationId !== input.applicationId || invitation.applicationVersion !== input.expectedVersion || invitation.actorUserId !== userId || invitation.requestId !== input.requestId || invitation.reason !== input.reason || invitation.userId !== null || invitation.status !== 'prepared' || invitation.email !== existing.invitation.email || invitation.name !== existing.invitation.name || (deliveryId === null) !== (existing.lifecycle.delivery.id === null) || deliveryId !== null && deliveryId === existing.lifecycle.delivery.id && existing.invitation.applicationVersion === input.expectedApplicationVersion) throw new ApplicationInvitationError('unavailable');
+    const fresh = await requirePlatformAdminContext();
+    if (fresh.userId !== userId) throw new ApplicationInvitationError('access_denied');
+    try { revalidatePath('/admin'); } catch { /* A reviewed preparation remains independently readable. */ }
+    return { ok: true, invitation, deliveryId };
   } catch (error) { return failure(error); }
 }
