@@ -1,0 +1,3 @@
+async function response(queue){const next=queue.shift();if(next?.hold)return new Promise((resolve,reject)=>window.releaseReceivables={resolve,reject});if(next?.throw)throw Error('Unavailable');return next;}
+export async function getPlatformAdvertisingReceivablesAction(input){window.receivablesCalls.push({kind:'list',...structuredClone(input)});return await response(window.receivablesReads)??{ok:true,page:structuredClone(window.receivablesPage)};}
+export async function getPlatformAdvertisingIssuedInvoiceAction(input){window.receivablesCalls.push({kind:'detail',...structuredClone(input)});return await response(window.receivablesDetails)??{ok:true,invoice:structuredClone(window.receivablesInvoice),isSourceOutdated:false};}
