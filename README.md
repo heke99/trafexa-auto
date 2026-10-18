@@ -1,5 +1,7 @@
 # Trafexa Dealer
 
+[Administration → Annonsfakturor](docs/ADVERTISING_RECEIVABLES.md) samlar utfärdade annonsfakturor och exakta betalningssaldon över företagen, med direkt väg till original, PDF och avstämning.
+
 [Fortsättningen 18 oktober](docs/WORKFLOW_CONTINUITY_20261018.md) förbättrar företagsval och kontoinbjudningar samt lägger till [manuell betalningsavstämning av annonsfakturor](docs/ADVERTISING_PAYMENT_RECONCILIATION.md). Avstämningen registrerar kontrollerade underlag; den utför ingen banköverföring eller återbetalning. [CSV-export per faktura](docs/ADVERTISING_PAYMENT_EXPORT.md) samlar hela den verifierade journalen och exakta saldon för vidare granskning.
 
 Nya konton följer **webbansökan → superadmins godkännande → personlig kontoinbjudan**. Öppen registrering är stängd. Se [kontogodkännande och aktivering](docs/ACCOUNT_APPROVAL_CONTRACT.md) samt [skillnaden mellan kontoinbjudan via Resend och lösenordsåterställning via Supabase SMTP](docs/AUTH_EMAIL_SETUP.md).
