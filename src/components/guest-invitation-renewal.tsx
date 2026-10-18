@@ -58,7 +58,7 @@ function RenewalPanel({companyId, dealId, referenceId, kind, userId, role, refre
     } else if (allowed) setStorageReady(true);
     return () => { alive.current = false; ++sequence.current; onBusyChange(false); };
   }, []);
-  useEffect(() => { if (allowed) void refresh(); else setLoading(false); }, [refreshVersion]);
+  useEffect(() => { if (!allowed) setLoading(false); else if (refreshVersion > 0) void refresh(); }, [refreshVersion]);
   const returnFocus = useRef(false);
   useEffect(() => { if (open) heading.current?.focus(); else if (returnFocus.current) {returnFocus.current = false; opener.current?.focus();} }, [open]);
   const expired = review?.expiresAt != null && Date.parse(review.expiresAt) <= Date.now();

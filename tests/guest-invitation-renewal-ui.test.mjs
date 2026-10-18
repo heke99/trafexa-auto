@@ -105,3 +105,10 @@ test('corrupt retained request remains untouched and visibly blocks another rene
 test('unverified mutation receipt preserves the exact pending request rather than allowing another renewal',async()=>{
  const page=await setup({}, {renewalResults:[{ok:true,renewal:{actorUserId:'foreign'}}]});try{await send(page);await expect(page.getByText('Förnyelsens utfall kunde inte verifieras.',{exact:false})).toBeVisible();await expect(page.getByRole('button',{name:'Kontrollera samma förnyelseförsök',exact:true})).toBeVisible();assert.equal(await page.evaluate(()=>sessionStorage.length),1);await expect(page.getByRole('button',{name:reviewButton,exact:true})).toHaveCount(0);}finally{await page.close();}
 });
+test('initial panel mount reads renewal once after parent initialization and never mutates',async()=>{
+ const page=await setup();try{
+  await expect(page.getByRole('button',{name:reviewButton,exact:true})).toBeEnabled();
+  assert.equal(await page.evaluate(()=>window.fixture.renewalCalls.filter(c=>c.kind==='read').length),1);
+  assert.equal((await calls(page)).length,0);
+ }finally{await page.close();}
+});
