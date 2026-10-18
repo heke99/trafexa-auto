@@ -1,4 +1,4 @@
-import type { ApplicationInvitation, PrepareApplicationInvitationInput } from './application-invitation-types';
+import type { ApplicationInvitation, ApplicationInvitationLifecycle, PrepareApplicationInvitationInput, ReprepareApplicationInvitationInput, RenewApplicationInvitationInput } from './application-invitation-types';
 
 export class ApplicationInvitationError extends Error {
   constructor(readonly code: 'invalid_input' | 'unavailable' | 'access_denied' | 'conflict' | 'not_found' | 'existing_account') { super('Application invitation unavailable'); }
@@ -32,6 +32,30 @@ export function parsePrepareApplicationInvitationInput(value: unknown): PrepareA
 export function parseApplicationInvitationReadInput(value: unknown): { applicationId: string } {
   const row = strict(value, ['applicationId']);
   return { applicationId: invitationUuid(row.applicationId) };
+}
+export function parseRenewApplicationInvitationInput(value: unknown): RenewApplicationInvitationInput {
+  const row = strict(value, ['applicationId', 'invitationId', 'expectedDeliveryId', 'expectedVersion', 'reason', 'requestId', 'acknowledged', 'invalidatesPreviousLink']);
+  if (row.acknowledged !== true || row.invalidatesPreviousLink !== true || typeof row.expectedVersion !== 'number' || !Number.isInteger(row.expectedVersion) || row.expectedVersion < 1 || row.expectedVersion > 2147483647) throw new ApplicationInvitationError('invalid_input');
+  return { applicationId: invitationUuid(row.applicationId), invitationId: invitationUuid(row.invitationId), expectedDeliveryId: invitationUuid(row.expectedDeliveryId), expectedVersion: row.expectedVersion, reason: text(row.reason, 2, 500), requestId: invitationUuid(row.requestId), acknowledged: true, invalidatesPreviousLink: true };
+}
+export function parseReprepareApplicationInvitationInput(value: unknown): ReprepareApplicationInvitationInput {
+  const row = strict(value, ['applicationId', 'invitationId', 'expectedApplicationVersion', 'expectedVersion', 'reason', 'requestId', 'reviewAcknowledged']);
+  const prepared = parsePrepareApplicationInvitationInput({ applicationId: row.applicationId, expectedVersion: row.expectedVersion, reason: row.reason, requestId: row.requestId, reviewAcknowledged: row.reviewAcknowledged });
+  if (typeof row.expectedApplicationVersion !== 'number' || !Number.isInteger(row.expectedApplicationVersion) || row.expectedApplicationVersion < 1 || row.expectedApplicationVersion >= prepared.expectedVersion) throw new ApplicationInvitationError('invalid_input');
+  return { ...prepared, invitationId: invitationUuid(row.invitationId), expectedApplicationVersion: row.expectedApplicationVersion };
+}
+export function parseApplicationInvitationLifecycle(value: unknown, invitation: ApplicationInvitation | null): ApplicationInvitationLifecycle {
+  try {
+    const row = invitationRecord(value), delivery = invitationRecord(row.delivery), account = invitationRecord(row.account);
+    if (typeof row.applicationVersion !== 'number' || !Number.isInteger(row.applicationVersion) || row.applicationVersion < 1 || row.applicationVersion > 2147483647 || typeof row.canRenew !== 'boolean' || typeof delivery.canRetry !== 'boolean' || !['not_started', 'generating', 'sending', 'sent', 'retryable', 'rejected', 'unknown'].includes(String(delivery.state)) || typeof delivery.attemptCount !== 'number' || !Number.isInteger(delivery.attemptCount) || delivery.attemptCount < 0 || delivery.attemptCount > 5 || account.emailVerified !== null && typeof account.emailVerified !== 'boolean' || account.approvalStatus !== null && !['pending', 'approved', 'rejected', 'suspended'].includes(String(account.approvalStatus))) throw new Error();
+    const result: ApplicationInvitationLifecycle = {
+      applicationVersion: row.applicationVersion,
+      delivery: { id: delivery.id === null ? null : invitationUuid(delivery.id), state: delivery.state as ApplicationInvitationLifecycle['delivery']['state'], attemptCount: delivery.attemptCount, firstAttemptAt: delivery.firstAttemptAt === null ? null : timestamp(delivery.firstAttemptAt), updatedAt: delivery.updatedAt === null ? null : timestamp(delivery.updatedAt), canRetry: delivery.canRetry },
+      account: { emailVerified: account.emailVerified as boolean | null, approvalStatus: account.approvalStatus as ApplicationInvitationLifecycle['account']['approvalStatus'] }, canRenew: row.canRenew,
+    };
+    if ((result.delivery.attemptCount === 0) !== (result.delivery.firstAttemptAt === null) || result.delivery.id === null && (result.delivery.state !== 'not_started' || result.delivery.updatedAt !== null || result.delivery.attemptCount !== 0) || !invitation && (result.delivery.id !== null || result.account.emailVerified !== null || result.account.approvalStatus !== null || result.canRenew || result.delivery.canRetry) || !invitation?.userId && (result.account.emailVerified !== null || result.account.approvalStatus !== null) || result.delivery.canRetry && !['not_started', 'retryable', 'generating'].includes(result.delivery.state) || result.canRenew && (!invitation?.userId || result.account.emailVerified !== false || result.account.approvalStatus !== 'approved' || result.delivery.id === null || !['sent', 'rejected', 'unknown'].includes(result.delivery.state))) throw new Error();
+    return result;
+  } catch { throw new ApplicationInvitationError('unavailable'); }
 }
 export function parseApplicationInvitation(value: unknown): ApplicationInvitation {
   try {
