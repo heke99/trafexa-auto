@@ -298,3 +298,6 @@
 .guest-document-footer{margin-top:26px}
 .guest-document-footer p{font-size:12px;margin-top:18px}
 @media(max-width:760px){.guest-document-page{padding:22px 18px 36px}.guest-document-brand{margin-bottom:24px;gap:12px}.guest-document-brand strong{font-size:22px}.guest-document-brand span{font-size:11px}.guest-document-intro h1,.guest-document-card h1{font-size:28px}.guest-document-card,.guest-document-summary{padding:20px}.guest-document-fields{grid-template-columns:1fr;gap:17px}.guest-document-summary h2{font-size:20px}.guest-document-review>div{flex-direction:column}.guest-document-page .button{max-width:100%}.guest-document-review .button,.guest-document-downloads .button{width:100%;align-self:stretch}.guest-document-consent .button{align-self:stretch}.guest-document-card h2{font-size:17px}}
+
+/* Financial steps share one readable mobile column instead of accumulating card insets. */
+@media(max-width:760px){.advertising-financial-body{padding-inline:16px!important}.advertising-financial-flow .surface{padding-inline:0!important;border-inline:0;border-radius:0}}

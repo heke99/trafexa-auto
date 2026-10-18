@@ -64,7 +64,7 @@ test('renewal writes respect offer and contract roles while permitted readers se
   }finally{await page.close();}
  }
 });
-test('completion emails never expose invitation renewal',async()=>{const page=await setup({kind:'contract_completed'});try{await expect(page.getByRole('button',{name:'Uppdatera färdigmejlets status'})).toBeVisible();await expect(page.getByRole('region',{name:'Kundlänkens giltighet',exact:true})).toHaveCount(0);assert.equal(await page.evaluate(()=>window.fixture.renewalCalls?.length??0),0);}finally{await page.close();}});
+test('completed agreement exposes a separate read-only PDF renewal instead of an invitation panel',async()=>{const page=await setup({kind:'contract_completed'});try{await expect(page.getByRole('button',{name:'Uppdatera färdigmejlets status'})).toBeVisible();await expect(page.getByRole('region',{name:'Länk till färdigsignerat avtal',exact:true})).toBeVisible();await expect(page.getByRole('region',{name:'Kundlänkens giltighet',exact:true})).toHaveCount(0);assert.equal(await page.evaluate(()=>window.fixture.renewalCalls.filter(c=>c.kind==='read').length),1);assert.equal((await calls(page)).length,0);}finally{await page.close();}});
 test('expired pending invitations show support recovery and suppress misleading ordinary retry',async()=>{
  const page=await setup({}, {deliveryResponse:{ok:true,delivery:{status:'pending',transport:'configured'}},renewalReview:{ok:true,review:{status:'pending',expiresAt:'2020-01-01T00:00:00Z',canRenew:false}}});try{
   await expect(page.getByText('Det tidigare mejlet väntar fortfarande.',{exact:false})).toBeVisible();await expect(page.getByRole('button',{name:'Granska nytt utskicksförsök',exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:reviewButton,exact:true})).toHaveCount(0);assert.equal((await calls(page)).length,0);
@@ -110,5 +110,52 @@ test('initial panel mount reads renewal once after parent initialization and nev
   await expect(page.getByRole('button',{name:reviewButton,exact:true})).toBeEnabled();
   assert.equal(await page.evaluate(()=>window.fixture.renewalCalls.filter(c=>c.kind==='read').length),1);
   assert.equal((await calls(page)).length,0);
+ }finally{await page.close();}
+});
+const completedReview='Granska ny läslänk till färdigsignerat avtal';
+const completedConsent='Jag har granskat mottagaren och det färdigsignerade avtalet och vill förnya kundens läslänk.';
+test('completed PDF link review explains read-only access and requires consent at mobile and desktop sizes',async()=>{
+ const page=await setup({kind:'contract_completed'});try{
+  await page.getByRole('button',{name:completedReview,exact:true}).click();await expect(page.getByRole('heading',{name:'Kontrollera ny läslänk till färdigsignerat avtal'})).toBeFocused();
+  await expect(page.getByText('Kunden ska inte signera eller godkänna igen.',{exact:false})).toBeVisible();await expect(page.getByRole('region',{name:'Granska ny läslänk',exact:true}).getByText('Mottagare: anna@example.com',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Förnya och skicka läslänk',exact:true})).toBeDisabled();
+  for(const width of [320,390,1440]){await page.setViewportSize({width,height:1000});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:`/tmp/trafexa-completed-link-renewal-${width}.png`,fullPage:true});}
+  await page.getByRole('checkbox',{name:completedConsent}).check();await page.getByRole('button',{name:'Förnya och skicka läslänk',exact:true}).click();await expect(page.getByText('Förnyelsen har registrerats.',{exact:false})).toBeVisible();assert.equal((await calls(page))[0].input.kind,'contract_completed');
+ }finally{await page.close();}
+});
+test('completed PDF renewal is writable by owner/admin and expiry is read-only for finance',async()=>{
+ for(const [role,write,read] of [['owner',true,true],['admin',true,true],['finance',false,true],['sales',false,false],['viewer',false,false]]){
+  const page=await setup({kind:'contract_completed',role});try{
+   await expect(page.getByRole('region',{name:'Länk till färdigsignerat avtal',exact:true})).toHaveCount(read?1:0);if(read)await expect(page.getByText('Kundens läslänk till det färdigsignerade avtalet har gått ut.',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:completedReview,exact:true})).toHaveCount(write?1:0);assert.equal((await calls(page)).length,0);
+  }finally{await page.close();}
+ }
+});
+for(const kind of ['offer_invitation','contract_invitation','contract_completed'])test('expired known-unsent pending '+kind+' has distinct explicit replacement review',async()=>{
+ const page=await setup({kind},{deliveryResponse:{ok:true,delivery:{status:'pending',transport:'configured'}},renewalReview:{ok:true,review:{status:'pending',expiresAt:'2020-01-01T00:00:00Z',canRenew:false,canRecoverPending:true}}});try{
+  await page.getByRole('button',{name:'Granska ny länk för väntande mejl',exact:true}).click();await expect(page.getByText('Det tidigare väntande mejlet stoppas.',{exact:false})).toBeVisible();await expect(page.getByRole('button',{name:'Försök skicka mejlet igen',exact:true})).toHaveCount(0);assert.equal((await calls(page)).length,0);
+  await page.getByRole('checkbox',{name:kind==='contract_completed'?completedConsent:consent}).check();await page.getByRole('button',{name:kind==='contract_completed'?'Förnya och skicka läslänk':submitButton,exact:true}).click();await expect(page.getByText('Förnyelsen har registrerats.',{exact:false})).toBeVisible();assert.equal((await calls(page)).length,1);assert.equal((await calls(page))[0].input.kind,kind);
+ }finally{await page.close();}
+});
+for(const status of ['unknown','processing','rejected','cancelled'])test('neither completion nor pending recovery can create a new link for '+status,async()=>{
+ const page=await setup({kind:'contract_completed'},{renewalReview:{ok:true,review:{status,expiresAt:'2020-01-01T00:00:00Z',canRenew:true,canRecoverPending:true}}});try{
+  await expect(page.getByText('Kundens läslänk till det färdigsignerade avtalet har gått ut.',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:completedReview,exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Granska ny länk för väntande mejl',exact:true})).toHaveCount(0);assert.equal((await calls(page)).length,0);
+ }finally{await page.close();}
+});
+test('unknown completed-link recovery survives full page reload with exactly the same request and no recipient stored',async()=>{
+ const page=await setup({kind:'contract_completed'},{renewalResults:[{throw:true}]});try{
+  await page.getByRole('button',{name:completedReview,exact:true}).click();await page.getByRole('checkbox',{name:completedConsent}).check();await page.getByRole('button',{name:'Förnya och skicka läslänk',exact:true}).click();await expect(page.getByText('Förnyelsens utfall är oklart.',{exact:false})).toBeVisible();const original=(await calls(page))[0].input;
+  assert.equal(await page.evaluate(()=>JSON.stringify(Object.values(sessionStorage)).includes('anna@example.com')),false);
+  await page.reload();await page.evaluate(()=>{window.fixture={deliveryResponse:{ok:true,delivery:{status:'unknown',transport:'configured'}},renewalReview:{ok:true,review:{status:'unknown',expiresAt:'2020-01-01T00:00:00Z',canRenew:false,canRecoverPending:false}}};});await page.addScriptTag({path:resolve(directory,'fixture.js')});await page.evaluate(props=>window.mountCustomerEmail({...props,kind:'contract_completed'}),props);
+  await page.getByRole('button',{name:'Kontrollera samma förnyelseförsök',exact:true}).click();await expect(page.getByText('Förnyelsen har registrerats.',{exact:false})).toBeVisible();assert.deepEqual((await calls(page))[0].input,original);assert.equal(await page.evaluate(()=>sessionStorage.length),0);
+ }finally{await page.close();}
+});
+test('expired pending recovery conflict requires a fresh review and consent before a new request',async()=>{
+ const page=await setup({}, {renewalReview:{ok:true,review:{status:'pending',expiresAt:'2020-01-01T00:00:00Z',canRenew:false,canRecoverPending:true}},renewalResults:[{ok:false,code:'conflict',message:'Underlaget har ändrats.'}]});try{
+  await page.getByRole('button',{name:'Granska ny länk för väntande mejl',exact:true}).click();await page.getByRole('checkbox',{name:consent}).check();await page.getByRole('button',{name:submitButton,exact:true}).click();await page.getByRole('button',{name:'Läs in underlag för ny granskning',exact:true}).click();await page.getByRole('button',{name:'Granska ny länk för väntande mejl',exact:true}).click();await expect(page.getByRole('checkbox',{name:consent})).not.toBeChecked();const first=(await calls(page))[0].input.requestId;
+  await page.getByRole('checkbox',{name:consent}).check();await page.getByRole('button',{name:submitButton,exact:true}).click();await expect(page.getByText('Förnyelsen har registrerats.',{exact:false})).toBeVisible();assert.notEqual((await calls(page))[1].input.requestId,first);
+ }finally{await page.close();}
+});
+test('long recipient remains readable in completed PDF review without horizontal scrolling',async()=>{
+ const recipient='customer.'.repeat(7)+'@'+'dealer.'.repeat(8)+'example.com';const page=await setup({kind:'contract_completed'},{deliveryResponse:{ok:true,delivery:{status:'accepted',transport:'configured',recipientEmail:recipient}},renewalReview:{ok:true,review:{expiresAt:'2020-01-01T00:00:00Z',canRenew:true,recipientEmail:recipient}}});try{
+  await page.getByRole('button',{name:completedReview,exact:true}).click();for(const width of [320,390,1440]){await page.setViewportSize({width,height:1000});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));}assert.equal((await calls(page)).length,0);
  }finally{await page.close();}
 });

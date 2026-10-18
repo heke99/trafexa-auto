@@ -7,7 +7,7 @@ import type { CustomerEmailDeliveryProps } from './customer-email-delivery';
 type Review = Extract<Awaited<ReturnType<typeof getGuestInvitationRenewalReviewAction>>, { ok: true }>['review'];
 type Request = Parameters<typeof renewGuestDocumentInvitationAction>[0];
 type Saved = { version: 1; request: Request; conflict: boolean };
-type Props = Omit<CustomerEmailDeliveryProps, 'kind'> & { kind: 'offer_invitation' | 'contract_invitation'; refreshVersion: number; parentBusy: boolean; onBusyChange: (busy: boolean) => void; onRenewed: () => void; onExpiredChange: (expired: boolean) => void };
+type Props = CustomerEmailDeliveryProps & { refreshVersion: number; parentBusy: boolean; onBusyChange: (busy: boolean) => void; onRenewed: () => void; onExpiredChange: (expired: boolean) => void };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function GuestInvitationRenewal(props: Props) {
@@ -15,6 +15,7 @@ export function GuestInvitationRenewal(props: Props) {
 }
 function RenewalPanel({companyId, dealId, referenceId, kind, userId, role, refreshVersion, parentBusy, onBusyChange, onRenewed, onExpiredChange}: Props) {
   const input = {companyId, dealId, referenceId, kind};
+  const completion = kind === 'contract_completed';
   const writable = (kind === 'offer_invitation' ? ['owner', 'admin', 'sales'] : ['owner', 'admin']).includes(role);
   const allowed = (kind === 'offer_invitation' ? ['owner', 'admin', 'sales', 'finance', 'viewer'] : ['owner', 'admin', 'finance']).includes(role);
   const storageKey = `trafexa:guest-invitation-renewal:v1:${JSON.stringify([userId, companyId, dealId, kind, referenceId, role])}`;
@@ -62,7 +63,11 @@ function RenewalPanel({companyId, dealId, referenceId, kind, userId, role, refre
   const returnFocus = useRef(false);
   useEffect(() => { if (open) heading.current?.focus(); else if (returnFocus.current) {returnFocus.current = false; opener.current?.focus();} }, [open]);
   const expired = review?.expiresAt != null && Date.parse(review.expiresAt) <= Date.now();
-  const eligible = writable && review?.canWrite === true && review.canRenew === true && review.transport === 'configured';
+  const recoverPending = expired && review?.status === 'pending' && review.canRecoverPending === true;
+  const renewable = expired && review?.status === 'accepted' && review.canRenew === true;
+  const eligible = writable && review?.canWrite === true && (renewable || recoverPending) && review.transport === 'configured';
+  const reviewLabel = recoverPending ? 'Granska ny länk för väntande mejl' : completion ? 'Granska ny läslänk till färdigsignerat avtal' : 'Granska förnyelse av kundlänk';
+  const acknowledgement = completion ? 'Jag har granskat mottagaren och det färdigsignerade avtalet och vill förnya kundens läslänk.' : 'Jag har granskat mottagaren och dokumentet och vill förnya kundens utgångna länk.';
   function closeReview() { returnFocus.current = true; setOpen(false); setAck(false); }
   async function submit() {
     if (lock.current || loading || busy || parentBusy || !writable || !storageReady || !review || !scoped(review)) return;
@@ -97,23 +102,24 @@ function RenewalPanel({companyId, dealId, referenceId, kind, userId, role, refre
     catch { setError('Det tidigare försöket kunde inte avslutas säkert. Kontakta Trafexa.'); }
   }
   if (!allowed) return null;
-  return <section className="guest-invitation-renewal" aria-label="Kundlänkens giltighet">
+  return <section className="guest-invitation-renewal" style={{overflowWrap: 'anywhere'}} aria-label={completion ? 'Länk till färdigsignerat avtal' : 'Kundlänkens giltighet'}>
     {loading && <p role="status">Kontrollerar kundlänkens giltighet…</p>}
     {error && <p role="alert">{error}</p>}
     {storageError && <p role="alert">{storageError}</p>}
     {!storageReady && !loading && <p>Förnyelse är spärrad tills tidigare försök kan kontrolleras säkert.</p>}
-    {review && expired && <><p>Kundens länk har gått ut.</p><p>Giltig till: {new Date(review.expiresAt!).toLocaleString('sv-SE', {timeZone: 'Europe/Stockholm'})}</p>
-      {!review.canRenew && <p>{review.status === 'pending' ? 'Det tidigare mejlet väntar fortfarande. Kontakta Trafexa för kontroll av den utgångna länken.' : review.status === 'unknown' ? 'Utskickets utfall behöver kontrolleras av Trafexa innan länken kan förnyas.' : 'Länken kan inte förnyas i det aktuella läget. Kontrollera underlaget och kontakta Trafexa vid behov.'}</p>}
-      {review.canRenew && review.transport !== 'configured' && <p>Mejlutskick behöver vara aktiverade och konfigurerade innan länken kan förnyas.</p>}
+    {review && expired && <><p>{completion ? 'Kundens läslänk till det färdigsignerade avtalet har gått ut.' : 'Kundens länk har gått ut.'}</p><p>Giltig till: {new Date(review.expiresAt!).toLocaleString('sv-SE', {timeZone: 'Europe/Stockholm'})}</p>
+      {!renewable && !recoverPending && <p>{review.status === 'pending' ? 'Det tidigare mejlet väntar fortfarande. Kontakta Trafexa för kontroll av den utgångna länken.' : review.status === 'unknown' ? 'Utskickets utfall behöver kontrolleras av Trafexa innan länken kan förnyas.' : 'Länken kan inte förnyas i det aktuella läget. Kontrollera underlaget och kontakta Trafexa vid behov.'}</p>}
+      {(renewable || recoverPending) && review.transport !== 'configured' && <p>Mejlutskick behöver vara aktiverade och konfigurerade innan länken kan förnyas.</p>}
     </>}
     {saved && writable && <><p>{saved.conflict ? 'Underlaget har ändrats. Det tidigare försöket kan avslutas inför en ny granskning.' : 'Ett tidigare förnyelseförsök måste kontrolleras med samma ärendenummer.'}</p>
       <button type="button" className="button button-outline" disabled={busy || parentBusy || loading || !storageReady || !review} onClick={() => saved.conflict ? restart() : startTransition(() => void submit())}>{busy ? 'Kontrollerar förnyelsen…' : saved.conflict ? 'Läs in underlag för ny granskning' : 'Kontrollera samma förnyelseförsök'}</button></>}
-    {!saved && eligible && storageReady && !open && <button ref={opener} type="button" className="button button-outline" disabled={loading || busy || parentBusy} onClick={() => {setOpen(true); setAck(false); setError('');}}>Granska förnyelse av kundlänk</button>}
-    {!saved && eligible && open && review && <section className="customer-email-retry-review" aria-label="Granska ny kundlänk"><h5 ref={heading} tabIndex={-1}>Kontrollera underlaget för ny kundlänk</h5>
+    {!saved && eligible && storageReady && !open && <button ref={opener} type="button" className="button button-outline" disabled={loading || busy || parentBusy} onClick={() => {setOpen(true); setAck(false); setError('');}}>{reviewLabel}</button>}
+    {!saved && eligible && open && review && <section className="customer-email-retry-review" aria-label={completion ? 'Granska ny läslänk' : 'Granska ny kundlänk'}><h5 ref={heading} tabIndex={-1}>{completion ? 'Kontrollera ny läslänk till färdigsignerat avtal' : 'Kontrollera underlaget för ny kundlänk'}</h5>
       <p>Mottagare: {review.recipientEmail}</p><p>Dokumentversion: {review.documentVersion}</p><details><summary>Dokumentreferens</summary><p style={{overflowWrap: 'anywhere'}}>Dokumentets kontrollsumma: {review.documentHash}</p></details><p>Giltig till: {review.expiresAt ? new Date(review.expiresAt).toLocaleString('sv-SE', {timeZone: 'Europe/Stockholm'}) : 'Saknas'}</p>
-      <p>En ny länk gäller samma sparade dokument och mottagare. Kunden behöver inget Trafexakonto. Tidigare godkännanden ändras inte.</p>
-      <label><input type="checkbox" checked={ack} disabled={busy} onChange={event => setAck(event.target.checked)}/><span>Jag har granskat mottagaren och dokumentet och vill förnya kundens utgångna länk.</span></label>
-      <div><button type="button" className="button button-green" disabled={!ack || loading || busy || parentBusy} onClick={() => startTransition(() => void submit())}>{busy ? 'Registrerar förnyelsen…' : 'Förnya och skicka länk'}</button><button type="button" className="button button-outline" disabled={busy} onClick={closeReview}>Tillbaka</button></div>
+      {recoverPending && <p>Det tidigare väntande mejlet stoppas. Ett nytt mejl med en ny länk gäller samma sparade dokument och mottagare.</p>}
+      <p>{completion ? 'Länken ger endast tillgång till det färdigsignerade avtalet och dess PDF. Kunden ska inte signera eller godkänna igen. Befintliga underskrifter ändras inte.' : 'En ny länk gäller samma sparade dokument och mottagare. Tidigare godkännanden ändras inte.'} Kunden behöver inget Trafexakonto.</p>
+      <label><input type="checkbox" checked={ack} disabled={busy} onChange={event => setAck(event.target.checked)}/><span>{acknowledgement}</span></label>
+      <div><button type="button" className="button button-green" disabled={!ack || loading || busy || parentBusy} onClick={() => startTransition(() => void submit())}>{busy ? 'Registrerar förnyelsen…' : completion ? 'Förnya och skicka läslänk' : 'Förnya och skicka länk'}</button><button type="button" className="button button-outline" disabled={busy} onClick={closeReview}>Tillbaka</button></div>
     </section>}
     {notice && <p role="status">{notice}</p>}
   </section>;

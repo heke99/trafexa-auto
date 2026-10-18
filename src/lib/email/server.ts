@@ -23,8 +23,8 @@ export async function dispatchTransactionalEvent(kind:TransactionalEmail['kind']
  return dispatch(kind,reference.toLowerCase(),false);
 }
 /** A reviewed renewal must never claim an older message for the same document. */
-export async function dispatchGuestInvitationEmail(kind:'offer_invitation'|'contract_invitation',reference:string,emailId:string){
- if(!['offer_invitation','contract_invitation'].includes(kind)||typeof reference!=='string'||!UUID.test(reference)||typeof emailId!=='string'||!UUID.test(emailId))return {status:'unavailable'};
+export async function dispatchGuestInvitationEmail(kind:'offer_invitation'|'contract_invitation'|'contract_completed',reference:string,emailId:string){
+ if(!['offer_invitation','contract_invitation','contract_completed'].includes(kind)||typeof reference!=='string'||!UUID.test(reference)||typeof emailId!=='string'||!UUID.test(emailId))return {status:'unavailable'};
  return dispatch(kind,reference.toLowerCase(),false,emailId.toLowerCase());
 }
 async function dispatch(kind:TransactionalEmail['kind']|null,reference:string|null,admin:boolean,emailId?:string):Promise<{status:string}>{

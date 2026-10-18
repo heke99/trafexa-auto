@@ -27,7 +27,7 @@ export async function retryCustomerEmailAction(input){
 
 function renewalReview(input, response) {
   if (response && !response.ok) return response;
-  return {ok:true,review:{...input,actorUserId:window.customerEmailActor?.userId,actorRole:window.customerEmailActor?.role,recipientEmail:'anna@example.com',documentHash:'a'.repeat(64),documentVersion:2,emailId:'email-1',generation:0,status:'accepted',invitationId:'invitation-1',expiresAt:null,canWrite:true,canRenew:false,transport:'configured',...response?.review}};
+  return {ok:true,review:{...input,actorUserId:window.customerEmailActor?.userId,actorRole:window.customerEmailActor?.role,recipientEmail:'anna@example.com',documentHash:'a'.repeat(64),documentVersion:2,emailId:'email-1',generation:0,status:'accepted',invitationId:'invitation-1',expiresAt:null,canWrite:true,canRenew:false,canRecoverPending:false,transport:'configured',...response?.review}};
 }
 export async function getGuestInvitationRenewalReviewAction(input){
  const f=window.fixture;(f.renewalCalls??=[]).push({kind:'read',input,actorUserId:window.customerEmailActor?.userId});
