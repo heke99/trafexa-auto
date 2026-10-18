@@ -1,5 +1,7 @@
 # Trafexa Dealer
 
+[Granskad förnyelse av dokumentlänkar](docs/CUSTOMER_DOCUMENT_LINK_RENEWAL.md) kompletterar offert- och avtalsmejl med status för länkens giltighet, uttrycklig granskning och en ny personlig länk till samma sparade mottagare och dokumentversion. Aktuell verifierings- och publiceringsstatus följs i [implementationsstatus](docs/IMPLEMENTATION_STATUS.md).
+
 [Administration → Annonsfakturor](docs/ADVERTISING_RECEIVABLES.md) samlar utfärdade annonsfakturor och exakta betalningssaldon över företagen, med direkt väg till original, PDF och avstämning.
 
 [Fortsättningen 18 oktober](docs/WORKFLOW_CONTINUITY_20261018.md) förbättrar företagsval och kontoinbjudningar samt lägger till [manuell betalningsavstämning av annonsfakturor](docs/ADVERTISING_PAYMENT_RECONCILIATION.md). Avstämningen registrerar kontrollerade underlag; den utför ingen banköverföring eller återbetalning. [CSV-export per faktura](docs/ADVERTISING_PAYMENT_EXPORT.md) samlar hela den verifierade journalen och exakta saldon för vidare granskning.

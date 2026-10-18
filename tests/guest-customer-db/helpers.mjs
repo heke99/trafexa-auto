@@ -4,7 +4,7 @@ export const id=n=>`af230000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 export const U=id(1),C=id(3),D=id(4),CU=id(5),S=id(6),V=id(7),EMAIL='guest-buyer-af230000@example.invalid';
 export const rpc=(db,user,name,args=[])=>asRole(db,'authenticated',user,async tx=>(await tx.query(`select public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) result`,args)).rows[0].result);
 export const service=(db,name,args=[])=>asRole(db,'service_role',null,async tx=>(await tx.query(`select public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) result`,args)).rows[0].result);
-export async function fixture(){const db=await createDatabase({approveEstablishedFixtures:false});await db.exec(`
+export async function fixture(options={}){const db=await createDatabase({...options,approveEstablishedFixtures:false});await db.exec(`
 create or replace function auth.role() returns text language sql stable as $$select current_setting('role',true)$$;
 grant execute on function auth.role() to authenticated,anon,service_role;
 insert into auth.users(id,email,email_confirmed_at)values('${U}','guest-owner-af230000@example.invalid',now());

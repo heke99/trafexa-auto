@@ -1,7 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFile, readdir } from 'node:fs/promises';
 
-export async function createDatabase({ includeSigningArchive=true, approveEstablishedFixtures=true }={}) {
+export async function createDatabase({ includeSigningArchive=true, approveEstablishedFixtures=true, throughMigration=null }={}) {
  const db=new PGlite();
  await db.exec(`
   create role anon nologin;
@@ -29,9 +29,11 @@ export async function createDatabase({ includeSigningArchive=true, approveEstabl
   grant all on storage.objects,storage.buckets to service_role;
  `);
  // The document hub depends on the archive and signing identity constraints.
- // Keep the legacy option accepted, but run the real complete migration chain.
+ // Default to the complete real migration chain. Historical upgrade suites can
+ // stop at an explicit filename, seed deployed data, then apply later migrations.
+ // Keep the legacy includeSigningArchive option accepted.
  const directory=new URL('../../supabase/migrations/',import.meta.url);
- for(const filename of (await readdir(directory)).filter(name=>name.endsWith('.sql')).sort()) {
+ for(const filename of (await readdir(directory)).filter(name=>name.endsWith('.sql')&&(!throughMigration||name<=throughMigration)).sort()) {
   let source = await readFile(new URL(filename,directory),'utf8');
   if (filename.endsWith('_reservation_expiry_scheduler.sql')) {
    // PGlite cannot install pg_cron. Keep every real reservation function;
