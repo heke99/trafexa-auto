@@ -179,11 +179,35 @@ test('customer logout preserves safe next while default and external destination
    'next/navigation':{redirect},'next/headers':{cookies:async()=>({delete:name=>calls.push(['delete',name])})},
    'next/cache':{revalidatePath:()=>assert.fail('No business mutations')},
    './company-context':{getCompanySession:()=>assert.fail('No membership lookup')},
-   '@/lib/supabase/server':{createServerSupabaseClient:async()=>({auth:{signOut:async()=>calls.push('signout')}})},
+   '@/lib/supabase/server':{createServerSupabaseClient:async()=>({auth:{signOut:async options=>{calls.push(['signout',options.scope]);return{error:null};}}})},
   });
   const form=new FormData();if(next!==undefined)form.set('next',next);
   try{await loader.load('src/lib/data/actions.ts').signOutAction(next===undefined?undefined:form);assert.fail('Expected redirect');}
   catch(error){assert.equal(error.url,next==='/my-offers'?'/login?next=%2Fmy-offers':'/login');}
-  assert.deepEqual(calls,['signout',['delete','trafexa-company']]);
+  assert.deepEqual(calls,[['signout','global'],['delete','trafexa-company']]);
+ }
+});
+
+
+test('ordinary logout reports unconfirmed global revocation on provider errors and initialization failures while clearing selection',async()=>{
+ for(const mode of ['returned','throw','client'])for(const next of ['/my-contracts?contract=fixture','//attacker.invalid','/admin']){
+  const calls=[],secret='PRIVATE provider Authorization Bearer fixture-secret';
+  const loader=await createSourceLoader({
+   'next/navigation':{redirect},'next/headers':{cookies:async()=>({delete:name=>calls.push(['delete',name])})},
+   'next/cache':{revalidatePath:()=>assert.fail('No business invalidation')},
+   './company-context':{getCompanySession:()=>assert.fail('No membership lookup')},
+   '@/lib/supabase/server':{createServerSupabaseClient:async()=>{calls.push('client');if(mode==='client')throw Error(secret);return{auth:{
+    signOut:async options=>{calls.push(['signout',options.scope]);if(mode==='throw')throw Error(secret);return{error:{message:secret,status:503}};},
+    updateUser:()=>assert.fail('No password changes'),verifyOtp:()=>assert.fail('No invitation replay'),
+   }};}},
+  });
+  const form=new FormData();form.set('next',next);
+  await assert.rejects(()=>loader.load('src/lib/data/actions.ts').signOutAction(form),error=>{
+   const url=new URL(error.url,'https://app.example.invalid');assert.equal(url.pathname,'/login');
+   assert.equal(url.searchParams.get('next'),next.startsWith('//')?null:next);
+   assert.equal(url.searchParams.get('error'),loader.load('@/lib/auth/sign-out').sessionSignOutUnconfirmedWarning);
+   assert.equal(url.searchParams.has('success'),false);assert.doesNotMatch(error.url,/PRIVATE|Bearer|fixture-secret|attacker/);return true;
+  });
+  assert.deepEqual(calls,['client',...(mode==='client'?[]:[['signout','global']]),['delete','trafexa-company']]);
  }
 });

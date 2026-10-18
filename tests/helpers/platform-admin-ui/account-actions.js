@@ -8,6 +8,7 @@ export async function listPlatformAccountsAction(input) {
 export async function setPlatformAccountAccessAction(input) {
   window.fixture.accountStatusCalls.push({...input});
   const response=window.fixture.accountStatusResponses.shift();
+  if(response?.hold)return new Promise((resolve,reject)=>{window.releaseAccountStatus=result=>result?.throw?reject(Error('Unknown outcome')):resolve(result);});
   if(response?.throw)throw new Error('Unknown outcome');
   if(response)return response;
   window.fixture.accounts=window.fixture.accounts.map(row=>row.userId===input.userId?{...row,status:input.status,version:row.version+1}:row);

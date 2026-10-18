@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowUpRight, Check } from 'lucide-react';
+import { LEGAL_POLICY_VERSION } from '../lib/privacy/policy-version';
 
 const seekingOptions = [['system', 'Trafexa-systemet'], ['purchase_finance', 'Inköpsfinansiering'], ['stock_finance', 'Lagerfinansiering'], ['dealer_network', 'Handlarnätverk'], ['advertising', 'Annonsering'], ['other', 'Annat']] as const;
 
@@ -19,7 +20,7 @@ export function PilotForm() {
     const formData = new FormData(form);
     const seeking = formData.getAll('seeking').map(String).sort();
     if (!seeking.length) { setMessage('Välj minst ett område som ansökan gäller.'); setStatus('error'); return; }
-    const fields = { ...Object.fromEntries(formData), seeking, privacyAcknowledged: formData.get('privacyAcknowledged') === 'yes', privacyVersion: '2026-10-14' };
+    const fields = { ...Object.fromEntries(formData), seeking, privacyAcknowledged: formData.get('privacyAcknowledged') === 'yes', privacyVersion: LEGAL_POLICY_VERSION };
     const fingerprint = JSON.stringify(fields);
     if (intent.current?.fingerprint !== fingerprint) intent.current = { fingerprint, requestId: crypto.randomUUID() };
     const requestId = intent.current.requestId;
@@ -36,7 +37,7 @@ export function PilotForm() {
         throw new Error(typeof body?.error === 'string' ? body.error : 'Ansökan kunde inte sparas. Försök igen eller kontakta oss via mejl.');
       }
       const current = new FormData(form);
-      const changed = JSON.stringify({ ...Object.fromEntries(current), seeking: current.getAll('seeking').map(String).sort(), privacyAcknowledged: current.get('privacyAcknowledged') === 'yes', privacyVersion: '2026-10-14' }) !== fingerprint;
+      const changed = JSON.stringify({ ...Object.fromEntries(current), seeking: current.getAll('seeking').map(String).sort(), privacyAcknowledged: current.get('privacyAcknowledged') === 'yes', privacyVersion: LEGAL_POLICY_VERSION }) !== fingerprint;
       intent.current = null;
       setStatus(changed ? 'success-with-changes' : 'success');
       if (changed) setMessage('Din ansökan har sparats. Dina senaste ändringar har behållits och är inte skickade ännu.');
@@ -57,7 +58,7 @@ export function PilotForm() {
     <fieldset style={{ border: 0, padding: 0, margin: 0 }}><legend>Vad söker ni? (välj minst ett område)</legend><div style={{ display: 'grid', gap: 10, marginTop: 12 }}>{seekingOptions.map(([value, label]) => <label key={value} style={{ display: 'flex', alignItems: 'center', gap: 10 }}><input style={{ width: 'auto' }} type="checkbox" name="seeking" value={value}/>{label}</label>)}</div></fieldset>
     <label>Beskriv vad ni söker<textarea name="message" rows={3} placeholder="Berätta om ditt fordonslager, ditt team och vilka funktioner du vill se." required minLength={2} maxLength={2000}/></label>
     <div className="honeypot" aria-hidden="true"><label>Webbplats<input name="website" tabIndex={-1} autoComplete="off"/></label></div>
-    <label className="form-privacy" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}><input style={{ width: 'auto', marginTop: 4 }} name="privacyAcknowledged" value="yes" type="checkbox" required/><span>Jag har tagit del av <a href="/privacy">integritetspolicyn</a> och informationen om hur Trafexa behandlar uppgifterna i min ansökan.</span></label>
+    <label className="form-privacy" style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}><input style={{ width: 'auto', marginTop: 4 }} name="privacyAcknowledged" value="yes" type="checkbox" required/><span>Jag har tagit del av <a href="/privacy">integritetspolicyn</a> och informationen om hur Trafexa behandlar uppgifterna i min ansökan. Version {LEGAL_POLICY_VERSION}.</span></label>
     <noscript><p className="form-privacy">Mejla din förfrågan till <a href="mailto:info@trafexa.com">info@trafexa.com</a>.</p></noscript>
     {status === 'error' ? <p className="form-error" role="alert">{message} <a href="mailto:info@trafexa.com">info@trafexa.com</a></p> : null}
     {status === 'success-with-changes' ? <p className="form-privacy" role="status">{message}</p> : null}

@@ -8,7 +8,7 @@ import { enumField,integerField,moneyField,requiredField,textField,uuidField } f
 import { safeNextPath } from '@/lib/routing.mjs';
 import { getAuthAppOrigin } from '@/lib/auth/app-origin';
 import { getAuthenticatedLandingPath } from '@/lib/auth/landing';
-import { passwordChangeUnconfirmedWarning, savedPasswordSignOutWarning, tryGlobalSignOut } from '@/lib/auth/sign-out';
+import { passwordChangeUnconfirmedWarning, savedPasswordSignOutWarning, sessionSignOutUnconfirmedWarning, tryGlobalSignOut } from '@/lib/auth/sign-out';
 import { canManageStockIntake, canWriteInternalFinance } from '@/lib/access/dealer-capabilities';
 import { createCustomerRequestAction, createFinanceIntakeRequestAction } from './create-record-actions';
 
@@ -52,7 +52,15 @@ export async function signupAction(_form:FormData) {
  // Keep stale form submissions safe after open registration has been closed.
  redirect('https://trafexa.com/#kontakt');
 }
-export async function signOutAction(form?:FormData) {const nextPath=safeNextPath(form?.get('next'));const db=await createServerSupabaseClient();await db.auth.signOut();(await cookies()).delete('trafexa-company');redirect(nextPath==='/dashboard'?'/login':`/login?${new URLSearchParams({next:nextPath})}`);}
+export async function signOutAction(form?:FormData) {
+ const nextPath=safeNextPath(form?.get('next'));
+ let signedOut=false;
+ try {signedOut=await tryGlobalSignOut(await createServerSupabaseClient());}catch{/* An unavailable provider never confirms global session revocation. */}
+ (await cookies()).delete('trafexa-company');
+ const query=new URLSearchParams(nextPath==='/dashboard'?{}:{next:nextPath});
+ if(!signedOut)query.set('error',sessionSignOutUnconfirmedWarning);
+ redirect(`/login${query.size?`?${query}`:''}`);
+}
 async function context(expectedCompany?:string) {
  const session=await getCompanySession();
  if(!session)redirect('/login');

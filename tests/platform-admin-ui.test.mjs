@@ -831,3 +831,41 @@ for(const [operation,width] of [['write',320],['export',390],['export',1440]])te
   await expect(page.getByRole('region',{name:'Valt företags administration'})).toHaveCount(0);
  }finally{await page.close();}
 });
+
+
+test('pending account decision locks parent navigation and every query control, then unknown response keeps exact reviewed nonce',async()=>{
+ const account=makeAccount(),page=await setup({accountRows:[account],accountResponses:[{ok:true,accounts:[account],nextPageKey:'next-fixture-page'}],accountStatusResponses:[{hold:true}]});
+ try{
+  await page.getByRole('button',{name:'Konton',exact:true}).click();
+  await page.getByLabel('Sök namn, organisationsnummer eller e-post').fill('new');
+  await page.getByRole('button',{name:/Granska konto new/}).click();
+  await page.getByLabel('Motivering för kontobeslut').fill('Kontrollerad ansökan');
+  await page.getByRole('button',{name:'Granska beslut',exact:true}).click();
+  await page.getByRole('button',{name:'Bekräfta kontobeslut',exact:true}).click();
+  await page.waitForFunction(()=>typeof window.releaseAccountStatus==='function');
+  for(const label of ['Översikt','Företag','Inkomna ansökningar','Konton','Annonsfakturor','Uppdatera konton','Rensa sökning','Läs in fler konton','Visa inkomna ansökningar','Visa företag för new@example.invalid'])await expect(page.getByRole('button',{name:label,exact:true})).toBeDisabled();
+  await expect(page.getByLabel('Sök namn, organisationsnummer eller e-post')).toBeDisabled();await expect(page.getByLabel('Visa konton')).toBeDisabled();
+  // Invoke the navigation listener despite its disabled DOM state: the ref guard
+  // must also protect handlers before React has committed a disabled button.
+  await page.evaluate(()=>{const button=[...document.querySelectorAll('button')].find(e=>e.textContent==='Företag');Object.values(button).find(v=>v&&typeof v==='object'&&typeof v.onClick==='function').onClick();});
+  await expect(page.getByRole('heading',{name:'Bekräfta kontobeslut'})).toBeVisible();
+  await page.evaluate(()=>window.releaseAccountStatus({throw:true}));
+  await expect(page.getByRole('alert')).toContainText('samma uppgifter');
+  await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Bekräfta kontobeslut',exact:true}).click();
+  await expect(page.getByText('Kontobeslutet har registrerats. Listan visar aktuell åtkomst.')).toBeVisible();
+  const calls=await page.evaluate(()=>window.fixture.accountStatusCalls);assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);
+ }finally{await page.close();}
+});
+test('confirmed account receipt keeps navigation locked until fresh status read finishes and denial clears every private view',async()=>{
+ const account=makeAccount(),page=await setup({accountRows:[account],accountResponses:[{ok:true,accounts:[account],nextPageKey:null},{wait:true,result:{ok:false,code:'access_denied',message:'Åtkomsten återkallad under statuskontroll.'}}]});
+ try{
+  await page.getByRole('button',{name:'Konton',exact:true}).click();await page.getByRole('button',{name:/Granska konto new/}).click();await page.getByLabel('Motivering för kontobeslut').fill('Granskat konto');await page.getByRole('button',{name:'Granska beslut',exact:true}).click();await page.getByRole('button',{name:'Bekräfta kontobeslut',exact:true}).click();
+  await page.waitForFunction(()=>typeof window.resolveAccountList==='function');
+  await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeDisabled();
+  await page.evaluate(()=>window.resolveAccountList());
+  await expect(page.getByRole('alert')).toContainText('inte längre');
+  await expect(page.getByRole('table')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Annonsfakturor',exact:true})).toBeDisabled();
+ }finally{await page.close();}
+});

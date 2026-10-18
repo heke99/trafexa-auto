@@ -2,7 +2,7 @@ import { installEstablishedAccountFixtures } from '../helpers/established-accoun
 import { PGlite } from '@electric-sql/pglite';
 import { readFile, readdir } from 'node:fs/promises';
 
-export async function createDatabase({ includeSigningArchive=true }={}) {
+export async function createDatabase({ includeSigningArchive=true, throughMigration=null }={}) {
  const db=new PGlite();
  await db.exec(`
   create role anon nologin;
@@ -30,7 +30,7 @@ export async function createDatabase({ includeSigningArchive=true }={}) {
   grant all on storage.objects,storage.buckets to service_role;
  `);
  const directory=new URL('../../supabase/migrations/',import.meta.url);
- for(const filename of (await readdir(directory)).filter(name=>name.endsWith('.sql') && (includeSigningArchive || !name.endsWith('_signing_ledger.sql') && !name.endsWith('_offer_document_archive.sql'))).sort()) {
+ for(const filename of (await readdir(directory)).filter(name=>name.endsWith('.sql') && (!throughMigration || name<=throughMigration) && (includeSigningArchive || !name.endsWith('_signing_ledger.sql') && !name.endsWith('_offer_document_archive.sql'))).sort()) {
   let source = await readFile(new URL(filename,directory),'utf8');
   if (filename.endsWith('_reservation_expiry_scheduler.sql')) {
    // Keep the real reservation logic. PGlite cannot install pg_cron;

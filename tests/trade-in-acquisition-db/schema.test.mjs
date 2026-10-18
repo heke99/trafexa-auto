@@ -88,11 +88,11 @@ for(const kind of['manual','import','direct'])for(const intakeFirst of[false,tru
   if(intakeFirst){
    const saved=JSON.parse(await intake.query(`begin;set local role authenticated;set local request.jwt.claim.sub='${owner}';${call(b)};`));
    const waiting=legacy.query(`begin;set local role authenticated;set local request.jwt.claim.sub='${owner}';${competingCall(kind)};`);
-   await waitForLock(`legacy_${kind}`);await intake.query('commit;');await assert.rejects(waiting,/duplicate key/);assert.equal(get().acquisition.id,saved.acquisition.id);
+   await waitForLock(`legacy_${kind}`);await intake.query('commit;');await assert.rejects(waiting,error=>{assert.match(error.message,/ERROR:\s+23505:/);assert.match(error.message,kind==='import'?/Registration already exists/:/duplicate key/);return true;});assert.equal(get().acquisition.id,saved.acquisition.id);
   }else{
    await legacy.query(`begin;set local role authenticated;set local request.jwt.claim.sub='${owner}';${competingCall(kind)};`);
    const waiting=intake.query(`begin;set local role authenticated;set local request.jwt.claim.sub='${owner}';${call(b)};`);
-   await waitForLock(`intake_${kind}`);await legacy.query('commit;');await assert.rejects(waiting,/duplicate key/);assert.equal(get().acquisition,null);assert.equal(get().reason,'vehicle_exists');
+   await waitForLock(`intake_${kind}`);await legacy.query('commit;');await assert.rejects(waiting,error=>{assert.match(error.message,/ERROR:\s+23505:/);assert.match(error.message,/Vehicle identity already exists/);return true;});assert.equal(get().acquisition,null);assert.equal(get().reason,'vehicle_exists');
   }
   assert.equal(sql(`select count(*) from public.vehicles where company_id='${companyA}' and upper(regexp_replace(registration_number,'[[:space:]]','','g'))='TI001'`),'1');
  }finally{intake.close();legacy.close();}
