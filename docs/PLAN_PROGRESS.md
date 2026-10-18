@@ -8,6 +8,8 @@ Denna etapp rättar verifierade stopp i superadminens konflikt- och sökflöden,
 
 [Granskad förnyelse av utgångna kundlänkar](CUSTOMER_DOCUMENT_LINK_RENEWAL.md) byggs och verifieras nu som separat dokumentsteg. Historiska checkpoints nedan bevaras; deras återstående steg kan vara genomförda i senare avsnitt eller releaser.
 
+PR #51 publicerade en första granskad förnyelse för accepterade offert- och signeringsinbjudningar. Den aktuella etappen förenar detta flöde med giltighetsstatus, förnyelse av färdigavtal, återhämtning före första sändning och strängare revisionsbevis. Äldre köposter och kvitton bevaras.
+
 ## Aktuell fortsättning 18 oktober
 
 [Superadminens fakturaöversikt](ADVERTISING_RECEIVABLES.md) är nästa fortsättning efter CSV-exporten: en separat flik samlar utfärdade annonsfakturor, globala exakta saldon och filter för registrerad betalningsstatus och förfallna restbelopp. En vald rad öppnar det bevarade originalet, PDF och betalningsavstämning direkt. Totalsiffrorna gäller hela beståndet; listan har 25-raders sidindelning. Pågående registrering och export spärrar konkurrerande byte av adminvy.
