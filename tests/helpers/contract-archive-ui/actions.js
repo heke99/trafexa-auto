@@ -1,3 +1,4 @@
+export function verifyContractArchiveAction(input) { return window.fixture.call('verify', input); }
 export function getContractArchiveAction(input) { return window.fixture.call('read', input); }
 export function archiveContractAction(input) { return window.fixture.call('archive', input); }
 export async function listMyContractSigningsAction(input) { window.fixture.signingCalls.push({kind:'customer',input}); return {ok:true,signings:window.fixture.signings,nextBeforeId:null}; }

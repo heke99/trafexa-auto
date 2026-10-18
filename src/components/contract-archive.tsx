@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
+import { verifyContractArchiveAction } from '@/lib/data/contract-archive-integrity-actions';
 import { archiveContractAction, getContractArchiveAction } from '@/lib/data/contract-archive-actions';
 import type { ContractArchive as ArchivedContract, ContractArchiveResult } from '@/lib/contracts/archive-types';
 import type { ContractSigning } from '@/lib/contracts/signing-types';
@@ -13,7 +14,7 @@ const denied = (code: string) => ['unauthenticated', 'access_denied', 'source_in
 /** An exact signing and actor scope owns the confirmation and retry nonce. */
 export function ContractArchive(props: Props) {
   if (props.signing.status !== 'completed') return null;
-  const key = [props.signing.id, props.signing.documentHash, props.signing.revision, props.companyId ?? 'customer', props.userId, props.role ?? 'customer'].join(':');
+  const key = [props.signing.companyId, props.signing.dealId, props.signing.draftId, props.signing.draftVersion, props.signing.id, props.signing.documentHash, props.signing.revision, props.companyId ?? 'customer', props.userId, props.role ?? 'customer'].join(':');
   return <ArchivePanel key={key} {...props} />;
 }
 
@@ -24,6 +25,9 @@ function ArchivePanel({ signing, companyId, userId, role }: Props) {
   const [actionError, setActionError] = useState('');
   const [acknowledged, setAcknowledged] = useState(false);
   const [writing, setWriting] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [checkedAt, setCheckedAt] = useState<string | null>(null);
+  const [integrityError, setIntegrityError] = useState('');
   const [retryAvailable, setRetryAvailable] = useState(false);
   const [, startAction] = useTransition();
   const alive = useRef(false);
@@ -32,7 +36,7 @@ function ArchivePanel({ signing, companyId, userId, role }: Props) {
   const requestId = useRef<string | null>(null);
   const expectedRole = companyId ? role : 'customer';
   const canArchive = Boolean(companyId && ['owner', 'admin'].includes(role ?? ''));
-  const busy = writing || read.phase === 'loading';
+  const busy = writing || checking || read.phase === 'loading';
   const verifiedNull = read.phase === 'ready' && read.archive === null;
 
   useEffect(() => {
@@ -47,6 +51,7 @@ function ArchivePanel({ signing, companyId, userId, role }: Props) {
   }
 
   function invalidate() {
+    setCheckedAt(null);
     requestId.current = null;
     setRetryAvailable(false);
     setAcknowledged(false);
@@ -57,6 +62,7 @@ function ArchivePanel({ signing, companyId, userId, role }: Props) {
     if (locked.current) return;
     locked.current = true;
     const token = ++sequence.current;
+    setCheckedAt(null); setIntegrityError('');
     setRead({ phase: 'loading', archive: null });
     setReadError('');
     startAction(async () => {
@@ -93,6 +99,7 @@ function ArchivePanel({ signing, companyId, userId, role }: Props) {
     locked.current = true;
     const token = ++sequence.current;
     setWriting(true);
+    setCheckedAt(null); setIntegrityError('');
     setRead({ phase: 'unverified', archive: null });
     setReadError('');
     setActionError('');
@@ -124,6 +131,32 @@ function ArchivePanel({ signing, companyId, userId, role }: Props) {
     });
   }
 
+  function verify() {
+    const original = read.phase === 'ready' ? read.archive : null;
+    if (!original || locked.current) return;
+    locked.current = true;
+    const token = ++sequence.current;
+    setChecking(true); setCheckedAt(null); setIntegrityError('');
+    startAction(async () => {
+      try {
+        const result = await verifyContractArchiveAction({ signingId: signing.id, ...(companyId ? { companyId } : {}) });
+        if (!alive.current || token !== sequence.current) return;
+        if (!result.ok) { invalidate(); setIntegrityError(result.error); return; }
+        const archive = result.archive;
+        const sameArchive = archive && ['id','companyId','signingId','dealId','draftId','draftVersion','documentContentSha256','signingRevision','rendererVersion','evidenceSchemaVersion','archivedAt'].every(field => archive[field as keyof ArchivedContract] === original[field as keyof ArchivedContract]) && ['pdf','evidence'].every(file => {
+          const key = file as 'pdf' | 'evidence';
+          return ['objectPath','sha256','bytes','mimeType'].every(field => archive[key][field as keyof ArchivedContract['pdf']] === original[key][field as keyof ArchivedContract['pdf']]);
+        });
+        if (!matches(result) || !sameArchive || !result.checkedAt || !Number.isFinite(Date.parse(result.checkedAt))) {
+          invalidate(); setIntegrityError('Originalfilerna kunde inte verifieras mot det registrerade avtalet och arkivet. Läs in arkivstatus igen.'); return;
+        }
+        setCheckedAt(result.checkedAt);
+      } catch {
+        if (alive.current && token === sequence.current) { invalidate(); setIntegrityError('Originalfilerna kunde inte kontrolleras. Läs in arkivstatus för att försöka igen.'); }
+      } finally { locked.current = false; if (alive.current && token === sequence.current) setChecking(false); }
+    });
+  }
+
   const query = companyId ? `?companyId=${encodeURIComponent(companyId)}` : '';
   const base = `/api/contract-signings/${encodeURIComponent(signing.id)}`;
   const stored = read.phase === 'ready' ? read.archive : null;
@@ -132,14 +165,16 @@ function ArchivePanel({ signing, companyId, userId, role }: Props) {
     <section aria-label="Avtalets originalarkiv" style={{ marginTop: 14, minWidth: 0, overflowWrap: 'anywhere' }}>
       {read.phase === 'idle' ? <p>Öppna panelen för att kontrollera arkivstatus.</p> : null}
       {read.phase === 'loading' ? <p role="status">Kontrollerar originalarkivet…</p> : null}
+      {checking ? <p role="status">Kontrollerar originalfilerna…</p> : null}
       {writing ? <p role="status">Arkiverar avtalsoriginal och signeringsbevis…</p> : null}
-      {stored ? <><p role="status"><strong>Originalet är arkiverat.</strong><br/>Arkiverat {new Date(stored.archivedAt).toLocaleString('sv-SE')}.</p><p className="form-note">PDF SHA-256: <span style={{ wordBreak: 'break-all' }}>{stored.pdf.sha256}</span><br/>Signeringsbevis SHA-256: <span style={{ wordBreak: 'break-all' }}>{stored.evidence.sha256}</span></p><p><a href={`${base}/pdf${query}`} download>Hämta arkiverat avtalsoriginal (PDF)</a><br/><a href={`${base}/evidence${query}`} download>Hämta arkiverat signeringsbevis</a></p></> : null}
+      {stored ? <><p role="status"><strong>Originalet är arkiverat.</strong><br/>Arkiverat {new Date(stored.archivedAt).toLocaleString('sv-SE')}.</p><p style={{marginBlock:12}}>Arkivregistreringen visar vilka originalfiler som sparats. Filernas integritet kontrolleras separat när du begär det.</p>{checkedAt ? <p role="status" style={{marginBlock:12}}><strong>Originalfilernas integritet är kontrollerad.</strong><br/>Senast kontrollerat <time dateTime={checkedAt}>{new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Stockholm', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(checkedAt))}</time> (svensk tid). Kontrollen gäller de sparade filerna vid den tidpunkten.</p> : <p style={{marginBlock:12}}>Originalfilernas integritet har inte kontrollerats i den här vyn.</p>}<button type="button" className="button button-outline" style={{maxWidth:'100%',whiteSpace:'normal',marginBlock:12}} disabled={busy} onClick={verify}>Kontrollera originalfilerna</button><p className="form-note">PDF SHA-256: <span style={{ wordBreak: 'break-all' }}>{stored.pdf.sha256}</span><br/>Signeringsbevis SHA-256: <span style={{ wordBreak: 'break-all' }}>{stored.evidence.sha256}</span></p><p><a href={`${base}/pdf${query}`} download>Hämta arkiverat avtalsoriginal (PDF)</a><br/><a href={`${base}/evidence${query}`} download>Hämta arkiverat signeringsbevis</a></p></> : null}
       {verifiedNull ? <><p><strong>Originalet har inte arkiverats.</strong> Kopiorna nedan genereras när de hämtas.</p><p><a href={`${base}/pdf${query}`} download>Hämta genererad PDF-kopia av signerat avtal</a><br/><a href={`${base}/evidence${query}`} download>Hämta genererad kopia av signeringsbevis</a></p></> : null}
       {read.phase === 'unverified' && !writing ? <p>Arkivstatus är inte verifierad. Kontrollera status innan du hämtar originalet.</p> : null}
       {readError ? <p role="alert">{readError}</p> : null}
+      {integrityError ? <p role="alert">{integrityError}</p> : null}
       {actionError ? <p role="alert">{actionError}</p> : null}
       {canArchive && (verifiedNull || retryAvailable) ? <div className="workspace-form" style={{ marginTop: 14 }}><label htmlFor={confirmationId} style={{ display: 'flex', flexDirection: 'row', gap: 8 }}><input id={confirmationId} type="checkbox" checked={acknowledged} disabled={busy} onChange={event => setAcknowledged(event.target.checked)} style={{ width: 'auto' }}/><span>Jag vill arkivera det färdigsignerade avtalet och signeringsbeviset som original.</span></label><button type="button" className="button button-green" disabled={busy || !acknowledged} onClick={archive}>{retryAvailable ? 'Försök arkivera original igen' : 'Arkivera avtalets original'}</button></div> : null}
-      {read.phase !== 'idle' ? <button type="button" className="button button-outline" style={{ marginTop: 14 }} disabled={busy} onClick={refresh}>Kontrollera arkivstatus</button> : null}
+      {read.phase !== 'idle' ? <button type="button" className="button button-outline" style={{ marginTop: 14,maxWidth:'100%',whiteSpace:'normal' }} disabled={busy} onClick={refresh}>Kontrollera arkivstatus</button> : null}
     </section>
   </details>;
 }
