@@ -1,5 +1,17 @@
 # Implementationsstatus
 
+## Arbetsflöden och återhämtning, 18 oktober 2026
+
+Fortsättningen från PR #46 rättar nio verifierade stopp och UI-fel: fokus efter stängd dialog, saknad bil i en uppdaterad detaljvy, superadminens företagskonflikt, företagssökningens gamla detaljvy, misslyckad medlemsomläsning, finansbegärans konfliktåterstart, osäkert fakturamejlsvar, separat leveransstatus för färdigt avtal och betalning/leverans efter kundens mejllänksgodkännande.
+
+Mejlet med färdigsignerat avtal har egen status och ett uttryckligen granskat återförsök för väntande utskick. Inbjudans status bevaras separat. Osäkra eller redan accepterade utskick skickas inte igen. Ägare och administratör kan försöka igen; finansansvarig läser. Befintlig RPC-signatur och tidigare statusfält bevaras.
+
+Fortsättningen till manuell betalningsregistrering och leverans använder nu båda avtalsparternas kvitton, även när kunden godkänt via mejllänk. Ofullständigt avtal, saknat privat original eller felaktig gästproveniens blockerar fortfarande. Inbytesavräkning och bankverifiering aktiveras inte av rättningen.
+
+Bekräftad konflikt kräver nytt underlag och ny granskning. Finansformulärets uttryckliga omstart tar endast bort den kända konfliktens begäran och rensar affärsvalet för ny verifiering; andra osäkra begäranden behåller sina UUID:n. Osäkert fakturamejlsvar tar bort gamla åtgärder tills färsk status hämtats. Superadmin visar inte lyckad omläsning när läsningen misslyckats.
+
+Riktade Chromium-, databas- och native PostgreSQL-prov verifierar rättningarna, båda signeringsordningarna och historiska avtal. Hosted rollbackprov för mejlstatus och gästfortsättning lämnar tretton respektive elva kontrollaggregat på noll. Inga verkliga testmejl eller kundaffärer används. Samlad slutkörning: 1 515/1 515 apptestfall passerar utan fel, avbrott eller överhoppade fall. Produktionsbygge och TypeScript passerar. Publiceringen följs i etappens releaseprotokoll. Förnyelse av utgångna dokumentlänkar är fortsatt ett separat nästa steg.
+
 ## Stängd registrering och granskade kontoinbjudningar, 15 oktober 2026
 
 Nya användare ansöker via webbplatsen. Superadmin granskar ansökans verkliga uppgifter, motiverar godkännandet och bekräftar en personlig kontoinbjudan. UI erbjuder **Ansök om tillgång**; `/register` och gamla signup-åtgärder leder till ansökan. Databasens uppskjutna Auth-trigger nekar offentlig kontoskapning och kräver serverägd inbjudan kopplad till en aktuell privat granskning. E-postverifiering och privat godkännande krävs fortfarande för systemåtkomst. Ett tidigare öppet registrerat, obekräftat och aldrig inloggat e-postkonto kan efter uttrycklig granskning tas in i samma flöde; dess tidigare lösenord och sessioner rensas atomiskt före godkännandet.

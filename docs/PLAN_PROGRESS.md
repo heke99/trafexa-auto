@@ -1,4 +1,12 @@
-# Planläge 15 oktober 2026
+# Planläge 18 oktober 2026
+
+## Aktuell genomgång av avbrutna arbetsflöden
+
+Det kontofria kundflödet är publicerat via [PR #46](https://github.com/heke99/trafexa-auto/pull/46): personlig mejllänk, granskning och uttryckligt godkännande med namn; därefter privat PDF när båda parter har godkänt. Ingen kundregistrering krävs. Samlad verifiering vid den releasen var 1 485 godkända apptestfall, produktionsbygge, databas- och browserprov.
+
+Nästa etapp rättar verifierade stopp i superadminens konflikt- och sökflöden, handlarens dialoger, finansbegärans återstart och fakturamejlens osäkra svar. Den kompletterar också status och säkra återförsök för mejl med färdigt avtal samt fortsättningen till betalning och leverans efter kundens mejllänksgodkännande. Aktuell test- och publiceringsstatus redovisas i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
+
+Förnyelse av utgångna kundlänkar är nästa separata dokumentsteg. Historiska checkpoints nedan bevaras; deras återstående steg kan vara genomförda i senare avsnitt eller releaser.
 
 [Kontoinbjudningar efter granskad webbansökan](ACCOUNT_APPROVAL_CONTRACT.md) ersätter öppen registrering. Inloggningssidan erbjuder ansökan; superadmin granskar och godkänner innan ett konto kan aktiveras via personlig Resend-inbjudan. Befintliga aldrig inloggade, obekräftade e-postkonton kan tas in efter samma granskning med atomisk återställning av tidigare lösenord och sessioner. Privata rättigheter, e-postverifiering och företagsbehörighet är separata. Lösenordsåterställning kräver fortfarande separat Supabase SMTP; automatiskt återutskick av okända eller utgångna inbjudningar ingår inte.
 

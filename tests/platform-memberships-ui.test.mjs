@@ -72,3 +72,17 @@ test('mobile member identities wrap every text fragment inside the card instead 
  try{await p.getByRole('button',{name:'Företag',exact:true}).click();await p.getByRole('button',{name:'Medlemmar för Bilfirman AB',exact:true}).click();await expect(p.getByText(email,{exact:true})).toBeVisible();const bounds=await p.getByText(email,{exact:true}).evaluate(node=>{const range=document.createRange();range.selectNodeContents(node);const cell=node.closest('td').getBoundingClientRect();return {cell:{left:cell.left,right:cell.right},fragments:[...range.getClientRects()].map(rect=>({left:rect.left,right:rect.right,width:rect.width}))};});assert.ok(bounds.fragments.length>1,'long email must wrap into multiple visible text fragments');assert.ok(bounds.fragments.every(rect=>rect.left>=bounds.cell.left-1&&rect.right<=bounds.cell.right+1),'every email fragment must fit inside its cell');assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=320));}
  finally{await p.close();}
 });
+
+test('membership conflict followed by failed refresh preserves the read error without success notice',async()=>{
+ for(const failure of [{ok:false,code:'unavailable',message:'Kunde inte läsa aktuella medlemmar.'},{throw:true},{ok:false,code:'access_denied',message:'Åtkomst återkallad.'}]){
+  const p=await setup({overrides:{memberUpdateResponses:[{ok:false,code:'conflict',message:'Medlemskapet har ändrats.'}],membersResponses:[{ok:true,...memberPage()},failure]}});
+  try{await review(p);await confirm(p);await expect(p.getByRole('alert')).toContainText(failure.throw?'Aktuella medlemskap kunde inte verifieras':failure.message);await expect(p.getByText('Aktuella medlemmar har lästs in. Granska ändringen på nytt.',{exact:true})).toHaveCount(0);await expect(p.getByRole('table')).toHaveCount(0);await expect(p.getByRole('button',{name:'Bekräfta medlemsändringen',exact:true})).toHaveCount(0);if(failure.code==='access_denied')assert.equal(await p.evaluate(()=>window.fixture.denials.length),1);}
+  finally{await p.close();}
+ }
+});
+
+test('known membership conflict starts a new request after fresh review even when member version is unchanged',async()=>{
+ const p=await setup({overrides:{memberUpdateResponses:[{ok:false,code:'conflict',message:'Teamet har ändrats.'}],membersResponses:[{ok:true,...memberPage()},{ok:true,...memberPage({teamVersion:9})}]}});
+ try{await review(p);await confirm(p);await expect(p.getByText('Aktuella medlemmar har lästs in. Granska ändringen på nytt.',{exact:true})).toBeVisible();await review(p);await confirm(p);const calls=await p.evaluate(()=>window.fixture.memberUpdateCalls);assert.equal(calls.length,2);assert.equal(calls[0].expectedVersion,calls[1].expectedVersion);assert.notEqual(calls[0].requestId,calls[1].requestId);}
+ finally{await p.close();}
+});

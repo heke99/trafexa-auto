@@ -44,7 +44,17 @@ function CompanyMembersPanel({ companyId, actorUserId, onAccessDenied }: Common 
     try {
       const result = await updatePlatformCompanyMemberAction({ ...payload, requestId });
       if (!live.current || serial.current !== token) return;
-      if (!result.ok) { if (result.code === 'conflict') { setReview(null); setAck(false); setPage(null); await read(token); if (live.current && serial.current === token) setNotice('Aktuella medlemmar har lästs in. Granska ändringen på nytt.'); } fail(result); return; }
+      if (!result.ok) {
+        if (result.code === 'conflict') {
+          nonces.current.delete(fingerprint); setReview(null); setAck(false); setPage(null);
+          try {
+            if (!await read(token)) return;
+          } catch { if (live.current && serial.current === token) setError('Aktuella medlemskap kunde inte verifieras. Uppdatera listan och granska ändringen på nytt.'); return; }
+          if (!live.current || serial.current !== token) return;
+          setNotice('Aktuella medlemmar har lästs in. Granska ändringen på nytt.');
+        }
+        fail(result); return;
+      }
       if (result.receipt.companyId !== companyId || result.receipt.actorUserId !== actorUserId || result.receipt.requestId !== requestId || result.receipt.member.membershipId !== selected.member.membershipId) { setPage(null); setReview(null); setAck(false); setError('Kvittot kunde inte verifieras. Läs in aktuella medlemmar.'); return; }
       received = true; setReview(null); setAck(false); setPage(null);
       if (await read(token) && live.current && serial.current === token) setNotice('Ändringen har registrerats. Listan visar företagets aktuella medlemskap.');

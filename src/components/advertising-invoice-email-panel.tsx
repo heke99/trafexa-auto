@@ -50,7 +50,15 @@ function InvoiceEmail({ companyId, userId, role, superadmin = false, documentKin
   async function dispatch(emailId: string, scope: number) {
     const result = await sendAdvertisingInvoiceEmailAction({ companyId, emailId });
     if (!alive.current || generation.current !== scope) return;
-    if (!result.ok) { failure(result); return; }
+    if (!result.ok) {
+      failure(result);
+      if (result.code === 'unavailable') {
+        setPage(null); setReview(false); setConfirmed(false);
+        setNotice('Utskickets resultat kunde inte bekräftas. Aktuell status kontrolleras innan ett nytt försök kan göras.');
+        setRefresh(value => value + 1);
+      }
+      return;
+    }
     setNotice(result.status === 'unconfigured' ? 'Mejltjänsten är inte konfigurerad. Utskicket har inte startats.' : result.status === 'busy' ? 'Utskicket hanteras redan. Uppdatera status om en stund.' : result.status === 'unavailable' ? 'Mejltjänsten kunde inte nås. Kontrollera aktuell status före nästa försök.' : 'Utskicksförsöket är registrerat. Kontrollera aktuell status nedan; leverantörens mottagande är inte samma sak som leverans till kunden.');
     setRefresh(value => value + 1);
   }

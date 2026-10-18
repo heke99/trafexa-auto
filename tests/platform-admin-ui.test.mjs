@@ -515,3 +515,41 @@ test('application detail presentation stays readable at mobile and desktop width
   } finally {await page.close();}
  }
 });
+
+test('company status conflict clears stale confirmation and requires fresh review with a new request', async () => {
+ const fresh={...makeCompany(),status:'suspended'};
+ const page=await setup({statusResponses:[{ok:false,code:'conflict',message:'Företagsstatusen har ändrats. Granska aktuell information.'}],listResponses:[{ok:true,companies:[fresh],nextPageKey:null}]});
+ try {
+  await page.getByRole('button',{name:/Hantera status/}).click();
+  await page.getByLabel('Motivering (obligatorisk)').fill('Granskat underlag');
+  await page.getByRole('button',{name:'Granska ändring'}).click();
+  await page.getByRole('button',{name:'Bekräfta avstängning'}).click();
+  await expect(page.getByRole('alert')).toContainText('Granska aktuell');
+  await expect(page.getByRole('button',{name:'Bekräfta avstängning'})).toHaveCount(0);
+  await expect(page.getByRole('cell',{name:'Avstängt',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:/Hantera status/}).click();
+  await page.getByLabel('Motivering (obligatorisk)').fill('Granskat underlag');
+  await page.getByRole('button',{name:'Granska ändring'}).click();
+  await page.getByRole('button',{name:'Bekräfta aktivering'}).click();
+  const f=await page.evaluate(()=>window.fixture);
+  assert.equal(f.statusCalls.length,2);assert.notEqual(f.statusCalls[0].requestId,f.statusCalls[1].requestId);assert.equal(f.statusCalls[1].expectedStatus,'suspended');
+ } finally {await page.close();}
+});
+
+test('company status conflict preserves failed refresh error and removes stale action controls', async () => {
+ const page=await setup({statusResponses:[{ok:false,code:'conflict',message:'Gammal status.'}],listResponses:[{ok:false,code:'unavailable',message:'Aktuella företag kunde inte verifieras.'}]});
+ try {
+  await page.getByRole('button',{name:/Hantera status/}).click();await page.getByLabel('Motivering (obligatorisk)').fill('Granskat underlag');await page.getByRole('button',{name:'Granska ändring'}).click();await page.getByRole('button',{name:'Bekräfta avstängning'}).click();
+  await expect(page.getByRole('alert')).toHaveText('Aktuella företag kunde inte verifieras.');await expect(page.getByRole('button',{name:/Bekräfta avstängning|Hantera status/})).toHaveCount(0);
+ } finally {await page.close();}
+});
+
+test('new company search closes prior company detail and unmounts private membership data', async () => {
+ const page=await setup({listResponses:[{ok:true,companies:[makeCompany(NEXT,'Andra AB')],nextPageKey:null}]});
+ try {
+  await page.evaluate(companyId=>{window.fixture.memberPage={companyId,companyName:'Fixture AB',companyStatus:'active',actorUserId:'30000000-0000-4000-8000-000000000001',teamVersion:1,members:[],nextPageKey:null};},COMPANY);
+  await page.getByRole('button',{name:'Medlemmar för Fixture AB',exact:true}).click();await expect(page.getByRole('heading',{name:'Medlemmar för Fixture AB',exact:true})).toBeVisible();
+  await page.getByLabel('Sök företag eller organisationsnummer').fill('Andra');await page.getByRole('button',{name:'Sök',exact:true}).click();
+  await expect(page.getByRole('cell',{name:'Andra AB 5561234567',exact:true})).toBeVisible();await expect(page.getByRole('region',{name:'Valt företags administration'})).toHaveCount(0);await expect(page.getByRole('region',{name:'Företagets medlemskap'})).toHaveCount(0);
+ } finally {await page.close();}
+});

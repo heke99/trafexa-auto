@@ -1,5 +1,13 @@
 # Trafexa Dealer – fortsättningsplan
 
+## Aktuell fortsättning, 18 oktober 2026
+
+Bilköpare använder [personliga dokumentlänkar](CUSTOMER_PORTAL.md) utan Trafexakonto eller lösenord. Offert, exakt avtalsversion och färdig PDF har separata steg; handlarens konto och företagsroll styr fortsatt de interna åtgärderna. Detta är publicerat genom [PR #46](https://github.com/heke99/trafexa-auto/pull/46). Äldre avsnitt nedan som kräver ett godkänt kundkonto beskriver tidigare implementation.
+
+Den aktuella genomgången följer hela fortsättningen från godkännande till betalningsregistrering och leverans, samt återhämtning efter konflikt eller oklart utskick. Dialoger, sökningar och privata detaljvyer ska alltid följa aktuellt företag och aktuella uppgifter. Verifierade rättelser och releasebevis redovisas i [implementationsstatus](IMPLEMENTATION_STATUS.md).
+
+Efter denna genomgång återstår ett separat granskat flöde för att förnya utgångna dokumentlänkar. Det ska skapa en ny spårbar länk och bevara tidigare utskick och godkännanden. Okända utskicksutfall får inte automatiskt skickas om. Inbyte/skuldlösen och externa partneranslutningar följer sina separata kontrakt.
+
 Den senaste fortsättningen har implementerade kontrakt för [säkra återförsök, superadminsökning, dokumentöversikt, manuell avstämning, leverans och ett opt-in-handlarnätverk](DEALER_NEXT_STEPS_20261015.md). Nedanstående fasbeskrivningar innehåller även historiska checkpoints; aktuell verifierad produktionsstatus rapporteras separat. Inbyte/skuldlösen, bindande B2B-affärer och skarpa bank-/partneranslutningar kräver fortsatt egna kontrakt.
 
 [Kontoinbjudningar efter granskad webbansökan](ACCOUNT_APPROVAL_CONTRACT.md) ersätter öppen registrering. Inloggningssidan erbjuder ansökan; superadmin granskar och godkänner innan ett konto kan aktiveras via personlig Resend-inbjudan. Befintliga aldrig inloggade, obekräftade e-postkonton kan tas in efter samma granskning med atomisk återställning av tidigare lösenord och sessioner. Privata rättigheter, e-postverifiering och företagsbehörighet är separata. Lösenordsåterställning kräver fortfarande separat Supabase SMTP; automatiskt återutskick av okända eller utgångna inbjudningar ingår inte.

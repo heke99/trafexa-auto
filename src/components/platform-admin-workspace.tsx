@@ -122,6 +122,7 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
     const query = append ? loadedSearch : search.trim();
     const cursor = append ? nextPageKey : null;
     setError(null); setNotice(null); setReview(null);
+    if (!append) { setCompanyDetail(null); companyTrigger.current = null; accountCompanyReturn.current = false; intent.current = null; }
     startTransition(async () => {
       try {
         const result = await listPlatformCompaniesAction({ search: query, pageKey: cursor, limit: 50 });
@@ -158,7 +159,18 @@ export function PlatformAdminWorkspace({ initialPage, initialError, actorUserId 
       try {
         const result = await setPlatformCompanyStatusAction({ ...payload, requestId });
         if (generation.current !== requestGeneration) return;
-        if (!result.ok) { handleFailure(result); return; }
+        if (!result.ok) {
+          if (result.code === 'conflict') {
+            setReview(null); intent.current = null; setCompanies([]); setNextPageKey(null);
+            try {
+              const current = await listPlatformCompaniesAction({ search: loadedSearch, limit: 50 });
+              if (generation.current !== requestGeneration) return;
+              if (!current.ok) { handleFailure(current); return; }
+              setCompanies(current.companies); setNextPageKey(current.nextPageKey);
+            } catch { if (generation.current === requestGeneration) setError('Företagsstatusen har ändrats, men aktuell lista kunde inte läsas in. Sök igen och granska ett nytt beslut.'); return; }
+          }
+          handleFailure(result); return;
+        }
         setReview(null); intent.current = null;
         setNotice('Statusändringen har registrerats.');
         // A repeated request may return a historical receipt; only a fresh list establishes current status.
