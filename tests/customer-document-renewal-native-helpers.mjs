@@ -56,7 +56,13 @@ export function session(applicationName) {
 
 export async function bootstrap({ skipMigration = () => false } = {}) {
   const readyDeadline=Date.now()+30_000;
-  while(true){try{sql('select 1','postgres');break;}catch(error){if(Date.now()>=readyDeadline)throw error;await new Promise(resolve=>setTimeout(resolve,200));}}
+  while(true){try{
+    // The image starts a temporary init server before exec'ing the final server.
+    // A successful SELECT against that temporary socket is not sufficient.
+    const processState=spawnSync('docker',['--host=unix:///var/run/docker.sock','exec',container,'cat','/proc/1/comm'],{env:environment,encoding:'utf8'});
+    if(processState.status!==0||processState.stdout.trim()!=='postgres')throw Error('Waiting for the final local PostgreSQL process');
+    sql('select 1','postgres');break;
+  }catch(error){if(Date.now()>=readyDeadline)throw error;await new Promise(resolve=>setTimeout(resolve,200));}}
   sql(`drop database if exists ${database} with (force);`, 'postgres');
   sql(`create database ${database};`, 'postgres');
   sql(`do $$begin

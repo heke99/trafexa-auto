@@ -16,6 +16,17 @@ do $$declare signature text;begin
  if not exists(select 1 from pg_constraint where conrelid='private.transactional_email_outbox'::regclass and contype='u'
  and pg_get_constraintdef(oid)='UNIQUE (kind, reference_id, recipient, generation)')then raise exception 'Missing generation deduplication';end if;
 end$$;
+-- Read-only function-body invariants detect an independently overwritten API.
+do $$declare body text;begin
+ select prosrc into body from pg_proc where oid='private.renew_guest_document_invitation(uuid,uuid,text,uuid,uuid,integer,text,uuid)'::regprocedure;
+ if position('Use reviewed document renewal' in body)=0 or position('contract_completed' in body)=0 then raise exception 'Retired renewal replay boundary changed';end if;
+ select prosrc into body from pg_proc where oid='public.claim_transactional_email_exact(uuid)'::regprocedure;
+ if position('return public.claim_transactional_email_exact(e.kind,e.reference_id,e.id)' in body)=0 then raise exception 'Legacy exact dispatcher delegation changed';end if;
+ select prosrc into body from pg_proc where oid='public.claim_transactional_email(text,uuid)'::regprocedure;
+ if position('customer_document_email_latest' in body)=0 or position('customer_document_saved_review' in body)=0 then raise exception 'Generic dispatch fencing changed';end if;
+ select prosrc into body from pg_proc where oid='public.check_transactional_email_lease(uuid,uuid)'::regprocedure;
+ if position('customer_document_email_latest' in body)=0 then raise exception 'Provider lease generation fence changed';end if;
+end$$;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','',true);
 do $$begin

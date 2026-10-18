@@ -6,7 +6,7 @@ Det kontofria kundflödet är publicerat via [PR #46](https://github.com/heke99/
 
 Denna etapp rättar verifierade stopp i superadminens konflikt- och sökflöden, handlarens dialoger, finansbegärans återstart och fakturamejlens osäkra svar. Den kompletterar också status och säkra återförsök för mejl med färdigt avtal samt fortsättningen till betalning och leverans efter kundens mejllänksgodkännande. Aktuell test- och publiceringsstatus redovisas i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
 
-[Granskad förnyelse av utgångna kundlänkar](CUSTOMER_DOCUMENT_LINK_RENEWAL.md) byggs och verifieras nu som separat dokumentsteg. Historiska checkpoints nedan bevaras; deras återstående steg kan vara genomförda i senare avsnitt eller releaser.
+[Granskad förnyelse av utgångna kundlänkar](CUSTOMER_DOCUMENT_LINK_RENEWAL.md) är implementerad och verifieras inför publicering via [PR #52](https://github.com/heke99/trafexa-auto/pull/52). Historiska checkpoints nedan bevaras; deras återstående steg kan vara genomförda i senare avsnitt eller releaser.
 
 PR #51 publicerade en första granskad förnyelse för accepterade offert- och signeringsinbjudningar. Den aktuella etappen förenar detta flöde med giltighetsstatus, förnyelse av färdigavtal, återhämtning före första sändning och strängare revisionsbevis. Äldre köposter och kvitton bevaras.
 
