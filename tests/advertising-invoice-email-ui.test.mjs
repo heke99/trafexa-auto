@@ -16,6 +16,32 @@ async function setup(overrides={},props={},configuration){const page=await brows
 async function review(page){await page.getByRole('button',{name:'Granska mejlutskick',exact:true}).click();await page.getByRole('checkbox',{name:ack}).check();}
 async function send(page){await review(page);await page.getByRole('button',{name:'Bekräfta och skicka mejlet'}).click();}
 
+for(const retryExisting of [false,true])test(`resolved uncertain dispatch purges stale pending actions until fresh status (${retryExisting?'retry':'newly queued'})`,async()=>{
+ const page=await setup();try{
+  if(retryExisting){await page.evaluate(()=>{window.emailPage={...window.emailPage,email:window.emailFixture,preview:null,canQueue:false};});await page.getByRole('button',{name:'Uppdatera utskicksstatus'}).click();await expect(page.getByRole('button',{name:'Försök skicka det granskade utskicket'})).toBeVisible();}
+  await page.evaluate(()=>{window.emailSendResponses.push({ok:false,code:'unavailable',message:'Utskicket kunde inte verifieras. Uppdatera status innan du försöker igen.'});window.emailResponses.push({hold:true});});
+  if(retryExisting)await page.getByRole('button',{name:'Försök skicka det granskade utskicket'}).click();else await send(page);
+  await expect(page.getByText('Verifierar mejlutskick…',{exact:true})).toBeVisible();
+  await expect(page.getByRole('region',{name:'Dokumentets leveransstatus'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Försök skicka det granskade utskicket'})).toHaveCount(0);
+  await page.waitForFunction(()=>typeof window.releaseEmail==='function');
+  assert.equal(await page.evaluate(()=>window.emailCalls.filter(c=>c.kind==='send').length),1);
+  await page.evaluate(()=>window.releaseEmail({ok:true,page:{...window.emailPage,email:{...window.emailFixture,status:'unknown'},preview:null,canQueue:false}}));
+  await expect(page.getByRole('region',{name:'Dokumentets leveransstatus'})).toContainText('Stäm av utskicket med mejlleverantören');await expect(page.getByRole('button',{name:'Försök skicka det granskade utskicket'})).toHaveCount(0);
+  assert.equal(await page.evaluate(()=>window.emailCalls.filter(c=>c.kind==='send').length),1);
+  assert.equal(await page.evaluate(()=>window.emailCalls.filter(c=>c.kind==='queue').length),retryExisting?0:1);
+ }finally{await page.close();}
+});
+
+test('known queue validation failure keeps the reviewed input and same request available without dispatch',async()=>{
+ const page=await setup();try{
+  await review(page);await page.evaluate(()=>window.emailQueueResponses.push({ok:false,code:'invalid_input',message:'Kontrollera dokumentet'}));await page.getByRole('button',{name:'Bekräfta och skicka mejlet'}).click();
+  await expect(page.getByRole('alert')).toContainText('Kontrollera dokumentet');await expect(page.getByRole('checkbox',{name:ack})).toBeChecked();await expect(page.getByRole('button',{name:'Bekräfta och skicka mejlet'})).toBeEnabled();
+  assert.equal(await page.evaluate(()=>window.emailCalls.some(c=>c.kind==='send')),false);
+  await page.getByRole('button',{name:'Bekräfta och skicka mejlet'}).click();await expect(page.getByRole('region',{name:'Dokumentets leveransstatus'})).toBeVisible();
+  const calls=await page.evaluate(()=>window.emailCalls.filter(c=>c.kind==='queue'));assert.deepEqual(calls[0],calls[1]);
+ }finally{await page.close();}
+});
+
 test('frozen recipient document amount and explicit acknowledgement gate a scoped queue then dispatch',async()=>{const page=await setup();try{await expect(page.getByText('ekonomi@example.test',{exact:true})).toBeVisible();await expect(page.getByText('125,00 kr',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Granska mejlutskick',exact:true}).click();await expect(page.getByRole('button',{name:'Bekräfta och skicka mejlet'})).toBeDisabled();await expect(page.getByRole('textbox')).toHaveCount(0);await page.getByRole('checkbox',{name:ack}).check();await page.getByRole('button',{name:'Bekräfta och skicka mejlet'}).click();await expect(page.getByRole('region',{name:'Dokumentets leveransstatus'})).toContainText('Leverans till kunden är ännu inte bekräftad');const calls=await page.evaluate(()=>window.emailCalls);const queue=calls.find(c=>c.kind==='queue'),dispatch=calls.find(c=>c.kind==='send');assert.equal(queue.expectedDocumentSourceHash,'a'.repeat(64));assert.equal(queue.expectedReviewToken,'b'.repeat(64));assert.equal(queue.reviewAcknowledged,true);assert.equal('recipient'in queue,false);assert.equal('grossTotalOre'in queue,false);assert.deepEqual(dispatch,{kind:'send',companyId:COMPANY,emailId:EMAIL});assert.ok(calls.indexOf(queue)<calls.indexOf(dispatch));}finally{await page.close();}});
 test('unknown queue result reuses nonce and never dispatches without verified receipt',async()=>{const page=await setup();try{await review(page);await page.evaluate(()=>window.emailQueueResponses.push({throw:true}));await page.getByRole('button',{name:'Bekräfta och skicka mejlet'}).click();await expect(page.getByRole('alert')).toContainText('resultat är okänt');assert.equal(await page.evaluate(()=>window.emailCalls.some(c=>c.kind==='send')),false);await page.getByRole('button',{name:'Bekräfta och skicka mejlet'}).click();await expect(page.getByRole('region',{name:'Dokumentets leveransstatus'})).toBeVisible();const calls=await page.evaluate(()=>window.emailCalls.filter(c=>c.kind==='queue'));assert.deepEqual(calls[0],calls[1]);}finally{await page.close();}});
 test('forged receipt clears frozen data and cannot dispatch',async()=>{const page=await setup();try{await review(page);await page.evaluate(()=>window.emailQueueResponses.push({ok:true,email:window.emailFixture,receipt:{companyId:window.emailPage.companyId,actorUserId:window.emailPage.actorUserId,requestId:'20000000-0000-4000-8000-000000000001',documentKind:'invoice',documentId:window.emailPage.documentId,documentSourceHash:window.emailPage.documentSourceHash,reviewToken:'WRONG',emailId:window.emailFixture.id}}));await page.getByRole('button',{name:'Bekräfta och skicka mejlet'}).click();await expect(page.getByRole('alert')).toContainText('Utskickskvittot kunde inte verifieras');await expect(page.getByText('ekonomi@example.test',{exact:true})).toHaveCount(0);assert.equal(await page.evaluate(()=>window.emailCalls.some(c=>c.kind==='send')),false);assert.equal(await page.evaluate(()=>window.emailDenials.length),1);}finally{await page.close();}});

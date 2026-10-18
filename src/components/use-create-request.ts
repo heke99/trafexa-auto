@@ -74,5 +74,14 @@ export function useCreateRequest<T extends {companyId:string}>(options:{companyI
    if(live.current)setState(sent?{status:'unknown',message:'Svaret kunde inte tas emot. Uppgifterna finns kvar. Försök igen med samma uppgifter för att kontrollera samma begäran.'}:{status:'error',message:'Ingen ny begäran skickades. Säker återförsökning är inte tillgänglig i den här webbläsarsessionen. Kontakta en ansvarig innan du fortsätter. Rensa inte olösta begäranden utan avstämning.'});
   }finally{busy.current=false;}
  }
- return {submit,edit:()=>setState(current=>current.status==='success'?{status:'idle',message:''}:current),retry:()=>{if(attempt.current)void submit(attempt.current.input);},state,pending:state.status==='pending',denied:state.status==='denied',conflicted:state.status==='conflict'};
+ function restartConflict(){
+  // Only a definite payload conflict can be retired after the caller's review.
+  // Ambiguous attempts, including other payloads in this session, keep their IDs.
+  if(busy.current||!live.current||state.status!=='conflict'||!attempt.current)return false;
+  const current=attempt.current;
+  try{sessionStorage.removeItem(current.storageKey);if(sessionStorage.getItem(current.storageKey)!==null)throw Error('storage');}
+  catch{setState({status:'conflict',message:'En ny begäran kunde inte förberedas säkert. Läs in sidan igen och kontrollera tidigare intresseanmälningar innan du fortsätter.'});return false;}
+  attempts.current.delete(current.key);attempt.current=null;setState({status:'idle',message:''});return true;
+ }
+ return {submit,edit:()=>setState(current=>current.status==='success'?{status:'idle',message:''}:current),retry:()=>{if(attempt.current)void submit(attempt.current.input);},restartConflict,state,pending:state.status==='pending',denied:state.status==='denied',conflicted:state.status==='conflict'};
 }

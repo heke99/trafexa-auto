@@ -1,5 +1,17 @@
 # Implementationsstatus
 
+## Arbetsflöden och återhämtning, 18 oktober 2026
+
+Fortsättningen från PR #46 rättar nio verifierade stopp och UI-fel: fokus efter stängd dialog, saknad bil i en uppdaterad detaljvy, superadminens företagskonflikt, företagssökningens gamla detaljvy, misslyckad medlemsomläsning, finansbegärans konfliktåterstart, osäkert fakturamejlsvar, separat leveransstatus för färdigt avtal och betalning/leverans efter kundens mejllänksgodkännande.
+
+Mejlet med färdigsignerat avtal har egen status och ett uttryckligen granskat återförsök för väntande utskick. Inbjudans status bevaras separat. Osäkra eller redan accepterade utskick skickas inte igen. Ägare och administratör kan försöka igen; finansansvarig läser. Befintlig RPC-signatur och tidigare statusfält bevaras.
+
+Fortsättningen till manuell betalningsregistrering och leverans använder nu båda avtalsparternas kvitton, även när kunden godkänt via mejllänk. Ofullständigt avtal, saknat privat original eller felaktig gästproveniens blockerar fortfarande. Inbytesavräkning och bankverifiering aktiveras inte av rättningen.
+
+Bekräftad konflikt kräver nytt underlag och ny granskning. Finansformulärets uttryckliga omstart tar endast bort den kända konfliktens begäran och rensar affärsvalet för ny verifiering; andra osäkra begäranden behåller sina UUID:n. Osäkert fakturamejlsvar tar bort gamla åtgärder tills färsk status hämtats. Superadmin visar inte lyckad omläsning när läsningen misslyckats.
+
+Riktade Chromium-, databas- och native PostgreSQL-prov verifierar rättningarna, båda signeringsordningarna och historiska avtal. Hosted rollbackprov för mejlstatus och gästfortsättning lämnar tretton respektive elva kontrollaggregat på noll. Inga verkliga testmejl eller kundaffärer används. Checkpoint före integrering med PR #48: 1 515/1 515 apptestfall passerar utan fel, avbrott eller överhoppade fall. Produktionsbygge och TypeScript passerar. Publiceringen följs i etappens releaseprotokoll. Förnyelse av utgångna dokumentlänkar är fortsatt ett separat nästa steg.
+
 ## Komplett CSV för annonsfakturors avstämning, 18 oktober 2026
 
 Fortsättningen från main `420a8db`/PR #48 lägger till [privat CSV-export per faktura](ADVERTISING_PAYMENT_EXPORT.md) för faktisk superadmin och företagets aktuella ägare, administratör eller ekonomi. Exporten innehåller sammanfattning och samtliga journalposter; den begränsas inte till den synliga historiksidan. Varje sida binds till samma fakturakälla, aktör och avstämningsversion, och servern återläser aktuell version och behörighet innan svaret. Saknad historik, ändrade underlag, felaktiga belopp eller överskridna gränser ger ingen partiell fil. En rättelse följer inga privata hänvisningar till andra företag. Oföränderliga händelser exporteras; senare föränderliga ersättningsmarkeringar ingår inte i det frysta underlaget.

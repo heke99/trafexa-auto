@@ -6,7 +6,7 @@ function current(input, response) {
 }
 export async function getCustomerEmailDeliveryAction(input){
   const f=window.fixture; (f.customerEmailCalls??=[]).push({kind:'read',input});
-  const response=f.customerEmailReads?.shift()??f.deliveryResponses?.shift()??f.deliveryResponse;
+  const response=f.customerEmailReads?.shift()??f.deliveryByKind?.[input.kind]??f.deliveryResponses?.shift()??f.deliveryResponse;
   if(response?.throw)throw Error('Customer email read unavailable');
   if(response?.hold)return new Promise(resolve=>{f.releaseCustomerEmailRead=resolve;});
   return f.denied?{ok:false,code:'access_denied',message:'Åtkomst nekad'}:current(input,response);

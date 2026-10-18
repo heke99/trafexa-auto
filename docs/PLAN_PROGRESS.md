@@ -1,5 +1,13 @@
 # Planläge 18 oktober 2026
 
+## Aktuell genomgång av avbrutna arbetsflöden
+
+Det kontofria kundflödet är publicerat via [PR #46](https://github.com/heke99/trafexa-auto/pull/46): personlig mejllänk, granskning och uttryckligt godkännande med namn; därefter privat PDF när båda parter har godkänt. Ingen kundregistrering krävs. Samlad verifiering vid den releasen var 1 485 godkända apptestfall, produktionsbygge, databas- och browserprov.
+
+Denna etapp rättar verifierade stopp i superadminens konflikt- och sökflöden, handlarens dialoger, finansbegärans återstart och fakturamejlens osäkra svar. Den kompletterar också status och säkra återförsök för mejl med färdigt avtal samt fortsättningen till betalning och leverans efter kundens mejllänksgodkännande. Aktuell test- och publiceringsstatus redovisas i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
+
+Förnyelse av utgångna kundlänkar är nästa separata dokumentsteg. Historiska checkpoints nedan bevaras; deras återstående steg kan vara genomförda i senare avsnitt eller releaser.
+
 ## Aktuell fortsättning 18 oktober
 
 [Sammanhängande användarflöden](WORKFLOW_CONTINUITY_20261018.md) rättar företagsval, återgång från ytterligare företagsanslutning och tomma register. Superadmins kontoinbjudningar får beständig status, samordnad upptagetspärr, granskad förnyelse och en väg för ny granskning när handläggningen ändrats före kontoskapandet. Öppen registrering förblir stängd.

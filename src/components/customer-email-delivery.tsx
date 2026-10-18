@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getCustomerEmailDeliveryAction, retryCustomerEmailAction } from '@/lib/data/customer-email-actions';
 
 type Delivery = Extract<Awaited<ReturnType<typeof getCustomerEmailDeliveryAction>>, { ok: true }>['delivery'];
-export type CustomerEmailDeliveryProps = { companyId: string; dealId: string; referenceId: string; kind: 'contract_invitation' | 'offer_invitation'; userId: string; role: string };
+export type CustomerEmailDeliveryProps = { companyId: string; dealId: string; referenceId: string; kind: 'contract_invitation' | 'offer_invitation' | 'contract_completed'; userId: string; role: string };
 const labels: Record<NonNullable<Delivery['status']>, string> = {
   pending: 'Mejlinbjudan väntar på utskick', processing: 'Ett utskicksförsök pågår', accepted: 'Mejltjänsten har tagit emot inbjudan',
   rejected: 'Mejltjänsten avvisade inbjudan', unknown: 'Utskickets utfall behöver kontrolleras', cancelled: 'Mejlinbjudan har stoppats',
@@ -17,7 +17,10 @@ function DeliveryPanel({ companyId, dealId, referenceId, kind, userId, role }: C
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const [review, setReview] = useState(false), [ack, setAck] = useState(false);
   const alive = useRef(false), generation = useRef(0), lock = useRef(false), heading = useRef<HTMLHeadingElement>(null);
-  const contract = kind === 'contract_invitation';
+  const completion = kind === 'contract_completed';
+  const contract = kind !== 'offer_invitation';
+  const statusLabels = completion ? { ...labels, pending: 'Mejlet med färdigsignerat avtal väntar på utskick', accepted: 'Mejltjänsten har tagit emot mejlet med färdigsignerat avtal', rejected: 'Mejltjänsten avvisade mejlet med färdigsignerat avtal', cancelled: 'Mejlet med färdigsignerat avtal har stoppats' } : labels;
+  const reviewLabel = completion ? 'Granska nytt försök för färdigsignerat avtal' : 'Granska nytt utskicksförsök';
   const allowed = (contract ? ['owner','admin','finance'] : ['owner','admin','sales','finance','viewer']).includes(role);
   const writable = (contract ? ['owner','admin'] : ['owner','admin','sales']).includes(role);
   function valid(value: Delivery) {
@@ -52,16 +55,16 @@ function DeliveryPanel({ companyId, dealId, referenceId, kind, userId, role }: C
     } finally { lock.current = false; if (alive.current && generation.current === request) setBusy(false); }
   }
   if (!allowed) return null;
-  return <section className="contract-delivery-panel" aria-label="Kundens mejlinbjudan">
-    <div className="contract-delivery-heading"><h5>{contract ? 'Mejlinbjudan till kunden' : 'Offertens mejlinbjudan'}</h5><button className="text-link" type="button" disabled={loading || busy} onClick={() => void refresh()}>Uppdatera mejlinbjudans status</button></div>
-    {loading && <p role="status">Kontrollerar mejlinbjudan…</p>}{error && <p role="alert">{error}</p>}
-    {delivery && <><p className="contract-delivery-status">{delivery.status ? labels[delivery.status] : 'Ingen mejlinbjudan är registrerad'}</p><p>Mottagare: {delivery.recipientEmail}</p>
+  return <section className="contract-delivery-panel" aria-label={completion ? 'Kundens mejl med färdigsignerat avtal' : 'Kundens mejlinbjudan'}>
+    <div className="contract-delivery-heading"><h5>{completion ? 'Mejl med färdigsignerat avtal' : contract ? 'Mejlinbjudan till kunden' : 'Offertens mejlinbjudan'}</h5><button className="text-link" type="button" disabled={loading || busy} onClick={() => void refresh()}>{completion ? 'Uppdatera färdigmejlets status' : 'Uppdatera mejlinbjudans status'}</button></div>
+    {loading && <p role="status">{completion ? 'Kontrollerar mejlet med färdigsignerat avtal…' : 'Kontrollerar mejlinbjudan…'}</p>}{error && <p role="alert">{error}</p>}
+    {delivery && <><p className="contract-delivery-status">{delivery.status ? statusLabels[delivery.status] : completion ? 'Inget mejl med färdigsignerat avtal är registrerat' : 'Ingen mejlinbjudan är registrerad'}</p><p>Mottagare: {delivery.recipientEmail}</p>
       {delivery.status === 'accepted' && <p>Mejlet har accepterats för utskick. Leverans till kundens inkorg är ännu inte bekräftad.</p>}
-      {delivery.status === 'pending' && <p>{delivery.transport === 'paused' ? `${contract ? 'Avtalsmejl' : 'Offertmejl'} är pausade. Inbjudan har inte bekräftats skickad.` : delivery.transport === 'unconfigured' ? 'Mejlinställningarna behöver kontrolleras. Inbjudan har inte bekräftats skickad.' : 'Mejlet väntar. Ett registrerat ärende betyder inte att kunden har fått ett mejl.'}</p>}
+      {delivery.status === 'pending' && <p>{delivery.transport === 'paused' ? `${contract ? 'Avtalsmejl' : 'Offertmejl'} är pausade. ${completion ? 'Mejlet med färdigsignerat avtal' : 'Inbjudan'} har inte bekräftats skickad.` : delivery.transport === 'unconfigured' ? `Mejlinställningarna behöver kontrolleras. ${completion ? 'Mejlet med färdigsignerat avtal' : 'Inbjudan'} har inte bekräftats skickad.` : 'Mejlet väntar. Ett registrerat ärende betyder inte att kunden har fått ett mejl.'}</p>}
       {delivery.status === 'unknown' && <p>Kontakta Trafexa för kontroll hos mejltjänsten innan ett nytt utskick övervägs.</p>}
       <p>{contract ? 'Avtalets underskrifter' : 'Kundens offertsvar'} och mejlets utskicksstatus visas separat. Uppdatering av status skickar inget mejl.</p>
-      {canRetry && !review && <button type="button" className="button button-outline" disabled={busy || loading} onClick={() => { setReview(true); setAck(false); setError(''); setNotice(''); }}>Granska nytt utskicksförsök</button>}
-      {canRetry && review && <section className="customer-email-retry-review" aria-label="Granska nytt mejlförsök"><h5 ref={heading} tabIndex={-1}>Kontrollera mottagaren före nytt försök</h5><p>{delivery.recipientEmail}</p><p>Försöket gäller samma sparade mejlinbjudan. Mottagaren och underlaget ändras inte.</p><label><input type="checkbox" checked={ack} disabled={busy} onChange={event => setAck(event.target.checked)}/><span>Jag har granskat mottagaren och vill försöka skicka den väntande mejlinbjudan igen.</span></label><div><button className="button button-green" type="button" disabled={!ack || busy || loading} onClick={() => void retry()}>{busy ? 'Kontrollerar utskicksförsöket…' : 'Försök skicka mejlet igen'}</button><button className="button button-outline" type="button" disabled={busy} onClick={() => { setReview(false); setAck(false); }}>Avbryt utskicksförsök</button></div></section>}
+      {canRetry && !review && <button type="button" className="button button-outline" disabled={busy || loading} onClick={() => { setReview(true); setAck(false); setError(''); setNotice(''); }}>{reviewLabel}</button>}
+      {canRetry && review && <section className="customer-email-retry-review" aria-label={completion ? 'Granska nytt mejlförsök för färdigsignerat avtal' : 'Granska nytt mejlförsök'}><h5 ref={heading} tabIndex={-1}>{completion ? 'Kontrollera mottagaren av det färdigsignerade avtalet' : 'Kontrollera mottagaren före nytt försök'}</h5><p>{delivery.recipientEmail}</p><p>{completion ? 'Försöket gäller samma sparade mejl med det färdigsignerade avtalet. Mottagaren och dokumentet ändras inte.' : 'Försöket gäller samma sparade mejlinbjudan. Mottagaren och underlaget ändras inte.'}</p><label><input type="checkbox" checked={ack} disabled={busy} onChange={event => setAck(event.target.checked)}/><span>{completion ? 'Jag har granskat mottagaren och vill försöka skicka det väntande mejlet med färdigsignerat avtal igen.' : 'Jag har granskat mottagaren och vill försöka skicka den väntande mejlinbjudan igen.'}</span></label><div><button className="button button-green" type="button" disabled={!ack || busy || loading} onClick={() => void retry()}>{busy ? 'Kontrollerar utskicksförsöket…' : 'Försök skicka mejlet igen'}</button><button className="button button-outline" type="button" disabled={busy} onClick={() => { setReview(false); setAck(false); }}>Avbryt utskicksförsök</button></div></section>}
     </>}{notice && <p role="status">{notice}</p>}
   </section>;
 }
