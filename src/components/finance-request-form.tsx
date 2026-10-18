@@ -1,6 +1,6 @@
 'use client';
 
-import {useCallback,useId,useState} from 'react';
+import {useCallback,useEffect,useId,useRef,useState} from 'react';
 import {ArrowRight,ShieldCheck} from 'lucide-react';
 import {createFinanceIntakeRequestAction,type FinanceIntakeCreateInput} from '@/lib/data/create-record-actions';
 import {normalizeCreateMoney,normalizeCreateText,useCreateRequest} from './use-create-request';
@@ -23,13 +23,16 @@ export function FinanceRequestForm(props:Props){
 function ScopedFinanceRequestForm({snapshot,companyId,demo=false}:Props){
  const [fields,setFields]=useState({product:'purchase' as 'purchase'|'stock',requestedAmount:'',deposit:'0',termMonths:'',note:''});
  const [pickerOpen,setPickerOpen]=useState(false);
+ const [restartReview,setRestartReview]=useState(false),[restartAck,setRestartAck]=useState(false),[restartNotice,setRestartNotice]=useState('');
+ const restartHeading=useRef<HTMLHeadingElement>(null);
+ useEffect(()=>{if(restartReview)restartHeading.current?.focus();},[restartReview]);
  const [selection,setSelection]=useState<{deal:DealerRegisterDeal;snapshot:WorkspaceSnapshot}|null>(null);
  const selected=selection?.snapshot===snapshot?selection.deal:null;
  const [verified,setVerified]=useState<{page:DealerRegisterPage;snapshot:WorkspaceSnapshot}|null>(null);
  const summaryId=useId();
  const request=useCreateRequest<Omit<FinanceIntakeCreateInput,'requestId'>>({companyId,actorId:snapshot.user.id,kind:'finance_intake',action:createFinanceIntakeRequestAction,onSuccess:()=>{setFields({product:'purchase',requestedAmount:'',deposit:'0',termMonths:'',note:''});setSelection(null);},onDenied:()=>{setFields({product:'purchase',requestedAmount:'',deposit:'0',termMonths:'',note:''});setSelection(null);setVerified(null);}});
  const disabled=demo||request.pending||request.denied||request.conflicted;
- const change=(key:keyof typeof fields,value:string)=>{request.edit();setFields(current=>({...current,[key]:value}));};
+ const change=(key:keyof typeof fields,value:string)=>{request.edit();setRestartNotice('');setFields(current=>({...current,[key]:value}));};
  const clearSelection=useCallback(()=>{setSelection(null);setVerified(null);},[]);
  const verifySelection=useCallback((page:DealerRegisterPage)=>{
   setVerified({page,snapshot});
@@ -44,9 +47,12 @@ function ScopedFinanceRequestForm({snapshot,companyId,demo=false}:Props){
    {selected?<button type="button" className="button button-outline" disabled={request.pending} onClick={()=>setSelection(null)}>Ta bort koppling</button>:null}
   </section>
   {pickerOpen?<DealerRegisters kind="deals" companyId={companyId} userId={snapshot.user.id} role={snapshot.membership?.role??'viewer'} demo={demo} snapshot={snapshot} onCriteriaChange={clearSelection} onPage={verifySelection} renderRows={page=>page.kind==='deals'?<ul style={{listStyle:'none',padding:0}}>{page.rows.map(deal=><li key={deal.id} style={{paddingBlock:12,borderBottom:'1px solid var(--border)',overflowWrap:'anywhere'}}><p>{description(deal)}</p><button type="button" className="button button-outline" aria-pressed={selected?.id===deal.id} disabled={disabled||verified?.page!==page||verified.snapshot!==snapshot} onClick={()=>{request.edit();setSelection({deal,snapshot});}}>Välj {deal.stockItem.vehicles.registration_number}</button></li>)}</ul>:null}/>:null}
-  <form method="post" className="workspace-form" aria-label="Anmäl finansbehov" onSubmit={event=>{event.preventDefault();if(disabled)return;void request.submit({companyId,product:fields.product,dealId:selected?.id??null,requestedAmount:normalizeCreateMoney(fields.requestedAmount),deposit:normalizeCreateMoney(fields.deposit),termMonths:normalizeCreateText(fields.termMonths).replace(/^0+(?=\d)/,''),note:normalizeCreateText(fields.note)});}}>
+  <form method="post" className="workspace-form" aria-label="Anmäl finansbehov" onSubmit={event=>{event.preventDefault();if(disabled)return;setRestartNotice('');void request.submit({companyId,product:fields.product,dealId:selected?.id??null,requestedAmount:normalizeCreateMoney(fields.requestedAmount),deposit:normalizeCreateMoney(fields.deposit),termMonths:normalizeCreateText(fields.termMonths).replace(/^0+(?=\d)/,''),note:normalizeCreateText(fields.note)});}}>
    {request.state.message?<p role={request.state.status==='success'?'status':'alert'}>{request.state.message}</p>:null}
   {request.state.status==='unknown'?<button type="button" className="button button-outline" onClick={request.retry}>Kontrollera samma begäran</button>:null}
+  {request.conflicted&&!restartReview?<button type="button" className="button button-outline" onClick={()=>{setRestartReview(true);setRestartAck(false);}}>Granska ny finansbegäran</button>:null}
+  {request.conflicted&&restartReview?<section className="surface" style={{padding:16,display:'grid',gap:12}} aria-label="Granska ny finansbegäran"><h3 ref={restartHeading} tabIndex={-1}>Börja om efter kontroll</h3><p>Den tidigare begäran har andra sparade uppgifter. Kontrollera registrerade intresseanmälningar innan du börjar om. Belopp och beskrivning behålls, men affärskopplingen tas bort och måste väljas och verifieras igen.</p><label style={{display:'flex',flexDirection:'row',alignItems:'flex-start',gap:10}}><input type="checkbox" style={{width:18,height:18,flexShrink:0,marginTop:2}} checked={restartAck} onChange={event=>setRestartAck(event.target.checked)}/><span>Jag har kontrollerat registrerade intresseanmälningar och vill börja om med en ny begäran.</span></label><button type="button" className="button button-outline" disabled={!restartAck} onClick={()=>{if(!restartAck||!request.restartConflict())return;clearSelection();setPickerOpen(false);setRestartReview(false);setRestartAck(false);setRestartNotice('Uppgifterna kan granskas på nytt. Välj affären igen om intresseanmälan ska kopplas till en affär. Inget har skickats.');}}>Börja om med finansbegäran</button><button type="button" className="button button-outline" onClick={()=>{setRestartReview(false);setRestartAck(false);}}>Avbryt omstart</button></section>:null}
+  {restartNotice?<p role="status">{restartNotice}</p>:null}
    <input type="hidden" name="expected_company_id" value={companyId}/><input type="hidden" name="deal_id" value={selected?.id??''}/>
    {demo?<p className="form-privacy">Demonstration i läsläge. Ingen intresseanmälan skickas.</p>:null}
    <label>Vad gäller behovet?<select name="product" value={fields.product} onChange={e=>change('product',e.target.value)} disabled={disabled}><option value="purchase">Köpfinansiering för kund</option><option value="stock">Lagerfinansiering för företaget</option></select></label>

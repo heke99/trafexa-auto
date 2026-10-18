@@ -26,7 +26,8 @@ do $$declare offer uuid;t jsonb;reviewed jsonb;published jsonb;accepted jsonb;dr
  sid:=(s->'signing'->>'id')::uuid;h:=s->'signing'->>'documentHash';
  delivery:=public.get_contract_signing_delivery('af200000-0000-4000-8000-000000000003','af200000-0000-4000-8000-000000000004',sid);
  if delivery->>'status'<>'pending' or delivery->>'actorUserId'<>'af200000-0000-4000-8000-000000000001' or delivery->>'actorRole'<>'owner' or delivery->>'recipientEmail'<>'invitation-customer-af200000@example.invalid' then raise exception 'Dealer pending delivery mismatch';end if;
- if (delivery-array['companyId','dealId','signingId','actorUserId','actorRole','recipientEmail','status'])<>'{}'::jsonb then raise exception 'Delivery DTO leaked private fields';end if;
+ if delivery->'completionStatus' is distinct from 'null'::jsonb then raise exception 'Completion status invented before both signatures';end if;
+ if (delivery-array['companyId','dealId','signingId','actorUserId','actorRole','recipientEmail','status','completionStatus'])<>'{}'::jsonb then raise exception 'Delivery DTO leaked private fields';end if;
  reset role;set local role service_role;
  perform set_config('request.jwt.claim.role','service_role',true);
  lease:=public.claim_transactional_email('contract_invitation',sid);
@@ -53,9 +54,9 @@ do $$declare offer uuid;t jsonb;reviewed jsonb;published jsonb;accepted jsonb;dr
  reset role;set local role authenticated;
  perform set_config('request.jwt.claim.sub','af200000-0000-4000-8000-000000000001',true);
  delivery:=public.get_contract_signing_delivery('af200000-0000-4000-8000-000000000003','af200000-0000-4000-8000-000000000004',sid);
- if delivery->>'status'<>'cancelled' then raise exception 'Dealer cancelled delivery mismatch';end if;
+ if delivery->>'status'<>'cancelled' or delivery->>'completionStatus'<>'processing' then raise exception 'Dealer invitation/completion status mismatch';end if;
  reset role;
  if (select status from private.transactional_email_outbox where id=(lease->>'id')::uuid)<>'cancelled' then raise exception 'Stale invitation not cancelled';end if;
 end $$;
-select 'PASS: dealer-scoped pending/processing/cancelled delivery reads with exact frozen recipient, DTO allowlist and no provider dispatch' result;
+select 'PASS: dealer-scoped independent invitation/completion pending/processing/cancelled delivery reads with exact frozen recipient, DTO allowlist and no provider dispatch' result;
 rollback;

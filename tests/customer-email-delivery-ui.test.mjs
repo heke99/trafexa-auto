@@ -60,3 +60,41 @@ test('a late retry result from a previous actor cannot replace the current read-
   await expect(page.getByText('old-secret@example.test',{exact:false})).toHaveCount(0);await expect(page.getByText('Mejltjänsten har tagit emot inbjudan',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Granska nytt utskicksförsök'})).toHaveCount(0);assert.equal((await retryCalls(page)).length,1);
  }finally{await page.close();}
 });
+
+const completionAck='Jag har granskat mottagaren och vill försöka skicka det väntande mejlet med färdigsignerat avtal igen.';
+const completionReview='Granska nytt försök för färdigsignerat avtal';
+test('completed PDF email retry has its own focused recipient review and exact completion kind at mobile and desktop widths',async()=>{
+ const page=await setup({kind:'contract_completed'});try{
+  const panel=page.getByRole('region',{name:'Kundens mejl med färdigsignerat avtal',exact:true});
+  await expect(panel.getByText('Mejlet med färdigsignerat avtal väntar på utskick',{exact:true})).toBeVisible();
+  await panel.getByRole('button',{name:completionReview,exact:true}).click();
+  await expect(panel.getByRole('heading',{name:'Kontrollera mottagaren av det färdigsignerade avtalet'})).toBeFocused();
+  for(const width of [320,390,1440]){await page.setViewportSize({width,height:1000});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));}
+  await expect(panel.getByRole('button',{name:'Försök skicka mejlet igen',exact:true})).toBeDisabled();assert.deepEqual(await retryCalls(page),[]);
+  await panel.getByRole('checkbox',{name:completionAck}).check();await panel.getByRole('button',{name:'Försök skicka mejlet igen',exact:true}).click();
+  await expect(panel.getByText('Mejltjänsten har tagit emot mejlet med färdigsignerat avtal',{exact:true})).toBeVisible();
+  await expect(panel.getByText('Leverans till kundens inkorg är ännu inte bekräftad.',{exact:false})).toBeVisible();
+  assert.deepEqual((await retryCalls(page))[0].input,{companyId:props.companyId,dealId:props.dealId,referenceId:props.referenceId,kind:'contract_completed',acknowledged:true});
+  await expect(panel.getByRole('button',{name:completionReview,exact:true})).toHaveCount(0);
+ }finally{await page.close();}
+});
+
+test('completion email respects contract RBAC and never retries accepted or unknown delivery',async()=>{
+ for(const [role,status]of [['finance','pending'],['owner','accepted'],['admin','unknown'],['sales','pending'],['viewer','pending']]){
+  const page=await setup({kind:'contract_completed',role},{deliveryResponse:{ok:true,delivery:{status,transport:'configured'}}});try{
+   if(['sales','viewer'].includes(role)){await expect(page.getByRole('region',{name:'Kundens mejl med färdigsignerat avtal',exact:true})).toHaveCount(0);assert.deepEqual(await page.evaluate(()=>window.fixture.customerEmailCalls??[]),[]);}
+   else await expect(page.getByRole('button',{name:'Uppdatera färdigmejlets status',exact:true})).toBeEnabled();
+   await expect(page.getByRole('button',{name:completionReview,exact:true})).toHaveCount(0);assert.deepEqual(await retryCalls(page),[]);
+  }finally{await page.close();}
+ }
+});
+
+test('ambiguous completion retry erases pending state and requires a fresh read; unknown receipt stays blocked',async()=>{
+ const page=await setup({kind:'contract_completed'},{customerEmailRetries:[{throw:true}]});try{
+  await page.getByRole('button',{name:completionReview,exact:true}).click();await page.getByRole('checkbox',{name:completionAck}).check();await page.getByRole('button',{name:'Försök skicka mejlet igen',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('Uppdatera mejlstatus');await expect(page.getByRole('checkbox')).toHaveCount(0);await expect(page.getByRole('button',{name:completionReview,exact:true})).toHaveCount(0);
+  await page.evaluate(()=>window.fixture.deliveryResponse={ok:true,delivery:{status:'unknown',transport:'configured'}});
+  await page.getByRole('button',{name:'Uppdatera färdigmejlets status',exact:true}).click();await expect(page.getByText('Utskickets utfall behöver kontrolleras',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:completionReview,exact:true})).toHaveCount(0);assert.equal((await retryCalls(page)).length,1);
+ }finally{await page.close();}
+});

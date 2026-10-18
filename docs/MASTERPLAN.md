@@ -1,5 +1,13 @@
 # Trafexa Dealer – fortsättningsplan
 
+## Aktuell fortsättning, 18 oktober 2026
+
+Bilköpare använder [personliga dokumentlänkar](CUSTOMER_PORTAL.md) utan Trafexakonto eller lösenord. Offert, exakt avtalsversion och färdig PDF har separata steg; handlarens konto och företagsroll styr fortsatt de interna åtgärderna. Detta är publicerat genom [PR #46](https://github.com/heke99/trafexa-auto/pull/46). Äldre avsnitt nedan som kräver ett godkänt kundkonto beskriver tidigare implementation.
+
+Den aktuella genomgången följer hela fortsättningen från godkännande till betalningsregistrering och leverans, samt återhämtning efter konflikt eller oklart utskick. Dialoger, sökningar och privata detaljvyer ska alltid följa aktuellt företag och aktuella uppgifter. Verifierade rättelser och releasebevis redovisas i [implementationsstatus](IMPLEMENTATION_STATUS.md).
+
+Efter denna genomgång återstår ett separat granskat flöde för att förnya utgångna dokumentlänkar. Det ska skapa en ny spårbar länk och bevara tidigare utskick och godkännanden. Okända utskicksutfall får inte automatiskt skickas om. Inbyte/skuldlösen och externa partneranslutningar följer sina separata kontrakt.
+
 Efter CSV-exporten byggs [superadminens globala annonsfakturaöversikt](ADVERTISING_RECEIVABLES.md), med registrerade saldon, förfallna fordringar och direkt åtkomst till fakturaoriginal och avstämning. Statistik och manuellt bankunderlag är separata från verklig bankverifiering och bokföring.
 
 Fortsättning efter PR #48: [CSV för annonsfakturors betalningsavstämning](ADVERTISING_PAYMENT_EXPORT.md) samlar hela fakturans verifierade journal med exakta saldon. Underlaget är avsett för granskning inför bokföringen; ekonomisystem och bankanslutning är ännu inte valda eller aktiverade.

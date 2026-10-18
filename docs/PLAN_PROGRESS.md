@@ -1,5 +1,13 @@
 # Planläge 18 oktober 2026
 
+## Aktuell genomgång av avbrutna arbetsflöden
+
+Det kontofria kundflödet är publicerat via [PR #46](https://github.com/heke99/trafexa-auto/pull/46): personlig mejllänk, granskning och uttryckligt godkännande med namn; därefter privat PDF när båda parter har godkänt. Ingen kundregistrering krävs. Samlad verifiering vid den releasen var 1 485 godkända apptestfall, produktionsbygge, databas- och browserprov.
+
+Denna etapp rättar verifierade stopp i superadminens konflikt- och sökflöden, handlarens dialoger, finansbegärans återstart och fakturamejlens osäkra svar. Den kompletterar också status och säkra återförsök för mejl med färdigt avtal samt fortsättningen till betalning och leverans efter kundens mejllänksgodkännande. Aktuell test- och publiceringsstatus redovisas i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
+
+Förnyelse av utgångna kundlänkar är nästa separata dokumentsteg. Historiska checkpoints nedan bevaras; deras återstående steg kan vara genomförda i senare avsnitt eller releaser.
+
 ## Aktuell fortsättning 18 oktober
 
 [Superadminens fakturaöversikt](ADVERTISING_RECEIVABLES.md) är nästa fortsättning efter CSV-exporten: en separat flik samlar utfärdade annonsfakturor, globala exakta saldon och filter för registrerad betalningsstatus och förfallna restbelopp. En vald rad öppnar det bevarade originalet, PDF och betalningsavstämning direkt. Totalsiffrorna gäller hela beståndet; listan har 25-raders sidindelning. Pågående registrering och export spärrar konkurrerande byte av adminvy.
