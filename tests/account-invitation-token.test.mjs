@@ -35,7 +35,10 @@ test('actual activation page exposes password form for SHA-224 and compatible li
         for (const child of [element.props?.children].flat()) walk(child);
       };
       walk(form);
-      assert.deepEqual(fields, ['password', 'acknowledged']);
+      assert.deepEqual(fields, ['invitationFingerprint', 'password', 'acknowledged']);
+      const binding = form.props.children.find(child => child?.props?.name === 'invitationFingerprint');
+      assert.match(binding.props.value, /^[a-f0-9]{64}$/);
+      assert.notEqual(binding.props.value, token, 'rendered binding must never be the bearer token');
     }
   }
 });

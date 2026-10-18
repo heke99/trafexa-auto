@@ -106,7 +106,7 @@ test('recovery rejects an external destination before constructing its callback'
 
 test('password update uses fresh Auth and keeps the customer destination after global signout', async () => {
  const events=[];const loader=await createSourceLoader({
-  'next/navigation':{redirect},'next/headers':{cookies:async()=>({delete:name=>events.push(['cookie',name])})},
+  'next/navigation':{redirect},'next/headers':{cookies:async()=>({get:()=>undefined,delete:name=>events.push(['cookie',name])})},
   'next/cache':{revalidatePath:()=>assert.fail('No business mutation')},
   './company-context':{getCompanySession:()=>assert.fail('No company membership needed')},
   '@/lib/supabase/server':{createServerSupabaseClient:async()=>({auth:{
@@ -116,7 +116,7 @@ test('password update uses fresh Auth and keeps the customer destination after g
    signOut:async options=>{events.push(['signout',options.scope]);return {error:null};},
   }})},
  });
- const form=new FormData();form.set('next','/my-offers');form.set('password','new-password-long');
+ const form=new FormData();form.set('next','/my-offers');form.set('password','new-password-long');form.set('passwordMode','session');form.set('expectedUserId','buyer');
  try{await loader.load('src/lib/data/actions.ts').updatePasswordAction(form);assert.fail('Expected redirect');}
  catch(error){const url=new URL(error.url,'https://app.example.invalid');assert.equal(url.pathname,'/login');assert.equal(url.searchParams.get('next'),'/my-offers');}
  assert.deepEqual(events,['fresh-user',['password','new-password-long'],['signout','global'],['cookie','trafexa-company']]);
@@ -126,7 +126,7 @@ test('password reset reports a saved password and unconfirmed logout on provider
  for(const throws of [false,true]){
   const events=[];
   const loader=await createSourceLoader({
-   'next/navigation':{redirect},'next/headers':{cookies:async()=>({delete:name=>events.push(['cookie',name])})},
+   'next/navigation':{redirect},'next/headers':{cookies:async()=>({get:()=>undefined,delete:name=>events.push(['cookie',name])})},
    'next/cache':{revalidatePath:()=>assert.fail('No business mutation')},
    '@/lib/supabase/server':{createServerSupabaseClient:async()=>({auth:{
     getUser:async()=>({data:{user:{id:'buyer'}},error:null}),
@@ -134,7 +134,7 @@ test('password reset reports a saved password and unconfirmed logout on provider
     signOut:async()=>{events.push('logout');if(throws)throw Error('private provider diagnostics');return{error:{message:'private provider diagnostics'}};},
    }})},
   });
-  const form=new FormData();form.set('next','/my-offers');form.set('password','new-password-long');
+  const form=new FormData();form.set('next','/my-offers');form.set('password','new-password-long');form.set('passwordMode','session');form.set('expectedUserId','buyer');
   try{await loader.load('src/lib/data/actions.ts').updatePasswordAction(form);assert.fail('Expected redirect');}
   catch(error){
    const url=new URL(error.url,'https://app.example.invalid');
@@ -150,7 +150,7 @@ test('password reset bounds client, identity and ambiguous password-write failur
  for(const step of ['client','identity','password']){
   const events=[];
   const loader=await createSourceLoader({
-   'next/navigation':{redirect},'next/headers':{cookies:async()=>({delete:()=>assert.fail('No confirmed logout')})},
+   'next/navigation':{redirect},'next/headers':{cookies:async()=>({get:()=>undefined,delete:()=>assert.fail('No confirmed logout')})},
    'next/cache':{revalidatePath:()=>assert.fail('No business mutation')},
    '@/lib/supabase/server':{createServerSupabaseClient:async()=>{
     events.push('client');if(step==='client')throw Error('private provider diagnostics');
@@ -160,7 +160,7 @@ test('password reset bounds client, identity and ambiguous password-write failur
     }};
    }},
   });
-  const form=new FormData();form.set('next','/my-offers');form.set('password','new-password-long');
+  const form=new FormData();form.set('next','/my-offers');form.set('password','new-password-long');form.set('passwordMode','session');form.set('expectedUserId','buyer');
   try{await loader.load('src/lib/data/actions.ts').updatePasswordAction(form);assert.fail('Expected redirect');}
   catch(error){
    const url=new URL(error.url,'https://app.example.invalid');
@@ -176,7 +176,7 @@ test('customer logout preserves safe next while default and external destination
  for(const next of ['/my-offers',undefined,'https://attacker.invalid','//attacker.invalid']){
   const calls=[];
   const loader=await createSourceLoader({
-   'next/navigation':{redirect},'next/headers':{cookies:async()=>({delete:name=>calls.push(['delete',name])})},
+   'next/navigation':{redirect},'next/headers':{cookies:async()=>({get:()=>undefined,delete:name=>calls.push(['delete',name])})},
    'next/cache':{revalidatePath:()=>assert.fail('No business mutations')},
    './company-context':{getCompanySession:()=>assert.fail('No membership lookup')},
    '@/lib/supabase/server':{createServerSupabaseClient:async()=>({auth:{signOut:async options=>{calls.push(['signout',options.scope]);return{error:null};}}})},
@@ -193,7 +193,7 @@ test('ordinary logout reports unconfirmed global revocation on provider errors a
  for(const mode of ['returned','throw','client'])for(const next of ['/my-contracts?contract=fixture','//attacker.invalid','/admin']){
   const calls=[],secret='PRIVATE provider Authorization Bearer fixture-secret';
   const loader=await createSourceLoader({
-   'next/navigation':{redirect},'next/headers':{cookies:async()=>({delete:name=>calls.push(['delete',name])})},
+   'next/navigation':{redirect},'next/headers':{cookies:async()=>({get:()=>undefined,delete:name=>calls.push(['delete',name])})},
    'next/cache':{revalidatePath:()=>assert.fail('No business invalidation')},
    './company-context':{getCompanySession:()=>assert.fail('No membership lookup')},
    '@/lib/supabase/server':{createServerSupabaseClient:async()=>{calls.push('client');if(mode==='client')throw Error(secret);return{auth:{

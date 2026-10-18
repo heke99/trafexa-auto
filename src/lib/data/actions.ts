@@ -9,6 +9,8 @@ import { safeNextPath } from '@/lib/routing.mjs';
 import { getAuthAppOrigin } from '@/lib/auth/app-origin';
 import { getAuthenticatedLandingPath } from '@/lib/auth/landing';
 import { passwordChangeUnconfirmedWarning, savedPasswordSignOutWarning, sessionSignOutUnconfirmedWarning, tryGlobalSignOut } from '@/lib/auth/sign-out';
+import { getPasswordRecoveryFingerprint } from '@/lib/auth/password-recovery-intent';
+import { PASSWORD_RECOVERY_COOKIE, PASSWORD_RECOVERY_COOKIE_PATH, validPasswordRecoveryToken } from '@/lib/auth/password-recovery-token';
 import { canManageStockIntake, canWriteInternalFinance } from '@/lib/access/dealer-capabilities';
 import { createCustomerRequestAction, createFinanceIntakeRequestAction } from './create-record-actions';
 
@@ -164,10 +166,26 @@ export async function updatePasswordAction(form:FormData) {
  const nextPath=safeNextPath(form.get('next'));
  const route=(path:string)=>nextPath==='/dashboard'?path:`${path}?${new URLSearchParams({next:nextPath})}`;
  const password=authPassword(form,route('/reset-password'),12);
+ const store=await cookies(),recoveryToken=store.get(PASSWORD_RECOVERY_COOKIE)?.value;
+ const mode=form.get('passwordMode'),fingerprint=form.get('recoveryFingerprint'),expectedUserId=form.get('expectedUserId');
+ const single=(name:string)=>form.getAll(name).length===1;
+ const validMode=single('passwordMode')&&(mode==='recovery'
+  ? single('recoveryFingerprint')&&expectedUserId===null&&validPasswordRecoveryToken(recoveryToken)&&typeof fingerprint==='string'&&fingerprint===getPasswordRecoveryFingerprint(recoveryToken)
+  : mode==='session'&&fingerprint===null&&single('expectedUserId')&&typeof expectedUserId==='string'&&expectedUserId.length>0&&expectedUserId.length<=128&&recoveryToken===undefined);
+ // An old tab must not adopt another tab's link or silently fall back to an existing account.
+ if(!validMode)outcome(route('/reset-password'),'error','Återställningsflödet har ändrats. Läs in sidan igen innan du väljer ett lösenord.');
+ const clearRecovery=()=>store.set(PASSWORD_RECOVERY_COOKIE,'',{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:PASSWORD_RECOVERY_COOKIE_PATH,maxAge:0});
  let db:Awaited<ReturnType<typeof createServerSupabaseClient>>;
- try {db=await createServerSupabaseClient();}catch{outcome(route('/forgot-password'),'error','Återställningen kunde inte verifieras just nu. Försök igen senare.');}
+ try {db=await createServerSupabaseClient();}catch{outcome(route(recoveryToken===undefined?'/forgot-password':'/reset-password'),'error','Återställningen kunde inte verifieras just nu. Försök igen senare.');}
+ let recoveryUserId:string|undefined;
+ if(recoveryToken!==undefined){
+  let accepted=false;
+  try{const result=await db.auth.verifyOtp({token_hash:recoveryToken,type:'recovery'});const user=result.data?.user;accepted=!result.error&&Boolean(user?.id&&user.email_confirmed_at);if(accepted)recoveryUserId=user!.id;}catch{/* A lost verification response never authorizes a password change. */}
+  clearRecovery();
+  if(!accepted)outcome(route('/forgot-password'),'error','Återställningslänken har gått ut eller redan använts. Begär en ny länk.');
+ }
  let verified=false;
- try{const {data,error}=await db.auth.getUser();verified=!error&&Boolean(data?.user);}catch{outcome(route('/forgot-password'),'error','Återställningen kunde inte verifieras just nu. Försök igen senare.');}
+ try{const {data,error}=await db.auth.getUser();verified=!error&&Boolean(data?.user)&&(mode==='recovery'?data.user!.id===recoveryUserId:data.user!.id===expectedUserId);}catch{outcome(route('/forgot-password'),'error','Återställningen kunde inte verifieras just nu. Försök igen senare.');}
  if(!verified)outcome(route('/forgot-password'),'error','Återställningslänken har gått ut. Begär en ny länk.');
  let rejected=false;
  try{const {error}=await db.auth.updateUser({password});rejected=Boolean(error);}catch{outcome(route('/login'),'error',passwordChangeUnconfirmedWarning);}

@@ -15,7 +15,7 @@ export function isGuestCustomerPath(path) {
   return path === '/customer-document' || path.startsWith('/customer-document/');
 }
 export function isAuthPath(path) {
-  return ['/login', '/register', '/onboarding', '/forgot-password', '/reset-password', '/auth/callback', '/auth/invitation', '/activate-account', '/account-pending'].includes(path);
+  return ['/login', '/register', '/onboarding', '/forgot-password', '/reset-password', '/auth/callback', '/auth/invitation', '/auth/recovery', '/activate-account', '/account-pending'].includes(path);
 }
 export function domainRedirect(host, path, search = '') {
   if (host === 'app.trafexa.com' && path === '/') return `https://app.trafexa.com/dashboard${search}`;

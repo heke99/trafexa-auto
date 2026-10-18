@@ -12,10 +12,11 @@ export const authEmails = [
 ];
 
 export function renderAuthEmail(email) {
+  const actionUrl = email.id === 'recovery' ? 'https://app.trafexa.com/auth/recovery?token_hash={{ .TokenHash }}' : '{{ .ConfirmationURL }}';
   const action = email.cta
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px 0"><tr><td bgcolor="#195d44" style="border-radius:8px"><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:16px 24px;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;line-height:24px;text-decoration:none;border-radius:8px">${email.cta}</a></td></tr></table>
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px 0"><tr><td bgcolor="#195d44" style="border-radius:8px"><a href="${actionUrl}" style="display:inline-block;padding:16px 24px;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;line-height:24px;text-decoration:none;border-radius:8px">${email.cta}</a></td></tr></table>
 <p style="margin:0 0 8px;font-size:16px;line-height:25px;color:#53615a">Om knappen inte fungerar, kopiera länken och klistra in den i webbläsaren:</p>
-<p style="margin:0 0 24px;word-break:break-all;overflow-wrap:anywhere;font-size:16px;line-height:25px"><a href="{{ .ConfirmationURL }}" style="color:#195d44;text-decoration:underline">{{ .ConfirmationURL }}</a></p>
+<p style="margin:0 0 24px;word-break:break-all;overflow-wrap:anywhere;font-size:16px;line-height:25px"><a href="${actionUrl}" style="color:#195d44;text-decoration:underline">${actionUrl}</a></p>
 <p style="margin:0 0 24px;font-size:16px;line-height:25px;color:#53615a">Länken är personlig och kan bara användas en gång. Om den har gått ut behöver du begära en ny.</p>`
     : '<p style="margin:28px 0;padding:20px;background:#edf4ef;border:1px solid #c4d6ca;border-radius:8px;text-align:center;font-family:Courier New,monospace;font-size:32px;font-weight:700;line-height:40px;letter-spacing:6px;color:#143d2e">{{ .Token }}</p><p style="margin:0 0 24px;font-size:16px;line-height:25px;color:#53615a">Om koden har gått ut behöver du begära en ny.</p>';
   return `<!doctype html>

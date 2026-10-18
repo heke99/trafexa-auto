@@ -869,3 +869,34 @@ test('confirmed account receipt keeps navigation locked until fresh status read 
   await expect(page.getByRole('button',{name:'Annonsfakturor',exact:true})).toBeDisabled();
  }finally{await page.close();}
 });
+
+
+function unpreparedApplicationRead(version){return{ok:true,invitation:null,lifecycle:{applicationVersion:version,delivery:{id:null,state:'not_started',attemptCount:0,firstAttemptAt:null,updatedAt:null,canRetry:false},account:{emailVerified:null,approvalStatus:null},canRenew:false}};}
+test('first approval blocks an application already changed before any invitation exists and reload requires a fresh unchecked review',async()=>{
+ const changed={...invitationApplication,version:4,status:'in_review'},page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],detailResponses:[{ok:true,application:invitationApplication,audit:[]},{ok:true,application:changed,audit:[]}],invitationReadResponses:[unpreparedApplicationRead(4),unpreparedApplicationRead(4)]});
+ try{
+  await openLifecycle(page);await expect(page.getByText(/Ansökan har ändrats sedan den öppnades/)).toBeVisible();
+  await expect(page.getByRole('button',{name:'Granska godkännande',exact:true})).toBeDisabled();
+  await expect(page.getByLabel('Motivering för kontogodkännande')).toBeDisabled();assert.equal(await page.evaluate(()=>window.fixture.invitationCalls.length),0);
+  await page.getByRole('button',{name:'Läs in aktuell ansökan',exact:true}).click();
+  await expect(page.getByText(/Ansökan har ändrats sedan den öppnades/)).toHaveCount(0);
+  await page.getByLabel('Motivering för kontogodkännande').fill('Granskat aktuellt underlag');await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();
+  await expect(page.getByRole('checkbox',{name:/Jag har granskat ansökan och godkänner/})).not.toBeChecked();
+  await expect(page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true})).toBeDisabled();
+ }finally{await page.close();}
+});
+test('first approval CAS conflict removes stale confirmation and current application review sends a fresh nonce and version',async()=>{
+ const changed={...invitationApplication,version:4,status:'contacted'},page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],detailResponses:[{ok:true,application:invitationApplication,audit:[]},{ok:true,application:changed,audit:[]}],invitationReadResponses:[unpreparedApplicationRead(3),unpreparedApplicationRead(4),unpreparedApplicationRead(4),unpreparedApplicationRead(4)],invitationResponses:[{ok:false,code:'conflict'}]});
+ try{
+  await openLifecycle(page);await page.getByLabel('Motivering för kontogodkännande').fill('Första granskningen');await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();await page.getByRole('checkbox',{name:/Jag har granskat ansökan och godkänner/}).check();await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
+  await expect(page.getByText(/Ansökan har ändrats sedan den öppnades/)).toBeVisible();await expect(page.getByRole('checkbox',{name:/Jag har granskat ansökan och godkänner/})).toHaveCount(0);await expect(page.getByRole('button',{name:'Granska godkännande',exact:true})).toBeDisabled();
+  await page.getByRole('button',{name:'Läs in aktuell ansökan',exact:true}).click();await expect(page.getByLabel('Motivering för kontogodkännande')).toHaveValue('');await page.getByLabel('Motivering för kontogodkännande').fill('Ny granskning av uppdaterad ansökan');await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();await expect(page.getByRole('checkbox',{name:/Jag har granskat ansökan och godkänner/})).not.toBeChecked();await page.getByRole('checkbox',{name:/Jag har granskat ansökan och godkänner/}).check();await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
+  await page.waitForFunction(()=>window.fixture.invitationCalls.length===2);const calls=await page.evaluate(()=>window.fixture.invitationCalls);assert.equal(calls[0].expectedVersion,3);assert.equal(calls[1].expectedVersion,4);assert.notEqual(calls[0].requestId,calls[1].requestId);
+ }finally{await page.close();}
+});
+for(const patch of [{legacy:true},{status:'closed'}])test(`application approval accurately blocks ${patch.legacy?'historical incomplete':'closed'} cases without issuing an invitation`,async()=>{
+ const application={...invitationApplication,...patch},page=await setup({application,contactResponses:[{ok:true,requests:[application],nextPageKey:null}],invitationReadResponses:[unpreparedApplicationRead(3)]});
+ try{
+  await openLifecycle(page);await expect(page.getByText(patch.legacy?/äldre förfrågan kan inte användas/:/Ansökan är avslutad/)).toBeVisible();await expect(page.getByLabel('Motivering för kontogodkännande')).toBeDisabled();await expect(page.getByRole('button',{name:'Granska godkännande',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Granska förnyelse',exact:true})).toHaveCount(0);assert.equal(await page.evaluate(()=>window.fixture.invitationCalls.length),0);await expect(page.getByLabel('Ny handläggningsstatus')).toBeEnabled();
+ }finally{await page.close();}
+});

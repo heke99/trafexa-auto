@@ -65,7 +65,7 @@ test('customer contracts use app domain and preserve safe destination',()=>{asse
 
 test('invitation and activation navigation uses canonical app origin and preserves the single-use link', () => {
  const token='a'.repeat(64), search=`?token_hash=${token}`;
- for(const path of ['/auth/invitation','/activate-account']) {
+ for(const path of ['/auth/invitation','/auth/recovery','/activate-account']) {
   assert.equal(isAuthPath(path),true);
   for(const host of ['trafexa.com','www.trafexa.com']) {
    const redirected=new URL(domainRedirect(host,path,search));
@@ -75,7 +75,7 @@ test('invitation and activation navigation uses canonical app origin and preserv
   }
   assert.equal(domainRedirect('app.trafexa.com',path,search),null);
  }
- for(const path of ['/activate-account-public','/auth/invitation-extra','/auth/invitation/public','/activate-account/public']) {
+ for(const path of ['/activate-account-public','/auth/invitation-extra','/auth/invitation/public','/auth/recovery-extra','/auth/recovery/public','/activate-account/public']) {
   assert.equal(isAuthPath(path),false);
   assert.equal(domainRedirect('trafexa.com',path,search),null);
  }

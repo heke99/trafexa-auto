@@ -4,7 +4,8 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { requireApprovedAccountAccess } from '@/lib/account-access/context';
-import { savedPasswordSignOutWarning, tryGlobalSignOut } from './sign-out';
+import { passwordChangeUnconfirmedWarning, savedPasswordSignOutWarning, tryGlobalSignOut } from './sign-out';
+import { getAccountInvitationFingerprint } from './account-invitation-intent';
 import { validAccountInvitationToken } from './account-invitation-token';
 
 function failed(message: string): never { redirect(`/activate-account?${new URLSearchParams({ error: message })}`); }
@@ -14,6 +15,7 @@ export async function activateAccountAction(form: FormData) {
   if (typeof password !== 'string' || password.length < 12 || password.length > 256 || /[\u0000-\u001f\u007f]/.test(password) || form.get('acknowledged') !== 'yes') failed('Välj ett lösenord med minst 12 tecken och godkänn användarvillkoren.');
   const store = await cookies(), token = store.get('trafexa-account-invitation')?.value;
   if (!validAccountInvitationToken(token)) failed('Inbjudningslänken saknas eller har gått ut. Kontakta info@trafexa.com för en ny inbjudan.');
+  if (form.getAll('invitationFingerprint').length !== 1 || form.get('invitationFingerprint') !== getAccountInvitationFingerprint(token)) failed('Inbjudningslänken har ändrats. Läs in sidan igen innan du aktiverar kontot.');
   let db: Awaited<ReturnType<typeof createServerSupabaseClient>>;
   try { db = await createServerSupabaseClient(); }
   catch { failed('Aktiveringen kunde inte verifieras just nu. Försök igen med samma inbjudningslänk.'); }
@@ -33,7 +35,13 @@ export async function activateAccountAction(form: FormData) {
     redirect('/login?error=Kontot+saknar+godkänd+åtkomst.+Kontakta+info%40trafexa.com.');
   }
   let saved = false;
-  try { const result = await db.auth.updateUser({ password }); saved = !result.error; } catch { /* Existing verified session can retry the password form. */ }
+  try { const result = await db.auth.updateUser({ password }); saved = !result.error; }
+  catch {
+    // The provider may have saved the password before its response was lost.
+    // The invite is already consumed: do not describe this as a rejected write or replay OTP.
+    store.delete('trafexa-company');
+    redirect(`/login?${new URLSearchParams({ error: passwordChangeUnconfirmedWarning })}`);
+  }
   if (!saved) redirect('/reset-password?error=Lösenordet+kunde+inte+sparas.+Välj+ett+nytt+lösenord+och+försök+igen.');
   const signedOut = await tryGlobalSignOut(db);
   store.delete('trafexa-company');
