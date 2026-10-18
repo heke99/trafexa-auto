@@ -10,6 +10,8 @@ Denna etapp rättar verifierade stopp i superadminens konflikt- och sökflöden,
 
 PR #51 publicerade en första granskad förnyelse för accepterade offert- och signeringsinbjudningar. Den aktuella etappen förenar detta flöde med giltighetsstatus, förnyelse av färdigavtal, återhämtning före första sändning och strängare revisionsbevis. Äldre köposter och kvitton bevaras.
 
+Fortsättningen av dessa dokumentsteg är nu implementerad: färdiga avtals skrivskyddade länkar kan förnyas och verifierat säkra väntande utskick kan ersättas efter granskning. Hela handlarresan till leverans och identiska PDF-original är verifierad med syntetiska underlag. Superadmins nästlade fakturavy har fått genomgående spärr under betalningsskrivning/CSV-hämtning och läsbar mobilbredd. Helkörningen passerar 1 741 fall samt slutbygge och TypeScript; aktuell verifiering/publicering finns överst i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md). Kontrollerad hantering av återstående okända leveransutfall och långtidsbevarande/återställning av original är fortsatta dokument- och driftfrågor; inget okänt utskick återutsänds automatiskt.
+
 ## Aktuell fortsättning 18 oktober
 
 [Superadminens fakturaöversikt](ADVERTISING_RECEIVABLES.md) är nästa fortsättning efter CSV-exporten: en separat flik samlar utfärdade annonsfakturor, globala exakta saldon och filter för registrerad betalningsstatus och förfallna restbelopp. En vald rad öppnar det bevarade originalet, PDF och betalningsavstämning direkt. Totalsiffrorna gäller hela beståndet; listan har 25-raders sidindelning. Pågående registrering och export spärrar konkurrerande byte av adminvy.

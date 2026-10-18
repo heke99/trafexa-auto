@@ -1,16 +1,18 @@
-# Historisk checkpoint PR #51: Granskad förnyelse av kundens dokumentlänk
+# Historiska checkpoints PR #51 och #53: Granskad förnyelse av kundens dokumentlänk
 
-Denna sida beskriver den första publicerade etappen. Det aktuella gemensamma flödet och dess kompatibilitet med sparade köposter beskrivs i [granskad förnyelse av dokumentlänkar](CUSTOMER_DOCUMENT_LINK_RENEWAL.md).
+Denna sida bevarar de två första publicerade etappernas kontrakt. Det aktuella gemensamma flödet och dess kompatibilitet med sparade köposter beskrivs i [granskad förnyelse av dokumentlänkar](CUSTOMER_DOCUMENT_LINK_RENEWAL.md).
 
-Handlaren kan förnya en personlig länk till en obesvarad offert eller ett avtal som kunden ännu inte har godkänt. Kunden behöver fortsatt inget Trafexakonto. Förnyelsen gäller samma frysta mottagare, dokumentversion och innehållshash; ändrade affärsvillkor kräver ett nytt dokumentflöde.
+Handlaren kan förnya en personlig länk till en obesvarad offert, ett avtal som kunden ännu inte har godkänt eller ett färdigsignerat avtals skrivskyddade dokument. Kunden behöver fortsatt inget Trafexakonto. Förnyelsen gäller samma frysta mottagare, dokumentversion och innehållshash; ändrade affärsvillkor kräver ett nytt dokumentflöde.
 
 ## Granskning och behörighet
 
 Handlaren kontrollerar mottagare, version och den tidigare länkens giltighetstid före en uttrycklig bekräftelse. Offertlänkar får förnyas av ägare, administratör eller säljare. Avtalslänkar får förnyas av ägare eller administratör. Befintliga läsbehörigheter gäller även länkstatus. Superadmin får inte företagets skrivbehörighet genom sin plattformsroll.
 
-Förnyelse tillåts endast när det senaste utskicket har accepterats av mejltjänsten och dess personliga länk faktiskt har gått ut. En pågående, väntande, avvisad, stoppad eller okänd leverans blir inte ett nytt utskick genom den här åtgärden. Ett väntande mejl har sitt befintliga granskningsflöde. En redan utgången länk med väntande mejl behöver hanteras med Trafexa; ett vanligt återförsök kan inte förlänga länken. Okänt leveransutfall kräver kontroll hos mejltjänsten.
+En accepterad leverans kan förnyas när den senaste personliga länken faktiskt har gått ut. Ett utgånget, fortfarande väntande mejl har ett separat granskat återhämtningsläge: servern måste kunna verifiera att utskicket saknar aktiv arbetarlåsning, leverantörsacceptans och påbörjad sändning med oklart utfall. Förberett men ännu obundet dokument tillåts bara när inget försök har påbörjats. Försöksmarkörer måste vara konsekventa. Efter en bekräftad återförsökbar avvisning, exempelvis 429, kan en utgången väntande länk ersättas med en ny generation. Ett vanligt återförsök förlänger aldrig den gamla länken.
 
-Kundens redan registrerade svar, återkallade eller ogiltiga underlag och färdigmeddelanden ger inte rätt att skapa en ny godkännandelänk. Den här etappen förnyar inte läslänken till ett färdigt avtal.
+Vid återhämtning stoppas det gamla väntande mejlet och den nya generationen skapas atomiskt. Samtidig hantering av det gamla mejlet kan inte skapa ett andra utskick. Pågående, avvisade, stoppade eller okända leveranser förnyas inte genom återhämtningsåtgärden. Okänt leveransutfall kräver kontroll hos mejltjänsten.
+
+Kundens redan registrerade svar och återkallade eller ogiltiga underlag ger inte rätt att skapa en ny godkännandelänk. För ett verkligt färdigsignerat avtal förnyas enbart läslänken till samma PDF och signeringsbevis. Kunden kan inte signera någon part eller lämna ett nytt offertsvar med den länken. Tidigare underskrifter, arkiverade original och betalnings- eller leveransregistreringar ändras inte. Läslänken kan förnyas även efter genomförd leverans när dokumentets ordinarie behörighetskontroller fortfarande passerar.
 
 ## Beständigt försök och leverans
 

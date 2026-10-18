@@ -28,7 +28,7 @@ export async function dispatchReviewedCustomerDocumentRenewal(kind:Transactional
  try{return await dispatch(kind,reference.toLowerCase(),false,expectedEmailId.toLowerCase());}catch{return {status:'unavailable'};}
 }
 /** Compatibility for an immutable renewal receipt created before the reviewed lifecycle upgrade. */
-export async function dispatchGuestInvitationEmail(kind:'offer_invitation'|'contract_invitation',reference:string,emailId:string){if(!['offer_invitation','contract_invitation'].includes(kind))return{status:'unavailable'};return dispatchReviewedCustomerDocumentRenewal(kind,reference,emailId);}
+export async function dispatchGuestInvitationEmail(kind:'offer_invitation'|'contract_invitation'|'contract_completed',reference:string,emailId:string){return dispatchReviewedCustomerDocumentRenewal(kind,reference,emailId);}
 async function dispatch(kind:TransactionalEmail['kind']|null,reference:string|null,admin:boolean,expectedEmailId?:string):Promise<{status:string}>{
  const actor=admin?await requirePlatformAdminContext():null;
  if(emailConfigurationStatus(config(kind))!=='configured')return {status:'unconfigured'};

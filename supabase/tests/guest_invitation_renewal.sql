@@ -1,3 +1,6 @@
+-- HISTORICAL CHECKPOINT ONLY: requires the schema through 20261018164815.
+-- The old renewal creator is retired by later migrations. For current hosted
+-- verification use customer_document_renewal.sql and its separate cleanup query.
 -- Synthetic rollback-only guest delivery proof. Only the dealer has Auth.
 -- No token, account or invitation is created through an external Auth API.
 begin;

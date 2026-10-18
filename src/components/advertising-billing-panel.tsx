@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import {useDescendantBusy} from './use-descendant-busy';
 import { listAdvertisingBillingAction, getPlatformAdvertisingBillingAction, saveAdvertisingChannelRateAction, reconcileAdvertisingBillingAction, lockAdvertisingBillingPeriodAction } from '@/lib/advertising/billing-actions';
 import type { AdvertisingBillingPage } from '@/lib/advertising/billing-types';
 import type { AdvertisingChannel } from '@/lib/advertising/database.types';
@@ -14,10 +15,10 @@ const names = { blocket: 'Blocket', wayke: 'Wayke' };
 const date = (value: string) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Stockholm', dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
 function previousMonth() { const parts = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Stockholm', year: 'numeric', month: '2-digit' }).formatToParts(new Date()); const year = Number(parts.find(p => p.type === 'year')!.value), month = Number(parts.find(p => p.type === 'month')!.value); return `${month === 1 ? year - 1 : year}-${String(month === 1 ? 12 : month - 1).padStart(2, '0')}`; }
 type Review = { kind: 'rate' | 'reconcile'; channel: AdvertisingChannel; unitPriceOre: string; reason: string; confirmed: boolean } | { kind: 'lock'; confirmed: boolean; coverageConfirmed: boolean };
-type Props = { companyId: string; userId: string; role?: string; superadmin?: boolean; onDenied?: (message: string) => void };
+type Props = { companyId: string; userId: string; role?: string; superadmin?: boolean; onDenied?: (message: string) => void; onBusyChange?: (busy: boolean) => void };
 
 export function AdvertisingBillingPanel(props: Props) { return <Billing key={`${props.companyId}:${props.userId}:${props.role}:${props.superadmin}`} {...props}/>; }
-function Billing({ companyId, userId, role = 'platform_admin', superadmin = false, onDenied }: Props) {
+function Billing({ companyId, userId, role = 'platform_admin', superadmin = false, onDenied, onBusyChange }: Props) {
   const [month, setMonth] = useState(previousMonth);
   const [showCorrections, setShowCorrections] = useState(false);
   const [showInvoices, setShowInvoices] = useState(false);
@@ -29,9 +30,11 @@ function Billing({ companyId, userId, role = 'platform_admin', superadmin = fals
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [operationBusy, setBusy] = useState(false);
   const [denied, setDenied] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const descendant = useDescendantBusy(onBusyChange);
+  const busy = operationBusy || descendant.busy;
   const generation = useRef(0), alive = useRef(true), inFlight = useRef(false);
   const requests = useRef(new Map<string, string>());
   const deniedCallback = useRef(onDenied); deniedCallback.current = onDenied;
@@ -68,7 +71,7 @@ function Billing({ companyId, userId, role = 'platform_admin', superadmin = fals
     } catch (value) { setError(value instanceof Error ? value.message : 'Kontrollera priset.'); }
   }
   async function confirm() {
-    if (!superadmin || !page || !review?.confirmed || inFlight.current || denied || loading || (review.kind === 'lock' && page.coverage === 'partial' && !review.coverageConfirmed)) return;
+    if (!superadmin || !page || !review?.confirmed || descendant.busyRef.current || inFlight.current || denied || loading || (review.kind === 'lock' && page.coverage === 'partial' && !review.coverageConfirmed)) return;
     const revision = generation.current;
     const input = review.kind === 'rate'
       ? { companyId, channel: review.channel, unitPriceOre: review.unitPriceOre, expectedVersion: page.rates.find(rate => rate.channel === review.channel)?.version ?? 0 }
@@ -93,7 +96,7 @@ function Billing({ companyId, userId, role = 'platform_admin', superadmin = fals
     } catch { if (alive.current && generation.current === revision) setError('Åtgärdens resultat kunde inte verifieras. Läs in underlaget igen innan du försöker på nytt.'); }
     finally { inFlight.current = false; if (alive.current) setBusy(false); }
   }
-  return <section className="surface" style={{ marginTop: 24 }} aria-label="Kanalpriser och månadsavstämning"><div className="panel-heading"><h2>Kanalpriser och månadsavstämning</h2></div><div style={{ padding: 20, minWidth: 0 }}>
+  return <section className="surface advertising-financial-flow" style={{ marginTop: 24 }} aria-label="Kanalpriser och månadsavstämning"><div className="panel-heading"><h2>Kanalpriser och månadsavstämning</h2></div><div className="advertising-financial-body" style={{ padding: 20, minWidth: 0 }}>
     <p>Debitering per unik publicerad annons och kanal. Alla belopp är i SEK exklusive moms. Underlaget är ingen faktura.</p>
     <label style={{ display: 'grid', gap: 6, maxWidth: 240 }}>Avstämningsmånad<input type="month" value={month} required disabled={busy || denied} onChange={event => { ++generation.current; setPage(null); setReview(null); setPrice(''); setReason(''); setNotice(''); setMonth(event.target.value); }}/></label>
     <button className="button button-outline" style={{ marginTop: 12 }} disabled={loading || busy || denied || !month} onClick={() => { setPage(null); setReview(null); setNotice(''); setRefresh(value => value + 1); }}>Uppdatera prisunderlag</button>
@@ -122,10 +125,10 @@ function Billing({ companyId, userId, role = 'platform_admin', superadmin = fals
         {review.kind === 'lock' && page.coverage === 'partial' && <label style={{ display: 'flex', alignItems: 'start', gap: 10 }}><input type="checkbox" checked={review.coverageConfirmed} disabled={busy} style={{ width: 'auto' }} onChange={event => setReview({ ...review, coverageConfirmed: event.target.checked })}/><span>Jag har granskat den ofullständiga historiken och godkänner att låsa det registrerade underlaget.</span></label>}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><button type="button" className="button button-green" disabled={busy || !review.confirmed || (review.kind === 'lock' && page.coverage === 'partial' && !review.coverageConfirmed)} onClick={() => void confirm()}>{review.kind === 'lock' ? 'Bekräfta och lås underlaget' : 'Bekräfta och spara priset'}</button><button type="button" className="button button-outline" disabled={busy} onClick={() => setReview(null)}>Avbryt granskning</button></div>
       </section>}
-      {page.locked && !review && <button type="button" className="button button-outline" style={{ marginTop: 20 }} aria-expanded={showCorrections} onClick={() => setShowCorrections(value => !value)}>{showCorrections ? 'Dölj rättelser' : 'Visa rättelser av låst underlag'}</button>}
+      {page.locked && !review && <button type="button" className="button button-outline" style={{ marginTop: 20 }} disabled={busy} aria-expanded={showCorrections} onClick={() => setShowCorrections(value => !value)}>{showCorrections ? 'Dölj rättelser' : 'Visa rättelser av låst underlag'}</button>}
       {page.locked && showCorrections && <AdvertisingBillingCorrectionsPanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={page.month} originalId={page.locked.id} onDenied={message => failure({ code: 'access_denied', message })}/>}
-      {!review && <button type="button" className="button button-outline" style={{ marginTop: 20 }} aria-expanded={showInvoices} onClick={() => setShowInvoices(value => !value)}>{showInvoices ? 'Dölj faktureringsuppgifter och utkast' : 'Visa faktureringsuppgifter och utkast'}</button>}
-      {showInvoices && <AdvertisingInvoicePanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={page.month} onDenied={message => failure({ code: 'access_denied', message })}/>}
+      {!review && <button type="button" className="button button-outline" style={{ marginTop: 20 }} disabled={busy} aria-expanded={showInvoices} onClick={() => setShowInvoices(value => !value)}>{showInvoices ? 'Dölj faktureringsuppgifter och utkast' : 'Visa faktureringsuppgifter och utkast'}</button>}
+      {showInvoices && <AdvertisingInvoicePanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={page.month} onBusyChange={descendant.report} onDenied={message => failure({ code: 'access_denied', message })}/>}
     </>}
   </div></section>;
 }
