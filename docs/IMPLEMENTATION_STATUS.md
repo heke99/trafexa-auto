@@ -2,7 +2,7 @@
 
 ## Samlad projektgranskning 18 oktober
 
-[Projektgenomgången](PROJECT_REVIEW_20261018.md) samlar verifierade rättningar i superadminens arbetsflöden, handlarens kund-/teamvyer, utloggning och aktuell cookie-/integritetsinformation. Ursprunglig helkörning och separata nästlade databastester har skilts från de riktade rättningsproven. Slutlig verifiering och publiceringsidentitet följs i releasens PR; tvåfasuppgradering av ansökans informationsversion beskrivs i [driftinstruktionen](WEB_PRIVACY_OPERATIONS.md). Verkligt godkänt testmejl till alternativ mottagare är levererat; superadminkontot är oförändrat.
+[Projektgenomgången](PROJECT_REVIEW_20261018.md) samlar verifierade rättningar i superadminens arbetsflöden, handlarens kund-/teamvyer, utloggning och aktuell cookie-/integritetsinformation. Ursprunglig helkörning och separata nästlade databastester har skilts från de riktade rättningsproven. Rättningarna är publicerade via PR #56, main `de0475660f56905208e30fb0061260b9e6820344`, verifierad READY-produktion `dpl_CDvnqYaVMt8y3QA6JzLRp15PZaSN`. Samtliga 1918 faktiska appfall passerar över helkörningen och dokumentnavets två kompletterande fall efter återställt lokalt testberoende. Båda databasfaserna och rollback-/efterkontroll är verifierade; tvåfasuppgraderingen beskrivs i [driftinstruktionen](WEB_PRIVACY_OPERATIONS.md). Verkligt godkänt testmejl till alternativ mottagare är levererat; superadminkontot är oförändrat.
 
 
 ## Arkivpaket och isolerat återställningsprov, 18 oktober 2026
