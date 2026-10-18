@@ -1,5 +1,7 @@
 # Trafexa Dealer
 
+[Arkivpaket och isolerat återställningsprov](docs/CONTRACT_ARCHIVE_BACKUP.md) förbereder separat förvaring av signerade original och evidens. Extern lagringsplats är ännu inte vald.
+
 [Kontroll av arkiverade avtalsoriginal](docs/CONTRACT_ARCHIVE_INTEGRITY.md) skiljer registrerad arkivstatus från kontroll av de lagrade PDF- och evidensfilernas faktiska integritet.
 
 [Granskad förnyelse av dokumentlänkar](docs/CUSTOMER_DOCUMENT_LINK_RENEWAL.md) kompletterar offert- och avtalsmejl med status för länkens giltighet, uttrycklig granskning och en ny personlig länk till samma sparade mottagare och dokumentversion. Aktuell verifierings- och publiceringsstatus följs i [implementationsstatus](docs/IMPLEMENTATION_STATUS.md).

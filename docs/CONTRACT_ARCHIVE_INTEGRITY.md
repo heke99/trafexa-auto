@@ -20,4 +20,4 @@ Gränssnittet spärrar överlappande arkivåtgärder medan kontrollen pågår oc
 
 Kontrollen läser endast befintliga original. Den registrerar, laddar upp, ersätter, raderar eller skickar ingenting. Kontrolltiden är ett resultat i den aktuella vyn och utgör ingen beständig revisionspost eller framtida tillgänglighetsgaranti.
 
-Separat Storage-backup, bevarandetider och återställningsprov är fortsatta driftsteg. En lyckad kontroll visar integritet vid kontrolltillfället och ersätter inte en backup. Grundarkivets kontrakt finns i [NATIVE_CONTRACT_ARCHIVE](NATIVE_CONTRACT_ARCHIVE.md). Faktiskt körda prov och publicering redovisas i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
+[Portabel export och isolerat återställningsprov](CONTRACT_ARCHIVE_BACKUP.md) förbereder nästa steg. Extern Storage-backup, bevarandetider och kontrollerad produktionsåterställning är fortsatta driftsteg. En lyckad kontroll visar integritet vid kontrolltillfället och ersätter inte en backup. Grundarkivets kontrakt finns i [NATIVE_CONTRACT_ARCHIVE](NATIVE_CONTRACT_ARCHIVE.md). Faktiskt körda prov och publicering redovisas i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).

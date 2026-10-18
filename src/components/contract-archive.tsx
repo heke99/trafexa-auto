@@ -26,6 +26,10 @@ function ArchivePanel({ signing, companyId, userId, role }: Props) {
   const [acknowledged, setAcknowledged] = useState(false);
   const [writing, setWriting] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [packaging, setPackaging] = useState(false);
+  const [packageHash, setPackageHash] = useState<string | null>(null);
+  const [packageError, setPackageError] = useState('');
+  const packageAbort = useRef<AbortController | null>(null);
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
   const [integrityError, setIntegrityError] = useState('');
   const [retryAvailable, setRetryAvailable] = useState(false);
@@ -36,12 +40,12 @@ function ArchivePanel({ signing, companyId, userId, role }: Props) {
   const requestId = useRef<string | null>(null);
   const expectedRole = companyId ? role : 'customer';
   const canArchive = Boolean(companyId && ['owner', 'admin'].includes(role ?? ''));
-  const busy = writing || checking || read.phase === 'loading';
+  const busy = writing || checking || packaging || read.phase === 'loading';
   const verifiedNull = read.phase === 'ready' && read.archive === null;
 
   useEffect(() => {
     alive.current = true;
-    return () => { alive.current = false; sequence.current++; };
+    return () => { alive.current = false; sequence.current++; packageAbort.current?.abort(); };
   }, []);
 
   function matches(result: Extract<ContractArchiveResult, { ok: true }>) {
@@ -51,6 +55,7 @@ function ArchivePanel({ signing, companyId, userId, role }: Props) {
   }
 
   function invalidate() {
+    setPackageHash(null);
     setCheckedAt(null);
     requestId.current = null;
     setRetryAvailable(false);
@@ -62,7 +67,7 @@ function ArchivePanel({ signing, companyId, userId, role }: Props) {
     if (locked.current) return;
     locked.current = true;
     const token = ++sequence.current;
-    setCheckedAt(null); setIntegrityError('');
+    setCheckedAt(null); setIntegrityError(''); setPackageHash(null); setPackageError('');
     setRead({ phase: 'loading', archive: null });
     setReadError('');
     startAction(async () => {
@@ -99,7 +104,7 @@ function ArchivePanel({ signing, companyId, userId, role }: Props) {
     locked.current = true;
     const token = ++sequence.current;
     setWriting(true);
-    setCheckedAt(null); setIntegrityError('');
+    setCheckedAt(null); setIntegrityError(''); setPackageHash(null); setPackageError('');
     setRead({ phase: 'unverified', archive: null });
     setReadError('');
     setActionError('');
@@ -136,7 +141,7 @@ function ArchivePanel({ signing, companyId, userId, role }: Props) {
     if (!original || locked.current) return;
     locked.current = true;
     const token = ++sequence.current;
-    setChecking(true); setCheckedAt(null); setIntegrityError('');
+    setChecking(true); setCheckedAt(null); setIntegrityError(''); setPackageHash(null); setPackageError('');
     startAction(async () => {
       try {
         const result = await verifyContractArchiveAction({ signingId: signing.id, ...(companyId ? { companyId } : {}) });
@@ -157,6 +162,64 @@ function ArchivePanel({ signing, companyId, userId, role }: Props) {
     });
   }
 
+  async function downloadPackage() {
+    const original = read.phase === 'ready' ? read.archive : null;
+    if (!original || locked.current) return;
+    locked.current = true;
+    const token = ++sequence.current, controller = new AbortController();
+    let timedOut = false;
+    const timeout = setTimeout(() => { timedOut = true; controller.abort(); if (alive.current && token === sequence.current) setPackageError('Hämtningen tog för lång tid. Försök igen eller uppdatera arkivstatus.'); }, 90_000);
+    packageAbort.current = controller;
+    setPackaging(true); setPackageHash(null); setPackageError('');
+    const current = () => alive.current && token === sequence.current && !controller.signal.aborted;
+    const digest = async (bytes: Uint8Array<ArrayBuffer>) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), byte => byte.toString(16).padStart(2, '0')).join('');
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    try {
+      const metadata = [original.id,original.companyId,original.signingId,original.dealId,original.draftId,original.draftVersion,original.documentContentSha256,original.signingRevision,original.rendererVersion,original.evidenceSchemaVersion,original.archivedAt,original.pdf.objectPath,original.pdf.sha256,original.pdf.bytes,original.pdf.mimeType,original.evidence.objectPath,original.evidence.sha256,original.evidence.bytes,original.evidence.mimeType];
+      const metadataHash = await digest(new TextEncoder().encode(JSON.stringify(metadata)));
+      if (!current()) return;
+      const query = companyId ? `?companyId=${encodeURIComponent(companyId)}` : '';
+      const response = await fetch(`/api/contract-signings/${encodeURIComponent(signing.id)}/archive-package${query}`, { method: 'GET', credentials: 'same-origin', cache: 'no-store', redirect: 'error', signal: controller.signal });
+      if (!current()) return;
+      if (!response.ok) throw Error(response.status === 401 || response.status === 403 ? 'Din åtkomst till arkivpaketet kunde inte verifieras. Läs in avtalet igen.' : response.status === 409 ? 'Arkivpaketet kunde inte verifieras mot det aktuella originalet. Läs in arkivstatus igen.' : 'Arkivpaketet är tillfälligt otillgängligt. Läs in arkivstatus och försök igen.');
+      const header = (name: string) => response.headers.get(`X-Archive-${name}`);
+      const expectedFilename = `trafexa-avtalsarkiv-${signing.id}-${original.id}.tar`;
+      const packageDigest = header('Package-SHA256'), byteText = header('Package-Bytes');
+      const length = byteText && /^[1-9][0-9]*$/.test(byteText) ? Number(byteText) : 0;
+      const contentLength = response.headers.get('Content-Length');
+      if (header('Id') !== original.id || header('Signing-Id') !== signing.id || header('Company-Id') !== original.companyId || header('Actor-Id') !== userId || header('Actor-Role') !== expectedRole || header('Document-SHA256') !== original.documentContentSha256 || header('Metadata-SHA256') !== metadataHash || !packageDigest || !/^[a-f0-9]{64}$/.test(packageDigest) || !/^[a-f0-9]{64}$/.test(header('Manifest-SHA256') ?? '') || !Number.isSafeInteger(length) || length < 1 || length > 54 * 1024 * 1024 || contentLength !== null && contentLength !== byteText || response.headers.get('Content-Type') !== 'application/x-tar' || response.headers.get('Content-Disposition') !== `attachment; filename="${expectedFilename}"` || !response.body) throw Error('Arkivpaketets uppgifter kunde inte verifieras för aktuellt avtal och konto. Läs in arkivstatus igen.');
+      reader = response.body.getReader();
+      const parts: Uint8Array[] = []; let size = 0;
+      while (true) {
+        const part = await reader.read();
+        if (!current()) return;
+        if (part.done) break;
+        size += part.value.byteLength;
+        if (size > length || size > 54 * 1024 * 1024) throw Error('Arkivpaketets storlek stämmer inte med det verifierade underlaget. Läs in arkivstatus igen.');
+        parts.push(part.value);
+      }
+      if (size !== length) throw Error('Arkivpaketet kunde inte hämtas fullständigt. Läs in arkivstatus och försök igen.');
+      const bytes = new Uint8Array(size); let offset = 0;
+      for (const part of parts) { bytes.set(part, offset); offset += part.byteLength; }
+      const actualDigest = await digest(bytes);
+      if (!current()) return;
+      if (actualDigest !== packageDigest) throw Error('Arkivpaketets kontrollsumma stämmer inte. Läs in arkivstatus igen.');
+      const link = document.createElement('a'), url = URL.createObjectURL(new Blob([bytes], { type: 'application/x-tar' }));
+      try { link.href = url; link.download = expectedFilename; document.body.append(link); link.click(); setPackageHash(actualDigest); }
+      finally { link.remove(); setTimeout(() => URL.revokeObjectURL(url), 0); }
+    } catch (error) {
+      if (alive.current && token === sequence.current) {
+        if (!controller.signal.aborted) invalidate();
+        setPackageError(controller.signal.aborted ? timedOut ? 'Hämtningen tog för lång tid. Försök igen eller uppdatera arkivstatus.' : 'Hämtningen av arkivpaketet avbröts.' : error instanceof Error && (error.message.startsWith('Arkivpaket') || error.message.startsWith('Din åtkomst')) ? error.message : 'Arkivpaketet kunde inte hämtas. Läs in arkivstatus och försök igen.');
+      }
+    } finally {
+      clearTimeout(timeout);
+      if (reader) { try { await reader.cancel(); } catch {} reader.releaseLock(); }
+      locked.current = false;
+      if (alive.current && token === sequence.current) { packageAbort.current = null; setPackaging(false); }
+    }
+  }
+
   const query = companyId ? `?companyId=${encodeURIComponent(companyId)}` : '';
   const base = `/api/contract-signings/${encodeURIComponent(signing.id)}`;
   const stored = read.phase === 'ready' ? read.archive : null;
@@ -166,11 +229,13 @@ function ArchivePanel({ signing, companyId, userId, role }: Props) {
       {read.phase === 'idle' ? <p>Öppna panelen för att kontrollera arkivstatus.</p> : null}
       {read.phase === 'loading' ? <p role="status">Kontrollerar originalarkivet…</p> : null}
       {checking ? <p role="status">Kontrollerar originalfilerna…</p> : null}
+      {packaging ? <p role="status">Hämtar och kontrollerar arkivpaketet…</p> : null}
       {writing ? <p role="status">Arkiverar avtalsoriginal och signeringsbevis…</p> : null}
-      {stored ? <><p role="status"><strong>Originalet är arkiverat.</strong><br/>Arkiverat {new Date(stored.archivedAt).toLocaleString('sv-SE')}.</p><p style={{marginBlock:12}}>Arkivregistreringen visar vilka originalfiler som sparats. Filernas integritet kontrolleras separat när du begär det.</p>{checkedAt ? <p role="status" style={{marginBlock:12}}><strong>Originalfilernas integritet är kontrollerad.</strong><br/>Senast kontrollerat <time dateTime={checkedAt}>{new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Stockholm', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(checkedAt))}</time> (svensk tid). Kontrollen gäller de sparade filerna vid den tidpunkten.</p> : <p style={{marginBlock:12}}>Originalfilernas integritet har inte kontrollerats i den här vyn.</p>}<button type="button" className="button button-outline" style={{maxWidth:'100%',whiteSpace:'normal',marginBlock:12}} disabled={busy} onClick={verify}>Kontrollera originalfilerna</button><p className="form-note">PDF SHA-256: <span style={{ wordBreak: 'break-all' }}>{stored.pdf.sha256}</span><br/>Signeringsbevis SHA-256: <span style={{ wordBreak: 'break-all' }}>{stored.evidence.sha256}</span></p><p><a href={`${base}/pdf${query}`} download>Hämta arkiverat avtalsoriginal (PDF)</a><br/><a href={`${base}/evidence${query}`} download>Hämta arkiverat signeringsbevis</a></p></> : null}
+      {stored ? <><p role="status"><strong>Originalet är arkiverat.</strong><br/>Arkiverat {new Date(stored.archivedAt).toLocaleString('sv-SE')}.</p><p style={{marginBlock:12}}>Arkivregistreringen visar vilka originalfiler som sparats. Filernas integritet kontrolleras separat när du begär det.</p>{checkedAt ? <p role="status" style={{marginBlock:12}}><strong>Originalfilernas integritet är kontrollerad.</strong><br/>Senast kontrollerat <time dateTime={checkedAt}>{new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Stockholm', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(checkedAt))}</time> (svensk tid). Kontrollen gäller de sparade filerna vid den tidpunkten.</p> : <p style={{marginBlock:12}}>Du kan även kontrollera originalfilerna separat utan att hämta paketet.</p>}<button type="button" className="button button-outline" style={{maxWidth:'100%',whiteSpace:'normal',marginBlock:12}} disabled={busy} onClick={verify}>Kontrollera originalfilerna</button><div style={{marginBlock:16}}><p>Paketet innehåller PDF-originalet, signeringsbeviset och kontrollunderlag för separat förvaring.</p><button type="button" className="button button-outline" style={{maxWidth:'100%',whiteSpace:'normal',marginBlock:12}} disabled={busy} onClick={()=>void downloadPackage()}>Hämta arkivpaket</button>{packaging ? <button type="button" className="button button-outline" style={{maxWidth:'100%',whiteSpace:'normal',marginBlock:12}} onClick={()=>{packageAbort.current?.abort();setPackageError('Hämtningen av arkivpaketet avbröts.');}}>Avbryt hämtningen</button> : null}{packageHash ? <><p role="status">Arkivpaketet är kontrollerat och nedladdningen har startats. Spara paketet och kontrollsumman separat enligt era lagringsrutiner.</p><label style={{marginTop:12,fontSize:13}}>Arkivpaketets SHA-256<textarea aria-label="Arkivpaketets SHA-256" readOnly rows={3} value={packageHash} spellCheck={false} style={{maxWidth:'100%',fontFamily:'monospace'}}/></label></> : null}</div><p className="form-note">PDF SHA-256: <span style={{ wordBreak: 'break-all' }}>{stored.pdf.sha256}</span><br/>Signeringsbevis SHA-256: <span style={{ wordBreak: 'break-all' }}>{stored.evidence.sha256}</span></p><p><a href={`${base}/pdf${query}`} download>Hämta arkiverat avtalsoriginal (PDF)</a><br/><a href={`${base}/evidence${query}`} download>Hämta arkiverat signeringsbevis</a></p></> : null}
       {verifiedNull ? <><p><strong>Originalet har inte arkiverats.</strong> Kopiorna nedan genereras när de hämtas.</p><p><a href={`${base}/pdf${query}`} download>Hämta genererad PDF-kopia av signerat avtal</a><br/><a href={`${base}/evidence${query}`} download>Hämta genererad kopia av signeringsbevis</a></p></> : null}
       {read.phase === 'unverified' && !writing ? <p>Arkivstatus är inte verifierad. Kontrollera status innan du hämtar originalet.</p> : null}
       {readError ? <p role="alert">{readError}</p> : null}
+      {packageError ? <p role="alert">{packageError}</p> : null}
       {integrityError ? <p role="alert">{integrityError}</p> : null}
       {actionError ? <p role="alert">{actionError}</p> : null}
       {canArchive && (verifiedNull || retryAvailable) ? <div className="workspace-form" style={{ marginTop: 14 }}><label htmlFor={confirmationId} style={{ display: 'flex', flexDirection: 'row', gap: 8 }}><input id={confirmationId} type="checkbox" checked={acknowledged} disabled={busy} onChange={event => setAcknowledged(event.target.checked)} style={{ width: 'auto' }}/><span>Jag vill arkivera det färdigsignerade avtalet och signeringsbeviset som original.</span></label><button type="button" className="button button-green" disabled={busy || !acknowledged} onClick={archive}>{retryAvailable ? 'Försök arkivera original igen' : 'Arkivera avtalets original'}</button></div> : null}

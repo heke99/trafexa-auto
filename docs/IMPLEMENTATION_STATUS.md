@@ -1,5 +1,17 @@
 # Implementationsstatus
 
+## Arkivpaket och isolerat återställningsprov, 18 oktober 2026
+
+[Portabel export och återställningsprov](CONTRACT_ARCHIVE_BACKUP.md) fortsätter från PR #54. Användaren har valt förberedelse innan separat lagringsplats bestäms. Ett verifierat befintligt avtalsoriginal exporteras som ett standard-USTAR-paket med PDF, JSON-evidens och versionsmärkt underlag. Paketet och dess metadata kontrolleras i webbläsaren före nedladdning; kontrollsumman kan sparas separat. Ingen automatisk extern backup aktiveras.
+
+Serverns gemensamma läsning bevarar integritetsåtgärdens befintliga metadata-DTO. Paketexporten verifierar båda faktiska originalfiler och källdata samt läser aktuell behörighet och fullständigt underlag på nytt efter serialisering. Svaret strömmas i högst 64 KiB stora delar, med privat/no-store, nosniff och strikt aktörs-/arkivbindning. Saknat eller skadat original ger inget paket. Offlineverktyget kräver betrodd extern SHA-256 före tolkning och återställer bara fasta filnamn till en ny privat katalog; befintliga filer och länkar skrivs inte över. Varje återställd fil återläses före ett lokalt kontrollprotokoll.
+
+Slutlig arkiv-UI-körning passerar **89/89 fall**, inklusive 35 nya paketfall, och de omgivande avtals-/signerings-/djuplänksvyerna passerar **22/22**. WebCrypto, faktiskt nedladdade bytes, roll-/metadata-/kontrollsummefel, avbrott, sena svar, 90-sekundersgräns, återstart efter offlinefel och tangentbord i 320 px verifieras. Mobilbilden är visuellt granskad. Produktionsbygge inklusive TypeScript passerar.
+
+Samlad server-/paket-/CLI-/regressionskörning passerar **68/68 fall** utan fel eller överhoppade fall. Den omfattar nio paketfall, sex CLI-fall, sex ursprungliga export-routefall, sju befintliga integritetsåtgärdsfall, tio faktiska integritetsresor, sju originalarkivresor och 23 befintliga arkiv-/transport-/nedladdningsfall. Därefter passerar export-routens **7/7 fall**, med ett nytt faktiskt paket över 5 MiB: flera strömmande delar, ingen Content-Length och bitidentiska återställda original. De sex övriga routefallen överlappar 68-fallskörningen och adderas inte. Standardbiblioteket Python tarfile läser paketet oberoende av Trafexas parser, med exakt tre vanliga filer och rättighet 0600. Isolerat återställningsprov verifierar rättigheterna 0700/0600, identiska PDF-/JSON-bytes, separat hashkrav och nekad överskrivning. Oberoende läsgranskning av paketkärna, offlineverktyg, route och gemensam behörighetskontroll har inga blockerande fynd.
+
+Ingen migration, serverhemlighet, lagringsleverantör, kundfil, produktionsåterställning eller mejlsändning skapas av etappen. Backendproven använder faktisk renderer, parsers och paketkod mot isolerade Auth/RPC/Storage-transporter. Faktisk produktionsnedladdning i en autentiserad kundsession, separat lagringsplats, backupfrekvens, kryptering/bevarandetid och granskad produktionsåterställning kvarstår som driftsteg. PR/main och exakt READY-deployment återläses i releasens PR.
+
 ## Integritetskontroll av arkiverade avtalsoriginal, 18 oktober 2026
 
 [Kontrollen av originalfiler](CONTRACT_ARCHIVE_INTEGRITY.md) kompletterar avtalspanelen efter PR #52. Arkivregistrering och en lyckad kontroll av filernas faktiska integritet visas separat. Kontrollen kräver uttrycklig knapptryckning och verifierar både PDF och JSON, storlek, SHA-256, parbindning, signaturer, aktuellt underlag och fortsatt behörighet. Saknat arkiv ger ingen kontrolltid. Avbrott, skada och ändrad behörighet ger inget lyckat resultat och ingen genererad ersättning.
