@@ -1,4 +1,12 @@
-# Planläge 15 oktober 2026
+# Planläge 18 oktober 2026
+
+## Aktuell fortsättning 18 oktober
+
+[Sammanhängande användarflöden](WORKFLOW_CONTINUITY_20261018.md) rättar företagsval, återgång från ytterligare företagsanslutning och tomma register. Superadmins kontoinbjudningar får beständig status, samordnad upptagetspärr, granskad förnyelse och en väg för ny granskning när handläggningen ändrats före kontoskapandet. Öppen registrering förblir stängd.
+
+Nästa punkt har byggts parallellt: [manuell betalningsavstämning av annonsfakturor](ADVERTISING_PAYMENT_RECONCILIATION.md), med delbetalning, överskott, oföränderliga journalposter och granskad rättelse. Detta gäller Trafexas annonsfakturor; handlarens affärsbetalningar och leverans finns sedan tidigare. Banköverföring och återbetalning utförs inte av avstämningen.
+
+Slutlig verifiering, main och produktion dokumenteras separat i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md). Följande daterade avsnitt bevarar tidigare checkpoints; äldre 'nästa steg' ska läsas mot denna aktuella fortsättning. Närmaste återstående ekonomiarbete är export/bokföringsavstämning. Bank- och kanalaktivering kräver fortfarande avtal och faktisk partneråtkomst.
 
 [Kontoinbjudningar efter granskad webbansökan](ACCOUNT_APPROVAL_CONTRACT.md) ersätter öppen registrering. Inloggningssidan erbjuder ansökan; superadmin granskar och godkänner innan ett konto kan aktiveras via personlig Resend-inbjudan. Befintliga aldrig inloggade, obekräftade e-postkonton kan tas in efter samma granskning med atomisk återställning av tidigare lösenord och sessioner. Privata rättigheter, e-postverifiering och företagsbehörighet är separata. Lösenordsåterställning kräver fortfarande separat Supabase SMTP; automatiskt återutskick av okända eller utgångna inbjudningar ingår inte.
 

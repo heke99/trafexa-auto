@@ -70,9 +70,9 @@ async function withConfig(run) {
   try { await run(); } finally { for (const key of keys) { if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key]; } }
 }
 
-async function dispatchHarness({ mode = 'generate', revoked = false, linkUser = userId, linkToken = token, sendStatus = 'sent', prebound = false } = {}) {
-  const calls = [], job = { invitationId: id, actorUserId: actorId, leaseId, status: mode, email: invitation.email, userId: mode === 'generate' && !prebound ? null : userId, firstAttemptAt: mode === 'send' ? new Date().toISOString() : null, ciphertext: null };
-  if (mode === 'send') job.ciphertext = content.encryptInvitationBody(content.renderAccountInvitationBody({ invitationId: id, email: invitation.email, name: invitation.name, tokenHash: token }), id, secret);
+async function dispatchHarness({ mode = 'generate', revoked = false, linkUser = userId, linkToken = token, sendStatus = 'sent', prebound = false, deliveryId = id, changedGeneration = false } = {}) {
+  const calls = [], job = { invitationId: id, deliveryId, actorUserId: actorId, leaseId, status: mode, email: invitation.email, userId: mode === 'generate' && !prebound ? null : userId, firstAttemptAt: mode === 'send' ? new Date().toISOString() : null, ciphertext: null };
+  if (mode === 'send') job.ciphertext = content.encryptInvitationBody(content.renderAccountInvitationBody({ invitationId: id, email: invitation.email, name: invitation.name, tokenHash: token }), deliveryId, secret);
   const db = { rpc: async (name) => { calls.push(name); return { data: { ...job }, error: null }; } };
   let checks = 0;
   const service = { auth: { admin: { generateLink: async input => {
@@ -80,9 +80,9 @@ async function dispatchHarness({ mode = 'generate', revoked = false, linkUser = 
     return { data: { properties: { hashed_token: linkToken, verification_type: 'invite' }, user: { id: linkUser, email: invitation.email } }, error: null };
   } } }, rpc: async (name, input) => {
     calls.push([name, input]);
-    if (name.startsWith('get_')) { checks++; if (revoked && checks >= 3) return { data: null, error: { code: '42501' } }; return { data: { ...job }, error: null }; }
+    if (name.startsWith('get_')) { checks++; if (revoked && checks >= 3) return { data: null, error: { code: '42501' } }; return { data: { ...job, ...(changedGeneration ? { deliveryId: userId } : {}) }, error: null }; }
     if (name.startsWith('bind_')) { job.status = 'send'; job.ciphertext = input.p_ciphertext; job.firstAttemptAt = new Date().toISOString(); return { data: { ...job }, error: null }; }
-    if (name.startsWith('finish_')) return { data: { invitationId: id, actorUserId: actorId, leaseId, outcome: input.p_outcome, providerId: input.p_provider_id }, error: null };
+    if (name.startsWith('finish_')) return { data: { invitationId: id, deliveryId, actorUserId: actorId, leaseId, outcome: input.p_outcome, providerId: input.p_provider_id }, error: null };
     throw Error('Unexpected RPC');
   } };
   const privateLoader = await createSourceLoader({ '@supabase/supabase-js': { createClient: () => service }, '@/lib/platform-admin/context': { requirePlatformAdminContext: async () => ({ db, userId: actorId }) }, './account-invitation-transport': { sendAccountInvitation: async input => { calls.push(['send', input]); return sendStatus === 'sent' ? { status: 'sent', providerId: 'synthetic-id' } : { status: sendStatus }; } } });
@@ -136,5 +136,27 @@ test('Malformed provider invitation hashes fail before persistence or provider d
     const { server, calls } = await dispatchHarness({ linkToken });
     await assert.rejects(server.dispatchAccountInvitation(invitation));
     assert.equal(calls.some(call => Array.isArray(call) && ['bind_platform_application_invitation_delivery', 'send'].includes(call[0])), false);
+  }
+}));
+
+test('Renewed generation binds encryption and provider idempotency to its own reviewed identity', async () => withConfig(async () => {
+  const renewedId = '99300000-0000-4000-8000-000000000099';
+  const { server, calls } = await dispatchHarness({ deliveryId: renewedId, prebound: true });
+  assert.equal(await server.dispatchAccountInvitation(invitation, { expectedDeliveryId: renewedId }), 'sent');
+  const bound = calls.find(call => Array.isArray(call) && call[0] === 'bind_platform_application_invitation_delivery')[1];
+  const send = calls.find(call => Array.isArray(call) && call[0] === 'send')[1];
+  assert.equal(send.invitationId, id); assert.equal(send.deliveryId, renewedId);
+  assert.equal(content.decryptInvitationBody(bound.p_ciphertext, renewedId, secret), send.body);
+  assert.throws(() => content.decryptInvitationBody(bound.p_ciphertext, id, secret));
+  const keys = [];
+  for (const deliveryId of [id, renewedId, renewedId]) await transport.sendAccountInvitation({ ...send, deliveryId }, async (_url, options) => { keys.push(options.headers['Idempotency-Key']); return Response.json({ id: 'synthetic' }); });
+  assert.notEqual(keys[0], keys[1]); assert.equal(keys[1], keys[2]);
+}));
+
+test('A stale reviewed generation or changed claim cannot rotate a token or send an unrelated newer invitation', async () => withConfig(async () => {
+  for (const options of [{ deliveryId: actorId }, { changedGeneration: true }]) {
+    const { server, calls } = await dispatchHarness(options);
+    await assert.rejects(server.dispatchAccountInvitation(invitation, { expectedDeliveryId: id }));
+    assert.equal(calls.some(call => Array.isArray(call) && ['generate', 'send'].includes(call[0])), false);
   }
 }));

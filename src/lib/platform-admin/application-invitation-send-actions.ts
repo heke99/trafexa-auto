@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { requirePlatformAdminContext, PlatformAdminError } from './context';
-import { getPlatformApplicationInvitationAction, preparePlatformApplicationInvitationAction } from './application-invitation-actions';
+import { getPlatformApplicationInvitationAction, preparePlatformApplicationInvitationAction, repreparePlatformApplicationInvitationAction } from './application-invitation-actions';
 import { invitationRecord, parsePrepareApplicationInvitationInput, ApplicationInvitationError } from './application-invitation-validation';
 import { accountInvitationConfigured, dispatchAccountInvitation } from '@/lib/email/account-invitation-server';
 
@@ -16,11 +16,20 @@ export async function inviteApprovedApplicationAction(value: unknown): Promise<R
     if (!accountInvitationConfigured()) return { ok: true, invitationId: '', email: '', status: 'not_configured' };
     const existing = await getPlatformApplicationInvitationAction({ applicationId: input.applicationId });
     if (!existing.ok) return { ok: false, code: existing.code === 'access_denied' ? 'forbidden' : 'unavailable' };
-    if (existing.invitation && (existing.invitation.actorUserId !== actor.userId || existing.invitation.applicationVersion !== input.expectedVersion || existing.invitation.reason !== input.reason)) return { ok: false, code: 'conflict' };
-    const prepared = existing.invitation && existing.invitation.status !== 'expired' ? { ok: true as const, invitation: existing.invitation } : await preparePlatformApplicationInvitationAction(existing.invitation ? { ...input, requestId: existing.invitation.requestId } : input);
+    if (existing.lifecycle.applicationVersion !== input.expectedVersion) return { ok: false, code: 'conflict' };
+    const replacesPreparation = existing.invitation !== null && !existing.invitation.userId && existing.invitation.applicationVersion !== input.expectedVersion;
+    if (existing.invitation && (existing.invitation.actorUserId !== actor.userId || !replacesPreparation && existing.invitation.reason !== input.reason)) return { ok: false, code: 'conflict' };
+    let expectedDeliveryId = existing.lifecycle.delivery.id;
+    let prepared;
+    if (replacesPreparation && existing.invitation) {
+      prepared = await repreparePlatformApplicationInvitationAction({ applicationId: input.applicationId, invitationId: existing.invitation.id, expectedApplicationVersion: existing.invitation.applicationVersion, expectedVersion: input.expectedVersion, reason: input.reason, requestId: input.requestId, reviewAcknowledged: true });
+      if (prepared.ok) expectedDeliveryId = prepared.deliveryId;
+    } else {
+      prepared = existing.invitation && existing.invitation.status !== 'expired' ? { ok: true as const, invitation: existing.invitation } : await preparePlatformApplicationInvitationAction(existing.invitation ? { ...input, requestId: existing.invitation.requestId } : input);
+    }
     if (!prepared.ok) return { ok: false, code: prepared.code === 'access_denied' ? 'forbidden' : ['conflict', 'invalid_input', 'existing_account'].includes(prepared.code) ? prepared.code as 'conflict' | 'invalid_input' | 'existing_account' : 'unavailable' };
-    if (prepared.invitation.actorUserId !== actor.userId || prepared.invitation.applicationVersion !== input.expectedVersion || prepared.invitation.reason !== input.reason) return { ok: false, code: 'conflict' };
-    const status = await dispatchAccountInvitation(prepared.invitation);
+    if (prepared.invitation.actorUserId !== actor.userId || !prepared.invitation.userId && prepared.invitation.applicationVersion !== input.expectedVersion || prepared.invitation.reason !== input.reason) return { ok: false, code: 'conflict' };
+    const status = await dispatchAccountInvitation(prepared.invitation, expectedDeliveryId ? { expectedDeliveryId } : {});
     if (status === 'busy' || status === 'retryable') return { ok: false, code: 'unavailable' };
     try { revalidatePath('/admin'); } catch { /* A persisted delivery remains independently readable. */ }
     return { ok: true, invitationId: prepared.invitation.id, email: prepared.invitation.email, status };

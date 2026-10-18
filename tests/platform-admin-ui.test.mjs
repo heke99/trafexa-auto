@@ -26,7 +26,7 @@ before(async () => {
   const config = {
     plugins: [new LimitChunkCountPlugin({maxChunks:1})], mode: 'development', target: 'web', devtool: false, context: repo,
     entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js', publicPath: '' },
-    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/platform-admin/membership-actions': resolve(repo, 'tests/helpers/platform-memberships-ui/membership-actions.js'), '@/lib/platform-admin/application-invitation-actions': resolve(helpers, 'application-invitation-actions.js'), '@/lib/platform-admin/application-invitation-send-actions': resolve(helpers, 'application-invitation-send-actions.js'), '@/lib/advertising/invoice-email-actions': resolve(repo, 'tests/helpers/advertising-invoice-email-ui/actions.js'), '@/lib/advertising/invoice-email-send-actions': resolve(repo, 'tests/helpers/advertising-invoice-email-ui/send-actions.js'), '@/lib/blocket-provisioning/actions': resolve(repo, 'tests/helpers/blocket-provisioning-ui/actions.js'), '@/lib/advertising/credit-actions': resolve(repo, 'tests/helpers/advertising-credit-ui/actions.js'), '@/lib/advertising/issuance-actions': resolve(repo, 'tests/helpers/advertising-issuance-ui/actions.js'), '@/lib/advertising/financial-actions': resolve(repo, 'tests/helpers/advertising-financial-ui/actions.js'), '@/lib/advertising/invoice-actions': resolve(repo, 'tests/helpers/advertising-invoice-ui/actions.js'), '@/lib/advertising/correction-actions': resolve(repo, 'tests/helpers/advertising-corrections-ui/actions.js'), '@/lib/advertising/billing-actions': resolve(repo, 'tests/helpers/advertising-billing-ui/actions.js'), '@/lib/calculations/vehicle-calculation': resolve(repo, 'src/lib/calculations/vehicle-calculation.ts'), '@/lib/advertising/usage-actions': resolve(repo, 'tests/helpers/advertising-usage-ui/actions.js'), '@/lib/advertising/actions': resolve(repo, 'tests/helpers/advertising-ui/actions.js'), '@/lib/platform-admin/actions': resolve(helpers, 'actions.js'), 'next/navigation': resolve(helpers, 'navigation.js'), '@/lib/platform-admin/overview-actions': resolve(helpers, 'overview-actions.js'), '@/lib/platform-admin/account-actions': resolve(helpers, 'account-actions.js') } },
+    resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/platform-admin/membership-actions': resolve(repo, 'tests/helpers/platform-memberships-ui/membership-actions.js'), '@/lib/platform-admin/application-invitation-actions': resolve(helpers, 'application-invitation-actions.js'), '@/lib/platform-admin/application-invitation-send-actions': resolve(helpers, 'application-invitation-send-actions.js'), '@/lib/platform-admin/application-invitation-renew-actions': resolve(helpers, 'application-invitation-renew-actions.js'), '@/lib/advertising/payment-actions': resolve(repo,'tests/helpers/advertising-payment-ui/unavailable-actions.js'), '@/lib/advertising/invoice-email-actions': resolve(repo, 'tests/helpers/advertising-invoice-email-ui/actions.js'), '@/lib/advertising/invoice-email-send-actions': resolve(repo, 'tests/helpers/advertising-invoice-email-ui/send-actions.js'), '@/lib/blocket-provisioning/actions': resolve(repo, 'tests/helpers/blocket-provisioning-ui/actions.js'), '@/lib/advertising/credit-actions': resolve(repo, 'tests/helpers/advertising-credit-ui/actions.js'), '@/lib/advertising/issuance-actions': resolve(repo, 'tests/helpers/advertising-issuance-ui/actions.js'), '@/lib/advertising/financial-actions': resolve(repo, 'tests/helpers/advertising-financial-ui/actions.js'), '@/lib/advertising/invoice-actions': resolve(repo, 'tests/helpers/advertising-invoice-ui/actions.js'), '@/lib/advertising/correction-actions': resolve(repo, 'tests/helpers/advertising-corrections-ui/actions.js'), '@/lib/advertising/billing-actions': resolve(repo, 'tests/helpers/advertising-billing-ui/actions.js'), '@/lib/calculations/vehicle-calculation': resolve(repo, 'src/lib/calculations/vehicle-calculation.ts'), '@/lib/advertising/usage-actions': resolve(repo, 'tests/helpers/advertising-usage-ui/actions.js'), '@/lib/advertising/actions': resolve(repo, 'tests/helpers/advertising-ui/actions.js'), '@/lib/platform-admin/actions': resolve(helpers, 'actions.js'), 'next/navigation': resolve(helpers, 'navigation.js'), '@/lib/platform-admin/overview-actions': resolve(helpers, 'overview-actions.js'), '@/lib/platform-admin/account-actions': resolve(helpers, 'account-actions.js') } },
     module: { rules: [{ test: /\.tsx?$/, use: resolve(helpers, 'swc-loader.cjs') }] },
   };
   await new Promise((resolveBuild, reject) => {
@@ -310,7 +310,7 @@ test('invitation access denial clears application data and disables administrati
   await expect(page.getByText('invited@example.test',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeDisabled();
  }finally{await page.close();}
 });
-test('reviewed invitation fits mobile widths and changing application discards an in-flight response',async()=>{
+test('reviewed invitation fits mobile widths and blocks navigation and competing mutations while sending',async()=>{
  const application={...invitationApplication,email:`${'longrecipient'.repeat(8)}@example.test`};
  const page=await setup({application,contactResponses:[{ok:true,requests:[application],nextPageKey:null}],invitationResponses:[{hold:true}]});
  try {
@@ -322,10 +322,14 @@ test('reviewed invitation fits mobile widths and changing application discards a
   await page.getByRole('checkbox',{name:`Jag har granskat ansökan och godkänner kontot för ${application.email}.`}).check();
   await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
   await page.waitForFunction(()=>typeof window.releaseInvitation==='function');
-  await page.getByRole('button',{name:/Tillbaka till ansökningar/}).click();
+  await expect(page.getByRole('button',{name:/Tillbaka till ansökningar/})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Inkomna ansökningar',exact:true})).toBeDisabled();
+  await expect(page.getByLabel('Ny handläggningsstatus')).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Radera personuppgifter',exact:true})).toBeDisabled();
   await page.evaluate(()=>window.releaseInvitation({ok:true,status:'sent',invitationId:'50000000-0000-4000-8000-000000000001',email:window.fixture.application.email}));
+  await expect(page.getByRole('button',{name:/Tillbaka till ansökningar/})).toBeEnabled();
+  await page.getByRole('button',{name:/Tillbaka till ansökningar/}).click();
   await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'})).toHaveCount(0);
-  await expect(page.getByText('Kontoinbjudan har skickats',{exact:false})).toHaveCount(0);
  }finally{await page.close();}
 });
 test('reopening a prepared invitation reuses persisted reason and request identity without claiming delivery',async()=>{
@@ -335,7 +339,7 @@ test('reopening a prepared invitation reuses persisted reason and request identi
  try {
   await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();await page.getByRole('button',{name:/Visa ansökan/}).click();
   await expect(page.getByLabel('Motivering för kontogodkännande')).toHaveValue(previous.reason);await expect(page.getByLabel('Motivering för kontogodkännande')).toBeDisabled();
-  await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'}).getByRole('status')).toContainText('Tidigare förberedelse betyder inte att mejlet har levererats');
+  await expect(page.getByText('Inte påbörjat',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();await page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'}).check();
   await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
   await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'}).getByRole('status')).toContainText('har redan tagit emot välkomstmejlet');
@@ -514,4 +518,147 @@ test('application detail presentation stays readable at mobile and desktop width
    assert.equal(await page.evaluate(()=>window.fixture.applicationStatusCalls.length+window.fixture.invitationCalls.length+window.fixture.eraseCalls.length),0);
   } finally {await page.close();}
  }
+});
+
+const lifecycleInvitation = { id: '50000000-0000-4000-8000-000000000001', applicationId: COMPANY, applicationVersion: 2, actorUserId: '30000000-0000-4000-8000-000000000001', requestId: '60000000-0000-4000-8000-000000000001', reason: 'Tidigare granskning.', status: 'created', userId: '80000000-0000-4000-8000-000000000001' };
+function lifecycleRead(state = 'sent', overrides = {}) {
+ return { ok: true, invitation: lifecycleInvitation, lifecycle: { applicationVersion: 3, delivery: { id: '70000000-0000-4000-8000-000000000001', state, attemptCount: 1, firstAttemptAt: '2026-10-18T09:00:00Z', updatedAt: '2026-10-18T09:00:01Z', canRetry: false }, account: { emailVerified: false, approvalStatus: 'approved' }, canRenew: false, ...overrides } };
+}
+async function openLifecycle(page) {
+ await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();
+ await page.getByRole('button',{name:/Visa ansökan/}).click();
+ await expect(page.getByRole('button',{name:'Uppdatera kontoinbjudans status'})).toBeVisible();
+}
+test('persisted invitation distinguishes provider acceptance, email verification and account access after case status change',async()=>{
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationReadResponses:[lifecycleRead(),lifecycleRead('sent',{account:{emailVerified:true,approvalStatus:'approved'}})]});
+ try {
+  await openLifecycle(page);
+  await expect(page.getByText('Mottaget av mejltjänsten',{exact:true})).toBeVisible();
+  await expect(page.getByText('E-post ej bekräftad',{exact:true})).toBeVisible();
+  await expect(page.getByText('Mejltjänstens mottagande bekräftar inte leverans till inkorgen.')).toBeVisible();
+  await expect(page.getByText(/Den tidigare granskningen kan inte användas/)).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Granska godkännande',exact:true})).toBeDisabled();
+  await page.getByRole('button',{name:'Uppdatera kontoinbjudans status'}).click();
+  await expect(page.getByText('E-post bekräftad',{exact:true})).toBeVisible();
+  assert.equal(await page.evaluate(()=>window.fixture.invitationCalls.length),0);
+ }finally{await page.close();}
+});
+test('unknown and rejected invitation delivery remain visible without offering ordinary retry',async()=>{
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationReadResponses:[lifecycleRead('unknown'),lifecycleRead('rejected')]});
+ try {
+  await openLifecycle(page);await expect(page.getByText('Okänt utskicksresultat',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Granska godkännande',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Granska förnyelse',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Uppdatera kontoinbjudans status'}).click();
+  await expect(page.getByText('Utskicket avvisades',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Granska godkännande',exact:true})).toBeDisabled();
+  assert.equal(await page.evaluate(()=>window.fixture.invitationCalls.length),0);
+ }finally{await page.close();}
+});
+test('refresh discards stale invitation controls and fails closed until status can be read again',async()=>{
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationReadResponses:[lifecycleRead('sent',{canRenew:true}),{throw:true},{ok:true,invitation:null}]});
+ try {
+  await openLifecycle(page);await page.getByLabel('Motivering för förnyelse').fill('Fel adress kontrollerad.');
+  await page.getByRole('button',{name:'Granska förnyelse'}).click();
+  await page.getByRole('button',{name:'Uppdatera kontoinbjudans status'}).click();
+  await expect(page.getByRole('form',{name:'Förnya kontoinbjudan'})).toHaveCount(0);
+  await expect(page.getByRole('alert')).toContainText('Kontoinbjudans status kunde inte läsas in');
+  await page.getByRole('button',{name:'Kontrollera kontoinbjudan igen'}).click();
+  await expect(page.getByLabel('Motivering för kontogodkännande')).toHaveValue('');
+  await expect(page.getByLabel('Motivering för kontogodkännande')).toBeEnabled();
+ }finally{await page.close();}
+});
+test('renewal requires separate review and explicit old-link invalidation and blocks competing admin changes',async()=>{
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationReadResponses:[lifecycleRead('sent',{canRenew:true}),lifecycleRead('unknown')]});
+ try {
+  await page.evaluate(()=>{window.fixture.renewResponses=[{hold:true}];});await openLifecycle(page);
+  await page.getByLabel('Motivering för förnyelse').fill('Kunden behöver en ny länk.');
+  await page.getByRole('button',{name:'Granska förnyelse'}).click();
+  await expect(page.getByRole('heading',{name:'Förnya kontoinbjudan',exact:true})).toBeFocused();
+  for(const width of [320,375,768]) { await page.setViewportSize({width,height:900}); assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true); }
+  await expect(page.getByRole('button',{name:'Bekräfta och skicka ny kontoinbjudan'})).toBeDisabled();
+  assert.equal(await page.evaluate(()=>window.fixture.renewCalls?.length??0),0);
+  await page.getByRole('checkbox',{name:/Jag bekräftar att den tidigare aktiveringslänken/}).check();
+  await page.getByRole('button',{name:'Bekräfta och skicka ny kontoinbjudan'}).click();
+  await page.waitForFunction(()=>typeof window.releaseRenewal==='function');
+  await expect(page.getByLabel('Ny handläggningsstatus')).toBeDisabled();
+  await expect(page.getByRole('button',{name:/Tillbaka till ansökningar/})).toBeDisabled();
+  await page.evaluate(()=>window.releaseRenewal({ok:true,status:'unknown',invitationId:'50000000-0000-4000-8000-000000000001',email:window.fixture.application.email}));
+  await expect(page.getByText('Okänt utskicksresultat',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Granska förnyelse'})).toHaveCount(0);
+  await expect(page.getByLabel('Ny handläggningsstatus')).toBeEnabled();
+  const [call]=await page.evaluate(()=>window.fixture.renewCalls);
+  assert.equal(call.invitationId,lifecycleInvitation.id);assert.equal(call.expectedVersion,3);assert.equal(call.expectedDeliveryId,'70000000-0000-4000-8000-000000000001');assert.equal(call.acknowledged,true);assert.equal(call.invalidatesPreviousLink,true);assert.equal(call.reason,'Kunden behöver en ny länk.');
+  assert.equal(await page.evaluate(()=>window.fixture.invitationCalls.length),0);
+ }finally{await page.close();}
+});
+test('failed renewal retains the exact reviewed request for deliberate retry after a fresh lifecycle read',async()=>{
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationReadResponses:[lifecycleRead('sent',{canRenew:true}),lifecycleRead('sent',{canRenew:true}),lifecycleRead('sent')]});
+ try {
+  await page.evaluate(()=>{window.fixture.renewResponses=[{throw:true}];});await openLifecycle(page);
+  await page.getByLabel('Motivering för förnyelse').fill('Kunden behöver en ny länk.');await page.getByRole('button',{name:'Granska förnyelse'}).click();
+  await page.getByRole('checkbox',{name:/Jag bekräftar att den tidigare aktiveringslänken/}).check();await page.getByRole('button',{name:'Bekräfta och skicka ny kontoinbjudan'}).click();
+  await expect(page.getByRole('alert')).toContainText('resultat kunde inte verifieras');
+  await expect(page.getByRole('button',{name:'Bekräfta och skicka ny kontoinbjudan'})).toBeEnabled();await page.getByRole('button',{name:'Bekräfta och skicka ny kontoinbjudan'}).click();
+  await expect(page.getByRole('button',{name:'Granska förnyelse'})).toHaveCount(0);
+  const calls=await page.evaluate(()=>window.fixture.renewCalls);assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);
+ }finally{await page.close();}
+});
+
+ test('a changed renewal generation clears the previous acknowledgement before another reviewed renewal',async()=>{
+ const changed=lifecycleRead('rejected',{canRenew:true});changed.lifecycle.delivery.id='70000000-0000-4000-8000-000000000002';
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationReadResponses:[lifecycleRead('sent',{canRenew:true}),changed]});
+ try {
+  await page.evaluate(()=>{window.fixture.renewResponses=[{throw:true}];});await openLifecycle(page);
+  await page.getByLabel('Motivering för förnyelse').fill('Ny länk efter granskning.');await page.getByRole('button',{name:'Granska förnyelse'}).click();
+  await page.getByRole('checkbox',{name:/Jag bekräftar att den tidigare aktiveringslänken/}).check();await page.getByRole('button',{name:'Bekräfta och skicka ny kontoinbjudan'}).click();
+  await expect(page.getByText('Utskicket avvisades',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Granska förnyelse'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Bekräfta och skicka ny kontoinbjudan'})).toHaveCount(0);
+  await page.getByRole('button',{name:'Granska förnyelse'}).click();
+  await expect(page.getByRole('checkbox',{name:/Jag bekräftar att den tidigare aktiveringslänken/})).not.toBeChecked();
+  assert.equal(await page.evaluate(()=>window.fixture.renewCalls.length),1);
+ }finally{await page.close();}
+});
+
+test('an expired unconsumed approval intent can be explicitly reviewed again without claiming that the activation link expired',async()=>{
+ const expired={...lifecycleInvitation,applicationVersion:3,status:'expired',userId:null};
+ const initial=lifecycleRead('not_started',{delivery:{id:null,state:'not_started',attemptCount:0,firstAttemptAt:null,updatedAt:null,canRetry:true},account:{emailVerified:null,approvalStatus:null}});initial.invitation=expired;
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationReadResponses:[initial]});
+ try{
+  await openLifecycle(page);await expect(page.getByRole('button',{name:'Granska godkännande',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();
+  assert.equal(await page.evaluate(()=>window.fixture.invitationCalls.length),0);
+  await page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'}).check();
+  await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
+  const calls=await page.evaluate(()=>window.fixture.invitationCalls);assert.equal(calls.length,1);assert.equal(calls[0].requestId,expired.requestId);
+  await expect(page.getByText(/aktiveringslänken har gått ut/i)).toHaveCount(0);
+ }finally{await page.close();}
+});
+
+function staleApprovalRead(){const value=lifecycleRead('not_started',{delivery:{id:null,state:'not_started',attemptCount:0,firstAttemptAt:null,updatedAt:null,canRetry:true},account:{emailVerified:null,approvalStatus:null}});value.invitation={...lifecycleInvitation,status:'prepared',userId:null};return value;}
+test('changed case handling requires a new editable approval review and fresh nonce before creating an unconsumed invitation',async()=>{
+ const initial=staleApprovalRead(),page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationReadResponses:[initial]});
+ try{
+  await openLifecycle(page);await expect(page.getByText(/Handläggningen har ändrats sedan det tidigare godkännandet/)).toBeVisible();
+  await expect(page.getByLabel('Motivering för kontogodkännande')).toBeEnabled();await expect(page.getByLabel('Motivering för kontogodkännande')).toHaveValue('');
+  await expect(page.getByRole('button',{name:'Granska godkännande',exact:true})).toBeDisabled();
+  await page.getByLabel('Motivering för kontogodkännande').fill('Ny granskning av aktuell handläggning.');await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true})).toBeDisabled();assert.equal(await page.evaluate(()=>window.fixture.invitationCalls.length),0);
+  await page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'}).check();await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
+  const [call]=await page.evaluate(()=>window.fixture.invitationCalls);assert.notEqual(call.requestId,initial.invitation.requestId);assert.equal(call.expectedVersion,3);assert.equal(call.reason,'Ny granskning av aktuell handläggning.');
+ }finally{await page.close();}
+});
+test('lost replacement approval response preserves the new review nonce and reloads its durable replacement without reverting to the old approval',async()=>{
+ const initial=staleApprovalRead(),updated=staleApprovalRead();updated.invitation={...initial.invitation,applicationVersion:3,reason:'Ny aktuell granskning.',requestId:'20000000-0000-4000-8000-000000000001'};
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationReadResponses:[initial,initial,updated,updated],invitationResponses:[{throw:true},{throw:true}]});
+ try{
+  await openLifecycle(page);await page.getByLabel('Motivering för kontogodkännande').fill('Ny aktuell granskning.');await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();
+  await page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'}).check();await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('samma granskning');await expect(page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
+  await expect(page.getByLabel('Motivering för kontogodkännande')).toHaveValue(updated.invitation.reason);await expect(page.getByText(/Handläggningen har ändrats sedan det tidigare godkännandet/)).toHaveCount(0);
+  const calls=await page.evaluate(()=>window.fixture.invitationCalls);assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);assert.notEqual(calls[0].requestId,initial.invitation.requestId);
+  await page.getByRole('button',{name:'Uppdatera kontoinbjudans status'}).click();await expect(page.getByLabel('Motivering för kontogodkännande')).toBeDisabled();await expect(page.getByLabel('Motivering för kontogodkännande')).toHaveValue(updated.invitation.reason);await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();await expect(page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'})).not.toBeChecked();
+ }finally{await page.close();}
 });
