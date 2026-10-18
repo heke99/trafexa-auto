@@ -3,6 +3,9 @@
 
 Aktuell dokumentfortsättning 18 oktober: [kontroll av arkiverade avtalsoriginal](CONTRACT_ARCHIVE_INTEGRITY.md), efter publicerad dokumentlänksförnyelse i PR #52. Faktiska filbytes och signeringsbindning kontrolleras uttryckligen utan nya original eller utskick. Separat Storage-backup och återställningsprov kvarstår.
 
+
+Dokumentfortsättning efter PR #54: [portabel export och isolerat återställningsprov](CONTRACT_ARCHIVE_BACKUP.md) för befintliga native original. Användaren har ännu inte valt extern lagringsplats; ingen automatisk backup aktiveras.
+
 ## Aktuell fortsättning, 18 oktober 2026
 
 Bilköpare använder [personliga dokumentlänkar](CUSTOMER_PORTAL.md) utan Trafexakonto eller lösenord. Offert, exakt avtalsversion och färdig PDF har separata steg; handlarens konto och företagsroll styr fortsatt de interna åtgärderna. Detta är publicerat genom [PR #46](https://github.com/heke99/trafexa-auto/pull/46). Äldre avsnitt nedan som kräver ett godkänt kundkonto beskriver tidigare implementation.

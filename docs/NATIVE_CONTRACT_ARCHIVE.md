@@ -6,6 +6,8 @@ Etappen 15 oktober 2026 fortsätter från main `4fd3c5d`/PR #23 på `codex/trafe
 
 [Kontroll av arkiverade avtalsoriginal](CONTRACT_ARCHIVE_INTEGRITY.md) lägger en uttrycklig kontroll av de faktiska filerna i den befintliga panelen. Kontrollen använder samma privata läsbehörigheter och behöver ingen registreringsnyckel. Nedanstående serverkonfigurationsuppgifter är historiska från den första arkivleveransen; senaste produktionsmetadata inför PR #52 visar att `SUPABASE_SECRET_KEY` finns. Ett autentiserat hosted Storage-/backup-/återställningsprov är fortfarande separat från syntetiska tester.
 
+[Arkivpaket och isolerat återställningsprov](CONTRACT_ARCHIVE_BACKUP.md) kan exportera befintliga verifierade original för separat förvaring. Extern lagringsleverantör är inte vald, och ingen automatisk backup aktiveras.
+
 ## Original och genererad kopia
 
 Ett färdigsignerat native avtal får högst ett privat arkiv med ett sammanhörande originalpar: den signerade PDF-filen och dess JSON-signeringsevidens. Arkivering kräver en uttrycklig åtgärd av aktuell godkänd ägare eller administratör. Att slutföra signeringen eller öppna en nedladdningslänk laddar inte automatiskt upp filer.

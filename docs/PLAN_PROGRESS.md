@@ -1,6 +1,10 @@
 # Planläge 18 oktober 2026
 
-## Nästa dokumentsteg: kontroll av avtalsoriginal
+## Aktuell dokumentfortsättning: arkivpaket och återställningsprov
+
+Användaren har valt att förbereda export och återställningsprov innan separat lagringsplats bestäms. [Arkivpaketet](CONTRACT_ARCHIVE_BACKUP.md) samlar exakta original, signeringsbevis och kontrollunderlag. Ett offlineverktyg verifierar mot separat sparad SHA-256 och återställer bara till en ny privat provkatalog. Ingen automatisk extern backup eller produktionsåterställning aktiveras. Verifiering och release följs i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
+
+## Föregående dokumentsteg: kontroll av avtalsoriginal
 
 [Uttrycklig integritetskontroll](CONTRACT_ARCHIVE_INTEGRITY.md) är implementerad från PR #52. Handlaren kan kontrollera de faktiska PDF- och evidensfilerna, deras storlekar, kontrollsummor och bindning till det signerade avtalet. Kontrollen skriver inget och ersätter inga original. Separat backup och återställningsprov kvarstår som driftarbete. Aktuell verifieringsstatus finns i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
 
