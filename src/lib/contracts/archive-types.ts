@@ -17,3 +17,8 @@ export type ContractArchiveCode = 'configuration_missing' | 'invalid_input' | 'u
 export type ContractArchiveFailure = { ok: false; code: ContractArchiveCode; error: string };
 export type ContractArchiveResult = ({ ok: true; archive: ContractArchive | null } & ContractArchiveScope) | ContractArchiveFailure;
 export type ContractArchiveMutationResult = ({ ok: true; archive: ContractArchive } & ContractArchiveScope) | ContractArchiveFailure;
+/** An explicit read-only check; absence never carries a verification timestamp. */
+export type ContractArchiveIntegrityResult = (
+  | { ok: true; archive: ContractArchive; checkedAt: string }
+  | { ok: true; archive: null; checkedAt: null }
+) & ContractArchiveScope | ContractArchiveFailure;

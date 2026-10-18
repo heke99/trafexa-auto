@@ -2,6 +2,10 @@
 
 Etappen 15 oktober 2026 fortsätter från main `4fd3c5d`/PR #23 på `codex/trafexa-contract-archive-20261015`. PR #24:s main `a6a6c972` är integrerad och samlad helsvit 759/759 samt produktionsbygge passerar; implementation och riktade kontroller är klara; migration `20261015100653_native_contract_archive` är applicerad. Ny arkivering är fortsatt spärrad av saknad serverkonfiguration. Samlad test-/byggverifiering och publicering följs separat i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
 
+## Aktuell fortsättning 18 oktober 2026
+
+[Kontroll av arkiverade avtalsoriginal](CONTRACT_ARCHIVE_INTEGRITY.md) lägger en uttrycklig kontroll av de faktiska filerna i den befintliga panelen. Kontrollen använder samma privata läsbehörigheter och behöver ingen registreringsnyckel. Nedanstående serverkonfigurationsuppgifter är historiska från den första arkivleveransen; senaste produktionsmetadata inför PR #52 visar att `SUPABASE_SECRET_KEY` finns. Ett autentiserat hosted Storage-/backup-/återställningsprov är fortfarande separat från syntetiska tester.
+
 ## Original och genererad kopia
 
 Ett färdigsignerat native avtal får högst ett privat arkiv med ett sammanhörande originalpar: den signerade PDF-filen och dess JSON-signeringsevidens. Arkivering kräver en uttrycklig åtgärd av aktuell godkänd ägare eller administratör. Att slutföra signeringen eller öppna en nedladdningslänk laddar inte automatiskt upp filer.

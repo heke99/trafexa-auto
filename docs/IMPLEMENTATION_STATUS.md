@@ -1,5 +1,15 @@
 # Implementationsstatus
 
+## Integritetskontroll av arkiverade avtalsoriginal, 18 oktober 2026
+
+[Kontrollen av originalfiler](CONTRACT_ARCHIVE_INTEGRITY.md) kompletterar avtalspanelen efter PR #52. Arkivregistrering och en lyckad kontroll av filernas faktiska integritet visas separat. Kontrollen kräver uttrycklig knapptryckning och verifierar både PDF och JSON, storlek, SHA-256, parbindning, signaturer, aktuellt underlag och fortsatt behörighet. Saknat arkiv ger ingen kontrolltid. Avbrott, skada och ändrad behörighet ger inget lyckat resultat och ingen genererad ersättning.
+
+Samlad riktad körning passerar **106/106 appfall**, utan fel, avbrutna, överhoppade eller todo, på **33 478,430854 ms**. Den omfattar 54 arkiv-UI-fall, 22 befintliga avtals-/signerings-/djuplänksfall, 23 arkiv-/transport-/nedladdningsfall och sju nya serveråtgärdsfall. Tidigare delkörningar överlappar och adderas inte. Slutligt produktionsbygge inklusive TypeScript passerar. Mobilvyn vid 320 px är visuellt kontrollerad med tangentbordsfokus och radbrytning för kontrollsummor och tidsstämpel.
+
+Oberoende korslagerkörning passerar **17/17 fall** på **20 946,883675 ms**, med sju befintliga originalarkivresor och tio integritetsgrupper. Faktisk renderer, parsers, arkivregistrering och filverifiering används mot isolerade Auth-/Storage-transporter. Alla fyra läsroller, verklig bitförändring, saknad fil, felbunden evidens trots matchande enskilda filhashar, ändrad signatur/arkividentitet, nekad återläsning och faktiskt 15-sekunders abort verifieras. Kontrollens läsning bevarar originalen och gör inga renderings-, uppladdnings-, registrerings- eller invalidationsanrop. Detta är ett separat integrationslager och ingen ny helkörning av hela projektet.
+
+Ingen databasändring krävs. En skrivskyddad hosted metadatakontroll bekräftar privat originalbucket, aktiverad RLS för arkivet, läs-RPC för autentiserade men inte anonyma användare samt fyra befintliga lagringspolicyer. Kontrollen använder användarens privata Storage-åtkomst, utan registreringsnyckel, uppladdning, rendering, ny arkivregistrering eller utskick. Provunderlagen är syntetiska; faktisk autentiserad produktionskontroll av ett kundavtal och separat backup-/återställningsprov ingår inte i detta bevis. PR, main och exakt READY-deployment redovisas i releasens PR efter publicering.
+
 ## Granskad förnyelse av kundens dokumentlänkar, 18 oktober 2026
 
 [Dokumentlänkens status och förnyelse](CUSTOMER_DOCUMENT_LINK_RENEWAL.md) kompletterar handlarens offert-, signerings- och färdigavtalsmejl. Status öppnas uttryckligen och visar sparad mottagare, dokumentversion och giltighetstid. En ny länk kräver motivering och två bekräftelser. Den gäller samma frysta dokument och mottagare; tidigare länkar, utskick, underskrifter och revisionsbevis bevaras.

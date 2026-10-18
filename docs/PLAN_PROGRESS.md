@@ -1,12 +1,16 @@
 # Planläge 18 oktober 2026
 
+## Nästa dokumentsteg: kontroll av avtalsoriginal
+
+[Uttrycklig integritetskontroll](CONTRACT_ARCHIVE_INTEGRITY.md) är implementerad från PR #52. Handlaren kan kontrollera de faktiska PDF- och evidensfilerna, deras storlekar, kontrollsummor och bindning till det signerade avtalet. Kontrollen skriver inget och ersätter inga original. Separat backup och återställningsprov kvarstår som driftarbete. Aktuell verifieringsstatus finns i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
+
 ## Aktuell genomgång av avbrutna arbetsflöden
 
 Det kontofria kundflödet är publicerat via [PR #46](https://github.com/heke99/trafexa-auto/pull/46): personlig mejllänk, granskning och uttryckligt godkännande med namn; därefter privat PDF när båda parter har godkänt. Ingen kundregistrering krävs. Samlad verifiering vid den releasen var 1 485 godkända apptestfall, produktionsbygge, databas- och browserprov.
 
 Denna etapp rättar verifierade stopp i superadminens konflikt- och sökflöden, handlarens dialoger, finansbegärans återstart och fakturamejlens osäkra svar. Den kompletterar också status och säkra återförsök för mejl med färdigt avtal samt fortsättningen till betalning och leverans efter kundens mejllänksgodkännande. Aktuell test- och publiceringsstatus redovisas i [IMPLEMENTATION_STATUS](IMPLEMENTATION_STATUS.md).
 
-[Granskad förnyelse av utgångna kundlänkar](CUSTOMER_DOCUMENT_LINK_RENEWAL.md) är implementerad och verifieras inför publicering via [PR #52](https://github.com/heke99/trafexa-auto/pull/52). Historiska checkpoints nedan bevaras; deras återstående steg kan vara genomförda i senare avsnitt eller releaser.
+[Granskad förnyelse av utgångna kundlänkar](CUSTOMER_DOCUMENT_LINK_RENEWAL.md) är publicerad via [PR #52](https://github.com/heke99/trafexa-auto/pull/52), main `9e247ae8645dd1bcc4d074c467071d1ea652e804` och verifierad READY-produktion `dpl_9X7qRyuwd2WBDKaRAv8wBPyn1M4n`. Historiska checkpoints nedan bevaras; deras återstående steg kan vara genomförda i senare avsnitt eller releaser.
 
 PR #51 publicerade en första granskad förnyelse för accepterade offert- och signeringsinbjudningar. Den aktuella etappen förenar detta flöde med giltighetsstatus, förnyelse av färdigavtal, återhämtning före första sändning och strängare revisionsbevis. Äldre köposter och kvitton bevaras.
 
