@@ -49,9 +49,9 @@ test('only persisted provider acknowledgement is reported as accepted; safe rate
 test('reviewed guest renewal claims exact email ID and rejects substituted rows before sending',()=>configured(async()=>{
  for(const row of [{id:reference,kind:'offer_invitation'}, {id:reference,kind:'contract_invitation'}]){
   // Stop before the guest worker by rejecting the lease; the exact claim is the boundary under test.
-  const denied=await harness({row,lease:{data:false}});
+  const denied=await harness({row:{...row,generation:1,review:{companyId:reference,actorUserId:reference,invitationId:reference,recipientEmail:'customer@example.invalid',documentHash:'a'.repeat(64),documentVersion:1,generation:1}},lease:{data:false}});
   assert.equal((await denied.server.dispatchGuestInvitationEmail(row.kind,reference,reference)).status,'cancelled');
-  assert.deepEqual(denied.counts().calls[0],['claim_transactional_email_exact',{p_email_id:reference}]);
+  assert.deepEqual(denied.counts().calls[0],['claim_transactional_email_exact',{p_kind:row.kind,p_reference:reference,p_expected_email_id:reference}]);
  }
  for(const row of [{id:'a1300000-0000-4000-8000-000000000002',kind:'offer_invitation'},{kind:'contract_completed_company'}]){
   const h=await harness({row});assert.equal((await h.server.dispatchGuestInvitationEmail('offer_invitation',reference,reference)).status,'unavailable');assert.equal(h.counts().sent,0);assert.equal(h.counts().calls.length,1);

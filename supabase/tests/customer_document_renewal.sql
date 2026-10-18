@@ -14,7 +14,7 @@ do $$declare signature text;begin
  or has_table_privilege('authenticated','private.customer_document_renewals','insert')
  or has_table_privilege('service_role','private.customer_document_renewals','select')then raise exception 'Private review boundary failed';end if;
  if not exists(select 1 from pg_constraint where conrelid='private.transactional_email_outbox'::regclass and contype='u'
- and pg_get_constraintdef(oid)='UNIQUE (kind, reference_id, recipient, delivery_generation)')then raise exception 'Missing generation deduplication';end if;
+ and pg_get_constraintdef(oid)='UNIQUE (kind, reference_id, recipient, generation)')then raise exception 'Missing generation deduplication';end if;
 end$$;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','',true);

@@ -15,7 +15,7 @@ begin
   customer:=e.kind in('offer_invitation','contract_invitation','contract_completed');
   update private.transactional_email_outbox set first_attempt_at=case when customer then first_attempt_at else coalesce(first_attempt_at,clock_timestamp()) end,
    status='processing',lease_id=l,lease_until=clock_timestamp()+interval '60 seconds',attempts=attempts+case when customer then 0 else 1 end,updated_at=clock_timestamp() where id=e.id;
-  return jsonb_build_object('id',e.id,'kind',e.kind,'reference',e.reference_id,'recipient',e.recipient,'createdAt',coalesce(e.first_attempt_at,clock_timestamp()),'leaseId',l,'generation',e.delivery_generation,'review',case when e.delivery_generation>0 and customer then private.customer_document_saved_review(e)else null end);
+  return jsonb_build_object('id',e.id,'kind',e.kind,'reference',e.reference_id,'recipient',e.recipient,'createdAt',coalesce(e.first_attempt_at,clock_timestamp()),'leaseId',l,'generation',e.generation,'review',case when e.generation>0 and customer then private.customer_document_saved_review(e)else null end);
  end loop;return null;
 end $$;
 

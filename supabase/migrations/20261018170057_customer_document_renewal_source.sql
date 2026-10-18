@@ -24,4 +24,21 @@ begin
   'recipientEmail',em,'documentHash',h,'documentVersion',v,'sourceCurrent',ds<>'cancelled' and st=case when k='contract_completed' then 'completed' else 'pending' end);
 end$$;
 revoke all on function private.customer_document_renewal_source(uuid,uuid,uuid,text,boolean) from public,anon,authenticated,service_role;
+-- Keep PR51 legacy-audit authorization, including a distinct renewing principal.
+alter function private.guest_email_source(private.transactional_email_outbox)rename to guest_email_legacy_renewal_source;
+create function private.guest_email_source(e private.transactional_email_outbox)returns private.guest_document_invitations
+ language plpgsql security invoker set search_path=''as $$
+declare saved private.customer_document_renewals;i private.guest_document_invitations;
+begin
+ select *into saved from private.customer_document_renewals where email_id=e.id;
+ if saved.email_id is null then return private.guest_email_legacy_renewal_source(e);end if;
+ i:=private.guest_email_original_source(e);
+ if e.generation<=0 or i.dealer_actor_user_id<>saved.actor_user_id or i.company_id<>saved.company_id
+ or i.document_hash is distinct from saved.receipt->>'documentHash' or i.document_version is distinct from(saved.receipt->>'documentVersion')::integer
+ or e.recipient is distinct from saved.receipt->>'recipientEmail' or e.kind is distinct from saved.receipt->>'kind'
+ or e.reference_id is distinct from(saved.receipt->>'referenceId')::uuid or e.generation is distinct from(saved.receipt->>'generation')::integer then
+  raise exception 'Reviewed renewal source changed'using errcode='42501';end if;
+ return i;
+end$$;
+revoke all on function private.guest_email_source(private.transactional_email_outbox),private.guest_email_legacy_renewal_source(private.transactional_email_outbox)from public,anon,authenticated,service_role;
 commit;

@@ -31,3 +31,9 @@ Företagsbyte, rollbyte, återkallat konto, förändrad dokumentkälla eller ann
 Förnyelsen använder projektets befintliga offert- och avtalsmejlkonfiguration och samma avsändare: `kundtjanst@trafexa.com`, med svar till `info@trafexa.com`. Saknad eller pausad transport ska visas före ett nytt utskicksförsök. Ingen cron, automatisk ködränering, kundregistrering eller Supabase Auth-inbjudan aktiveras genom funktionen.
 
 Verifierade tester, migrationer och publiceringsstatus redovisas separat i [implementationsstatus](IMPLEMENTATION_STATUS.md). Tester använder syntetiska dokument och mottagare. Dokumentationen är inget bevis för faktisk kundmejlleverans, bankidentifiering, BankID eller kvalificerad elektronisk underskrift.
+
+## Kompatibilitet med PR #51
+
+Etappen bygger vidare på den redan publicerade generationskolumnen och köidentiteten. Tidigare revisionsposter, krypterade mejl och kvitton skrivs inte om. Köade äldre förnyelser kan fortsätta mot samma kö-ID; om den första åtkomstposten ännu inte skapats får den förberedas en gång från det redan granskade underlaget efter ny kontroll av både förnyaren och den ursprungliga dokumentaktören. Befintliga åtkomstposters giltighetstid ändras aldrig av ett återförsök.
+
+Den äldre förnyelsefunktionen kan återge ett befintligt kvitto efter färsk behörighetskontroll, men skapar inga nya utskick. Nya förnyelser går genom den gemensamma granskningen med motivering och två bekräftelser. Den tidigare exakta utskickssignaturen behålls för säkra återförsök av sparade kvitton.

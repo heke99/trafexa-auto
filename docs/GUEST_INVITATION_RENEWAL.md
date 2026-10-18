@@ -1,4 +1,6 @@
-# Granskad förnyelse av kundens dokumentlänk
+# Historisk checkpoint PR #51: Granskad förnyelse av kundens dokumentlänk
+
+Denna sida beskriver den första publicerade etappen. Det aktuella gemensamma flödet och dess kompatibilitet med sparade köposter beskrivs i [granskad förnyelse av dokumentlänkar](CUSTOMER_DOCUMENT_LINK_RENEWAL.md).
 
 Handlaren kan förnya en personlig länk till en obesvarad offert eller ett avtal som kunden ännu inte har godkänt. Kunden behöver fortsatt inget Trafexakonto. Förnyelsen gäller samma frysta mottagare, dokumentversion och innehållshash; ändrade affärsvillkor kräver ett nytt dokumentflöde.
 

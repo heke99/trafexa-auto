@@ -55,6 +55,8 @@ export function session(applicationName) {
 }
 
 export async function bootstrap({ skipMigration = () => false } = {}) {
+  const readyDeadline=Date.now()+30_000;
+  while(true){try{sql('select 1','postgres');break;}catch(error){if(Date.now()>=readyDeadline)throw error;await new Promise(resolve=>setTimeout(resolve,200));}}
   sql(`drop database if exists ${database} with (force);`, 'postgres');
   sql(`create database ${database};`, 'postgres');
   sql(`do $$begin

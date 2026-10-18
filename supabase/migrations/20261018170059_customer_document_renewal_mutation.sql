@@ -21,19 +21,19 @@ begin
  exception when lock_not_available then raise exception 'Delivery busy' using errcode='40001';end;
  select * into i from private.guest_document_invitations where id=p_expected_invitation_id and email_id=e.id for update;
  if e.id is null or i.id is null or i.dealer_actor_user_id<>a or e.kind<>p_kind or e.reference_id<>p_reference_id or e.recipient<>p_recipient_email
- or e.delivery_generation<>p_expected_generation or i.document_hash<>p_document_hash or i.document_version<>p_document_version
+ or e.generation<>p_expected_generation or i.document_hash<>p_document_hash or i.document_version<>p_document_version
  or i.company_id<>p_company_id or i.recipient_email<>p_recipient_email or i.revoked_at is not null or i.expires_at>clock_timestamp()
  or (e.status not in('accepted','rejected') and not(e.status in('pending','processing') and e.attempts=0 and e.first_attempt_at is null and e.customer_provider_started_at is null and e.provider_id is null and (e.status='pending' and e.lease_id is null or e.status='processing' and e.lease_until<=clock_timestamp())))or not private.customer_document_email_latest(e) then raise exception 'Reviewed link conflict' using errcode='40001';end if;
  v:=private.customer_document_renewal_lifecycle(src);
  if v->>'reviewToken' is distinct from p_review_token or v->>'canRenew'<>'true' then raise exception 'Document review changed' using errcode='40001';end if;
- insert into private.transactional_email_outbox(kind,reference_id,recipient,delivery_generation)
- values(e.kind,e.reference_id,e.recipient,e.delivery_generation+1) returning * into n;
+ insert into private.transactional_email_outbox(kind,reference_id,recipient,generation)
+ values(e.kind,e.reference_id,e.recipient,e.generation+1) returning * into n;
  insert into private.guest_document_invitations(email_id,kind,reference_id,company_id,dealer_actor_user_id,recipient_email,document_hash,document_version)
  values(n.id,i.kind,i.reference_id,i.company_id,i.dealer_actor_user_id,i.recipient_email,i.document_hash,i.document_version) returning * into j;
  update private.guest_document_invitations set revoked_at=clock_timestamp()where id=i.id;
  if e.status in('pending','processing')then update private.transactional_email_outbox set status='cancelled',lease_id=null,lease_until=null,updated_at=clock_timestamp()where id=e.id;end if;
  receipt:=(src-'sourceCurrent')||jsonb_build_object('requestId',p_request_id,'previousEmailId',e.id,'previousInvitationId',i.id,
- 'emailId',n.id,'invitationId',j.id,'generation',n.delivery_generation,'reason',p_reason,'reviewToken',p_review_token,'expiresAt',j.expires_at);
+ 'emailId',n.id,'invitationId',j.id,'generation',n.generation,'reason',p_reason,'reviewToken',p_review_token,'expiresAt',j.expires_at);
  insert into private.customer_document_renewals(actor_user_id,request_id,company_id,deal_id,previous_email_id,previous_invitation_id,email_id,invitation_id,request_payload,receipt)
  values(a,p_request_id,p_company_id,p_deal_id,e.id,i.id,n.id,j.id,p,receipt);
  return receipt;
