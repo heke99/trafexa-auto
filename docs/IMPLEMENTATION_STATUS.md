@@ -1,5 +1,17 @@
 # Implementationsstatus
 
+## Förnyelse av kundlänkar och kundens avtalsvy, 18 oktober 2026
+
+[Granskad förnyelse av utgångna kundlänkar](GUEST_INVITATION_RENEWAL.md) binder en ny utskicksgeneration till samma frysta mottagare, dokumentversion och kontrollsumma. Endast den senaste accepterade och faktiskt utgångna länken till en obesvarad offert eller ett ännu inte kundgodkänt avtal kan förnyas. Offert följer ägare/administratör/säljare; avtal ägare/administratör. Finansansvarig behåller befintlig läsåtkomst. Okända, väntande eller pågående leveranser blir inte nya generationer. Färdigmeddelandets läslänk förnyas inte i denna etapp.
+
+Handlaren granskar underlaget före bekräftelse. Ett osäkert försök behåller samma UUID och frysta begäran efter statusuppdatering eller omladdning i samma flik. Bekräftad konflikt ger en separat väg till ny granskning. Utskick riktas till exakt det nya kö-ID:t. Förnyarens aktuella behörighet kontrolleras i arbetaren separat från dokumentets ursprungliga aktör. Återkallad behörighet stoppar även senare köade utskick. En rolländring stoppar återläsning av det gamla aktörskvittot. Tidigare länkar, signaturer och ursprungsutskickets idempotens bevaras; kunden får inget konto.
+
+UI:t spärrar konkurrerande utskicks- och uppdateringsknappar under förnyelse, återställer tangentbordsfokus och behåller en känd utgången länk som spärrad när omläsningen misslyckas. Den tekniska dokumentreferensen kan fällas ut. Kundvyn visar också handlarens redan registrerade underskrift när handlaren har signerat först, även innan kunden har godkänt.
+
+Riktad verifiering: **93/93 relaterade Chromiumfall**, **19/19 fokuserade förnyelsefall**, **19/19 kundvyfall**, **8/8 nya databasgrupper** och **4/4 SQL→serveråtgärd→exakt dispatcher→gästarbetare→mockad mejlleverantör** passerar. Delkörningarna överlappar och summeras inte. Databasproven använder den riktiga migrationskedjan med anpassad extern sessionkontext. Native PostgreSQL 17 verifierar samtidiga olika och identiska UUID-begäranden, låsväntan, roll-/konto-/företags-/affärsåterkallelse, gamla och nya token, besvarad offert, färdigt avtal samt nekad åtkomst till annat företags låsta utskick. Noll deadlocks registrerades.
+
+Migration `20261018164815_guest_document_invitation_renewal` är applicerad och återläst i avsett hostedprojekt, med SHA-256 `70b54005632d95b8a7bb8c62bd6ed702013154741493c0802a7ce9bd67c55d23`. Hosted rollbackprov passerar med samtliga **19 cleanupaggregat på noll**; inga immutabilitetstriggers stängs av i det provet. Säkerhetsrådgivarens varningskategorier är oförändrade. Inga riktiga mejl, kundgodkännanden eller affärer skapas av verifieringen. Slutlig integrerad helkörning, PR/main och exakt READY-produktion följs i releaseprotokollet; PR #50:s nya adminfakturavy och dess tre redan applicerade migrationer bevaras.
+
 ## Superadminens globala annonsfakturor, 18 oktober 2026
 
 [Administration → Annonsfakturor](ADVERTISING_RECEIVABLES.md) samlar alla utfärdade annonsfakturor med globala saldon, statusantal, filter och 25-raders nyckelbaserad sidindelning. Superadmin kan öppna det bevarade originalet, PDF och betalningsavstämning direkt. Fakturans frysta mottagare skiljs från företagets aktuella namn/status; avstängda gäldenärsföretags historik bevaras. Förfallen betyder positivt restbelopp och förfallodag före dagens datum i Europe/Stockholm. Dagens förfallodag är inte förfallen. Full kredit tar bort fordran och bevarar registrerade inbetalningar som eventuellt överskott.
