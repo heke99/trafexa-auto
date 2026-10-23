@@ -65,7 +65,7 @@ function ConditionPanel({companyId,stockItemId,demo=false}:PurchaseConditionProp
     }catch{if(alive.current)setError('Sparandet kunde inte bekräftas. Försök igen med samma granskade underlag.');}
     finally{locked.current=false;if(alive.current)setBusy(false);}
   }
-  return <section aria-labelledby={`${field}-title`} style={{paddingTop:16,minWidth:0,overflowWrap:'anywhere'}}>
+  return <section className="purchase-condition-panel" aria-labelledby={`${field}-title`} style={{paddingTop:16,minWidth:0,overflowWrap:'anywhere'}}>
     <h3 id={`${field}-title`}>Inköps- och skickunderlag</h3>
     <p className="muted">Registrera leverantör, inköpsreferens och bilens kontrollerade skick. Varje sparad version behåller uppgifterna från granskningen.</p>
     <p className="muted">Underlaget är internt. Det ändrar inte inköpspris, moms, lagerstatus eller registrerade kostnader och innebär ingen betalning eller extern fordonskontroll.</p>

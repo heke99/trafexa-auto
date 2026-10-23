@@ -1,5 +1,13 @@
 # Trafexa Dealer
 
+## Köra tester från en ren installation
+
+Kör `npm ci`, därefter `npm run test:setup` och `npm test -- --test-concurrency=2`.
+Flat-sviten använder databasfixturerna i `tests/crm-db` och `tests/company-team-db`.
+`pretest` kontrollerar beroendena och packar upp testwebbläsaren före parallella
+testprocesser. Separata native PostgreSQL-sviter kräver sin dokumenterade Docker-miljö.
+Systemgranskningen 23 oktober finns i [granskningsrapporten](docs/E2E_REVIEW_20261023.md).
+
 [Arkivpaket och isolerat återställningsprov](docs/CONTRACT_ARCHIVE_BACKUP.md) förbereder separat förvaring av signerade original och evidens. Extern lagringsplats är ännu inte vald.
 
 [Kontroll av arkiverade avtalsoriginal](docs/CONTRACT_ARCHIVE_INTEGRITY.md) skiljer registrerad arkivstatus från kontroll av de lagrade PDF- och evidensfilernas faktiska integritet.

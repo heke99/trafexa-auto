@@ -1,0 +1,89 @@
+[
+  {
+    "path": "/api/company-store-profile",
+    "status": 400,
+    "cache": "private, no-store, max-age=0",
+    "location": null,
+    "contentType": "application/json",
+    "body": "{\"ok\":false,\"code\":\"invalid_input\",\"error\":\"Begäran kunde inte godkännas.\"}"
+  },
+  {
+    "path": "/api/dealer-companies",
+    "status": 405,
+    "cache": "public, max-age=0, must-revalidate",
+    "location": null,
+    "contentType": null,
+    "body": ""
+  },
+  {
+    "path": "/api/vehicle-photos",
+    "status": 405,
+    "cache": "public, max-age=0, must-revalidate",
+    "location": null,
+    "contentType": null,
+    "body": ""
+  },
+  {
+    "path": "/api/contracts/00000000-0000-4000-8000-000000000001/pdf",
+    "status": 401,
+    "cache": "private, no-store, max-age=0",
+    "location": null,
+    "contentType": "text/plain;charset=UTF-8",
+    "body": "Logga in igen för att hämta utkastet."
+  },
+  {
+    "path": "/api/contract-signings/00000000-0000-4000-8000-000000000001/evidence",
+    "status": 401,
+    "cache": "private, no-store, max-age=0",
+    "location": null,
+    "contentType": "text/plain;charset=UTF-8",
+    "body": "Avtalet kunde inte hämtas med din nuvarande behörighet."
+  },
+  {
+    "path": "/api/offers/00000000-0000-4000-8000-000000000001/pdf",
+    "status": 401,
+    "cache": "private, no-store, max-age=0",
+    "location": null,
+    "contentType": "text/plain;charset=UTF-8",
+    "body": "Logga in i rätt företag för att hämta offerten."
+  },
+  {
+    "path": "/api/advertising/issued/00000000-0000-4000-8000-000000000001/pdf",
+    "status": 503,
+    "cache": "private, no-store, max-age=0",
+    "location": null,
+    "contentType": "text/plain;charset=UTF-8",
+    "body": "Det utfärdade fakturan kunde inte hämtas med din nuvarande behörighet."
+  },
+  {
+    "path": "/api/internal/advertising/blocket/readiness",
+    "status": 405,
+    "cache": "private, no-store, max-age=0",
+    "location": null,
+    "contentType": null,
+    "body": ""
+  },
+  {
+    "path": "/customer-document/pdf",
+    "status": 404,
+    "cache": "private, no-store, max-age=0",
+    "location": null,
+    "contentType": "text/plain;charset=UTF-8",
+    "body": "Dokumentet är inte tillgängligt via denna länk."
+  },
+  {
+    "name": "origin",
+    "status": 403,
+    "body": "{\"error\":\"Begäran kunde inte godkännas.\"}"
+  },
+  {
+    "name": "contentType",
+    "status": 415,
+    "body": "{\"error\":\"Formuläret måste skickas som JSON.\"}"
+  },
+  {
+    "name": "invalidInput",
+    "status": 400,
+    "body": "{\"error\":\"Formuläret har uppdaterats. Läs in sidan igen innan du skickar ansökan.\"}"
+  }
+]

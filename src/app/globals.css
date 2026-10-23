@@ -301,3 +301,6 @@
 
 /* Financial steps share one readable mobile column instead of accumulating card insets. */
 @media(max-width:760px){.advertising-financial-body{padding-inline:16px!important}.advertising-financial-flow .surface{padding-inline:0!important;border-inline:0;border-radius:0}}
+
+/* Purchase reviews must remain usable inside narrow vehicle cards. */
+.purchase-condition-panel .button{max-width:100%;min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.6}
