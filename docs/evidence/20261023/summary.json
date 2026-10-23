@@ -1,0 +1,38 @@
+{
+  "baseline": {
+    "commit": "3ec656708341533967719a70cf291fae8fcdb0ce",
+    "tests": 1960,
+    "pass": 1933,
+    "fail": 27,
+    "build": "FAIL: SecurityFatalError"
+  },
+  "review": {
+    "branch": "fix/live-review-20261023",
+    "next": "16.4.3",
+    "tests": 1965,
+    "pass": 1965,
+    "fail": 0,
+    "skipped": 0,
+    "durationMs": 223726.140779,
+    "build": "PASS",
+    "npmAuditVulnerabilities": 0
+  },
+  "hosted": {
+    "migrationCount": 182,
+    "latestMigration": "20261018185525",
+    "unaffiliatedActorVisibleRows": {
+      "companies": 0,
+      "customers": 0,
+      "vehicleCosts": 0,
+      "financeApplications": 0,
+      "documents": 0
+    },
+    "pendingApplicationEmails": 2,
+    "oldestPending": "2026-10-16",
+    "financePartners": 0
+  },
+  "productionChanges": false,
+  "authenticatedLiveJourney": "BLOCKED: secure sign-in request timed out; subsequent admin navigation returned login",
+  "nativeConcurrencyTests": "BLOCKED: Docker/PostgreSQL binaries unavailable",
+  "recordedAt": "2026-10-23T20:15:07.701472+00:00"
+}

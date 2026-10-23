@@ -29,7 +29,7 @@ export const getCompanySession=cache(async()=>{
 /** A cookie chooses among current memberships; it never grants company access. */
 export async function getActiveCompanyContext() {
   const session=await getCompanySession();
-  if(!session)throw new Error('Logga in igen för att fortsätta.');
-  if(!session.membership)throw new Error('Välj ett företag där du har ett aktivt medlemskap för att fortsätta.');
+  if(!session)throw Object.assign(new Error('Logga in igen för att fortsätta.'),{code:'unauthenticated'});
+  if(!session.membership)throw Object.assign(new Error('Välj ett företag där du har ett aktivt medlemskap för att fortsätta.'),{code:'access_denied'});
   return {db:session.db,company:session.membership.company_id,user:session.user.id,role:session.membership.role};
 }
