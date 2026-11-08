@@ -39,9 +39,9 @@ async function setup({page=initialPage,width=375,responses={}}={}){
 }
 const calls=tab=>tab.evaluate(()=>window.fixture.calls),writes=async tab=>(await calls(tab)).filter(call=>call.kind!=='read');
 const ack=tab=>tab.getByRole('checkbox',{name:'Jag har granskat omfattningen och det manuella underlaget. Ändringen ska registreras.',exact:true});
-async function open(tab){await tab.locator('summary').click();await expect(tab.getByRole('heading',{name:'Fixture Dealer AB · 5568554884'})).toBeVisible();}
+async function open(tab){await tab.locator('summary').click();await expect(tab.getByText('Fixture Dealer AB · 5568554884',{exact:true})).toBeVisible();}
 async function fillGroup(tab){await tab.getByLabel('Gruppreferens',{exact:true}).fill('New group');await tab.getByLabel('Serverns nyckelreferens (etikett)',{exact:true}).fill('blocket_secondary');await tab.getByLabel('Motivering för gruppändring',{exact:true}).fill('Reviewed scope with partner');}
-async function fillBind(tab){await tab.getByLabel('Aktiv Blocketgrupp',{exact:true}).selectOption(groupId);await tab.getByLabel('Blockets återförsäljarkod',{exact:true}).fill('dealer-a');await tab.getByLabel('Referens till granskat behörighetsunderlag',{exact:true}).fill('Partner case 123');await tab.getByLabel('Giltig till (din lokala tid, högst 90 dagar)',{exact:true}).fill(new Date(Date.now()+7*86400000).toISOString().slice(0,16));await tab.getByLabel('Motivering för företagskoppling',{exact:true}).fill('Authority manually checked');}
+async function fillBind(tab){await tab.getByLabel('Aktiv Blocketgrupp',{exact:true}).selectOption(groupId);await tab.getByLabel('Blockets återförsäljarkod',{exact:true}).fill('dealer-a');await tab.getByLabel('Referens till granskat behörighetsunderlag',{exact:true}).fill('Partner case 123');await tab.getByLabel('API-behörighet giltig till (din lokala tid, högst 90 dagar)',{exact:true}).fill(new Date(Date.now()+7*86400000).toISOString().slice(0,16));await tab.getByLabel('Motivering för företagskoppling',{exact:true}).fill('Authority manually checked');}
 
 test('panel is lazy, explicit group review plus acknowledgement precedes any write and unknown persisted result retries the same UUID',async()=>{
  const tab=await setup({responses:{group:[{throwAfterCommit:true}]}});try{

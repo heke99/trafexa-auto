@@ -95,12 +95,15 @@ function BlocketProvisioningPanel({ companyId, userId, onAccessDenied }: Props) 
   return <details className="surface" open={open} onToggle={event => setOpen(event.currentTarget.open)} style={{ marginTop: 16, overflowWrap: 'anywhere' }}>
     <summary>Blocketgrupp och företagskoppling</summary>
     {open && <div className="dialog-content" aria-busy={pending || loading}>
-      <p>Grupper och återförsäljarkoder registreras från manuellt granskat underlag. En sparad koppling bevisar inte att en nyckel fungerar eller att en butik har skapats hos Blocket. Inga partneranrop görs här.</p>
+      <p>Här kopplar du handlarens befintliga Blocketbutik till Pro Import API. Använd butikens återförsäljarkod från Blocket.</p>
       {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="notice" role="status">{notice}</p>}
       {!denied && <button type="button" className="text-link" disabled={pending || loading} onClick={() => void load()}>Läs in aktuellt Blocketunderlag</button>}
       {loading && <p role="status">Verifierar underlag…</p>}
       {!denied && page && <>
-        <h3>{page.legalName} · {page.organisationNumber}</h3>
+        <a className="text-link" href={`/admin/annonsprogram/${companyId}`}>Hantera butikernas annonsprogram</a>
+        <h3>Handlarens företag i Trafexa</h3>
+        <p>{page.legalName} · {page.organisationNumber}</p>
+        <p>För butiker som deltar i Trafexas annonsprogram registrerar Blocket Trafexa Nordic AB, org.nr 556855-4884, för fakturering. Butikens namn och kontaktuppgifter ligger kvar hos Blocket. Den här vyn visar API-kopplingens status. Blocket bekräftar fakturabytet separat.</p>
         <p>{page.binding ? `${page.binding.status === 'verified' ? 'Manuellt verifierat underlag' : 'Spärrad eller inte längre giltig koppling'} · återförsäljarkod ${page.binding.dealerCode} · giltig till ${dateLabel(page.binding.validUntil)}` : 'Ingen manuellt verifierad koppling finns.'}</p>
         <h3>Blocketgrupper</h3><p>En grupp kan användas av flera företag. Gruppändringar påverkar kopplingar som använder gruppen. Nyckelreferensen är en etikett för serverkonfigurationen, aldrig själva nyckeln.</p>
         <ul>{page.groups.map(group => <li key={group.id}><strong>{group.groupReference}</strong> · version {group.version} · {group.status === 'active' ? 'Aktiv grupp' : 'Spärrad grupp'} · {group.scope === 'dealer_group' ? 'Återförsäljargrupp' : 'Enskild återförsäljare'} · nyckelreferens {group.credentialReference} <button type="button" className="text-link" disabled={disabled} onClick={() => { setGroupForm({ ...group, reason: '' }); intent.current = null; }}>Redigera grupp {group.groupReference}</button></li>)}</ul>
@@ -120,7 +123,7 @@ function BlocketProvisioningPanel({ companyId, userId, onAccessDenied }: Props) 
             <label>Aktiv Blocketgrupp<select aria-label="Aktiv Blocketgrupp" required value={bindForm.groupId} onChange={event => setBindForm(old => ({ ...old, groupId: event.target.value }))}><option value="">Välj grupp</option>{page.groups.filter(group => group.status === 'active').map(group => <option key={group.id} value={group.id}>{group.groupReference} · version {group.version}</option>)}</select></label>
             <label>Blockets återförsäljarkod<input required maxLength={160} value={bindForm.dealerCode} onChange={event => setBindForm(old => ({ ...old, dealerCode: event.target.value }))}/></label>
             <label>Referens till granskat behörighetsunderlag<input required maxLength={500} value={bindForm.evidenceReference} onChange={event => setBindForm(old => ({ ...old, evidenceReference: event.target.value }))}/></label>
-            <label>Giltig till (din lokala tid, högst 90 dagar)<input type="datetime-local" required value={bindForm.validUntil} onChange={event => setBindForm(old => ({ ...old, validUntil: event.target.value }))}/></label>
+            <label>API-behörighet giltig till (din lokala tid, högst 90 dagar)<input type="datetime-local" required value={bindForm.validUntil} onChange={event => setBindForm(old => ({ ...old, validUntil: event.target.value }))}/></label>
             <label>Motivering för företagskoppling<input required maxLength={500} value={bindForm.reason} onChange={event => setBindForm(old => ({ ...old, reason: event.target.value }))}/></label>
             <button type="submit" className="button button-outline">Granska företagskoppling</button>
           </fieldset>
