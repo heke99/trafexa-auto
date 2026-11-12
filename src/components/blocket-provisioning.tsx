@@ -4,15 +4,17 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { bindBlocketCompanyAction, configureBlocketGroupAction, disableBlocketCompanyAction, getPlatformBlocketProvisioningAction } from '@/lib/blocket-provisioning/actions';
 import { parseBindBlocketCompanyInput, parseBlocketBindingReceipt, parseBlocketGroupReceipt, parseBlocketProvisioningPage, parseConfigureBlocketGroupInput, parseDisableBlocketCompanyInput } from '../lib/blocket-provisioning/validation';
 import type { BindBlocketCompanyInput, BlocketGroup, BlocketProvisioningPage, ConfigureBlocketGroupInput, DisableBlocketCompanyInput } from '../lib/blocket-provisioning/types';
+import { useDescendantBusy } from './use-descendant-busy';
 
-type Props = { companyId: string; userId: string; onAccessDenied?: (message: string) => void };
+type Props = { companyId: string; userId: string; onAccessDenied?: (message: string) => void; onBusyChange?: (busy: boolean) => void };
 type Review = { kind: 'group'; input: ConfigureBlocketGroupInput } | { kind: 'bind'; input: BindBlocketCompanyInput } | { kind: 'disable'; input: DisableBlocketCompanyInput };
 const blankGroup = () => ({ id: '', version: 0, groupReference: '', credentialReference: '', scope: 'dealer_group' as BlocketGroup['scope'], status: 'active' as BlocketGroup['status'], reason: '' });
 const dateLabel = (value: string) => new Intl.DateTimeFormat('sv-SE', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 
 export function BlocketProvisioning(props: Props) { return <BlocketProvisioningPanel key={`${props.companyId}:${props.userId}`} {...props}/>; }
 
-function BlocketProvisioningPanel({ companyId, userId, onAccessDenied }: Props) {
+function BlocketProvisioningPanel({ companyId, userId, onAccessDenied, onBusyChange }: Props) {
+  const operation = useDescendantBusy(onBusyChange);
   const [open, setOpen] = useState(false), [page, setPage] = useState<BlocketProvisioningPage | null>(null);
   const [loading, setLoading] = useState(false), [pending, startTransition] = useTransition();
   const [error, setError] = useState(''), [notice, setNotice] = useState(''), [denied, setDenied] = useState(false), [needsRefresh, setNeedsRefresh] = useState(false);
@@ -76,7 +78,7 @@ function BlocketProvisioningPanel({ companyId, userId, onAccessDenied }: Props) 
   function confirm() {
     if (!review || !ack || busy.current || needsRefresh || denied) return;
     const submitted = review, current = generation.current;
-    busy.current = true; setError('');
+    busy.current = true; operation.report(true); setError('');
     startTransition(async () => {
       try {
         const response = submitted.kind === 'group' ? await configureBlocketGroupAction(submitted.input) : submitted.kind === 'bind' ? await bindBlocketCompanyAction(submitted.input) : await disableBlocketCompanyAction(submitted.input);
@@ -88,7 +90,7 @@ function BlocketProvisioningPanel({ companyId, userId, onAccessDenied }: Props) 
         if (submitted.kind === 'group') setGroupForm(blankGroup());
         setPage(null); busy.current = false; await load();
       } catch { if (current === generation.current) setError('Resultatet kunde inte bekräftas. Försök igen med samma uppgifter och begäran.'); }
-      finally { busy.current = false; }
+      finally { busy.current = false; operation.report(false); }
     });
   }
   const disabled = pending || loading || denied || needsRefresh || review !== null;
@@ -100,7 +102,7 @@ function BlocketProvisioningPanel({ companyId, userId, onAccessDenied }: Props) 
       {!denied && <button type="button" className="text-link" disabled={pending || loading} onClick={() => void load()}>Läs in aktuellt Blocketunderlag</button>}
       {loading && <p role="status">Verifierar underlag…</p>}
       {!denied && page && <>
-        <a className="text-link" href={`/admin/annonsprogram/${companyId}`}>Hantera butikernas annonsprogram</a>
+        <a className="text-link" role="link" aria-disabled={pending || operation.busy} tabIndex={pending || operation.busy ? -1 : undefined} href={pending || operation.busy ? undefined : `/admin/annonsprogram/${companyId}`} onClick={event => { if (operation.busyRef.current) event.preventDefault(); }}>Hantera butikernas annonsprogram</a>
         <h3>Handlarens företag i Trafexa</h3>
         <p>{page.legalName} · {page.organisationNumber}</p>
         <p>För butiker som deltar i Trafexas annonsprogram registrerar Blocket Trafexa Nordic AB, org.nr 556855-4884, för fakturering. Butikens namn och kontaktuppgifter ligger kvar hos Blocket. Den här vyn visar API-kopplingens status. Blocket bekräftar fakturabytet separat.</p>

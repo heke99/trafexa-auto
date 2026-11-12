@@ -1,0 +1,76 @@
+{
+  "commit": "32add2dfe75ab1e11c1c7ebfb64665f7e2bfb950",
+  "result": "PASS",
+  "checkpoints": [
+    {
+      "name": "application API replay creates one persisted application and two durable application email events",
+      "result": "PASS",
+      "applications": 1,
+      "applicationEvents": [
+        {
+          "kind": "application_admin",
+          "n": 1
+        },
+        {
+          "kind": "application_received",
+          "n": 1
+        }
+      ]
+    },
+    {
+      "name": "superadmin approval binds one Auth user and one synthetic invitation delivery",
+      "result": "PASS",
+      "ordinaryReadDenied": true,
+      "generated": 1,
+      "providerCalls": 1
+    },
+    {
+      "name": "invitation activation requires approval, verifies email and changes password; login resumes approved dealer",
+      "result": "PASS",
+      "unverifiedCompanyCreationDenied": true
+    },
+    {
+      "name": "company and store creation recover the same committed receipt after a lost response",
+      "result": "PASS",
+      "companies": 1,
+      "memberships": 1,
+      "profileVersion": 1
+    },
+    {
+      "name": "customer creation recovers one customer after lost response; foreign company write rejected",
+      "result": "PASS",
+      "customers": 1
+    },
+    {
+      "name": "second real company and customer stay inaccessible to first-company actor even after forged selection",
+      "result": "PASS",
+      "companies": 2,
+      "foreignCustomerVisible": 0,
+      "foreignWriteDenied": true
+    },
+    {
+      "name": "team viewer accepts actual SQL invitation but cannot write customer or read privileged store profile",
+      "result": "PASS",
+      "viewerWriteDenied": true,
+      "ownCompanyCustomers": 1,
+      "totalCustomers": 2
+    }
+  ],
+  "actual": [
+    "Request/Response application API",
+    "server actions and validators",
+    "current Auth/approval/role guards",
+    "full migrated PGlite SQL",
+    "transactional queues",
+    "receipt replay and readback"
+  ],
+  "adapted": [
+    "Auth provider SDK identity/token/password operations",
+    "outgoing invitation provider acceptance",
+    "selected-company routing and cookie storage"
+  ],
+  "realEmails": 0,
+  "productionWrites": 0,
+  "browser": "Separate UI suites, not a single hosted browser session",
+  "cleanup": "PGlite closed and environment restored in finally"
+}

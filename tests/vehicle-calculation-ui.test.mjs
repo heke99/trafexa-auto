@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,9 +19,9 @@ before(async () => {
   directory = await mkdtemp(resolve(tmpdir(), 'trafexa-calculation-ui-'));
   const loader = resolve(directory, 'swc.cjs'), entry = resolve(directory, 'entry.js'), actions = resolve(directory, 'actions.js');
   await writeFile(loader, `const swc=require(${JSON.stringify(require.resolve('next/dist/build/swc'))}); module.exports=function(source){const done=this.async();swc.loadBindings().then(()=>done(null,swc.transformSync(source,{filename:this.resourcePath,jsc:{parser:{syntax:'typescript',tsx:this.resourcePath.endsWith('.tsx')},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'es6'}}).code),done);};`);
-  await writeFile(entry, `import React from 'react';import {createRoot} from 'react-dom/client';import {flushSync} from 'react-dom';import {VehicleCalculation} from ${JSON.stringify(resolve(repo, 'src/components/vehicle-calculation.tsx'))};const root=createRoot(document.getElementById('root'));window.mount=props=>flushSync(()=>root.render(React.createElement(VehicleCalculation,props)));`);
-  await writeFile(actions, `export async function getVehicleCalculationAction(input){window.fixture.reads.push(input);const source=structuredClone(window.fixture.source);if(window.fixture.deferRead){window.fixture.deferRead=false;return new Promise(resolve=>window.fixture.deferredReads.push(()=>resolve({ok:true,source})));}return {ok:true,source};}
-  export async function saveVehicleCalculationMetadataAction(input){window.fixture.saves.push(input);if(window.fixture.conflict)return {ok:false,conflict:true,message:'Underlaget har ändrats. Läs in igen.'};const source={...window.fixture.source,purchaseVatOre:input.purchaseVatOre,vatBasisConfirmed:input.vatBasisConfirmed,version:(BigInt(input.expectedVersion)+1n).toString(),costs:window.fixture.source.costs.map(cost=>({...cost,deductibleVatOre:input.costVat.find(row=>row.costId===cost.id).deductibleVatOre}))};window.fixture.source=source;return {ok:true,source};}`);
+  await writeFile(entry, `import React from 'react';import {createRoot} from 'react-dom/client';import {flushSync} from 'react-dom';import {VehicleCalculation} from ${JSON.stringify(resolve(repo, 'src/components/vehicle-calculation.tsx'))};const root=createRoot(document.getElementById('root'));window.mount=props=>flushSync(()=>root.render(React.createElement(VehicleCalculation,{...props,onDenied:()=>window.fixture.denials++})));`);
+  await writeFile(actions, `export async function getVehicleCalculationAction(input){window.fixture.reads.push(input);if(window.fixture.readResult)return window.fixture.readResult;const source=structuredClone(window.fixture.source);if(window.fixture.deferRead){window.fixture.deferRead=false;return new Promise(resolve=>window.fixture.deferredReads.push(()=>resolve({ok:true,source})));}return {ok:true,source};}
+  export async function saveVehicleCalculationMetadataAction(input){window.fixture.saves.push(input);if(window.fixture.saveResult)return window.fixture.saveResult;if(window.fixture.conflict)return {ok:false,conflict:true,message:'Underlaget har ändrats. Läs in igen.'};const source={...window.fixture.source,purchaseVatOre:input.purchaseVatOre,vatBasisConfirmed:input.vatBasisConfirmed,version:(BigInt(input.expectedVersion)+1n).toString(),costs:window.fixture.source.costs.map(cost=>({...cost,deductibleVatOre:input.costVat.find(row=>row.costId===cost.id).deductibleVatOre}))};window.fixture.source=source;return {ok:true,source};}`);
   bundle = resolve(directory, 'fixture.js');
   await new Promise((done, reject) => {
     const compiler = webpack({ mode: 'development', target: 'web', devtool: false, context: repo, entry, output: { path: directory, filename: 'fixture.js' },
@@ -33,11 +33,48 @@ before(async () => {
 });
 after(async () => { await browser?.close(); if (directory) await rm(directory, { recursive: true, force: true }); });
 async function pageFixture({ input = props, data = source, deferRead = false } = {}) {
-  const page = await browser.newPage(); await page.route('**/*', route => route.abort()); await page.setContent('<div id="root"></div>');
-  await page.evaluate(({ source, deferRead }) => { window.fixture = { source, deferRead, deferredReads: [], reads: [], saves: [], conflict: false }; }, { source: data, deferRead });
+  const page = await browser.newPage(); await page.route('**/*', route => route.abort()); await page.setContent(`<html lang="sv"><meta charset="utf-8"><style>${await readFile(resolve(repo,'src/app/globals.css'),'utf8')}</style><main class="workspace-main" style="width:100%;padding:16px;box-sizing:border-box"><div id="root"></div></main></html>`);
+  await page.evaluate(({ source, deferRead }) => { window.fixture = { source, deferRead, deferredReads: [], reads: [], saves: [], conflict: false, denials:0 }; }, { source: data, deferRead });
   await page.addScriptTag({ path: bundle }); await page.evaluate(input => window.mount(input), input);
   return page;
 }
+for (const width of [320,1440]) test(`save access denial erases private calculation and metadata at ${width}px`, async () => {
+  const data={...source,purchaseVatOre:'2000000',costs:source.costs.map(row=>({...row,deductibleVatOre:'250000'}))};
+  const page=await pageFixture({data});try{
+    await page.setViewportSize({width,height:1000});
+    await expect(page.getByText('Kalkylresultat efter moms',{exact:true})).toBeVisible();
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.evaluate(()=>window.fixture.saveResult={ok:false,code:'access_denied',conflict:false,message:'Aktuell behörighet saknas.'});
+    await page.getByRole('button',{name:'Spara momsunderlag',exact:true}).click();
+    await expect(page.getByRole('alert')).toContainText('behörighet');
+    await expect(page.getByText('Inköp inklusive moms',{exact:true})).toHaveCount(0);
+    await expect(page.getByText('Kalkylresultat efter moms',{exact:true})).toHaveCount(0);
+    await expect(page.getByLabel('Avdragsgill inköpsmoms enligt underlag, kr')).toHaveCount(0);
+    await expect(page.getByRole('button',{name:'Spara momsunderlag',exact:true})).toHaveCount(0);
+    assert.equal(await page.evaluate(()=>window.fixture.saves.length),1);
+    assert.equal(await page.evaluate(()=>window.fixture.denials),1);
+  }finally{await page.close();}
+});
+test('a fresh read access denial notifies the enclosing financial panel without restoring old amounts',async()=>{
+  const page=await pageFixture();try{
+    await expect(page.getByText('Inköp inklusive moms',{exact:true})).toBeVisible();
+    await page.evaluate(()=>window.fixture.readResult={ok:false,code:'access_denied',message:'Din behörighet har återkallats.'});
+    await page.getByRole('button',{name:'Läs in kalkylen igen',exact:true}).click();
+    await expect(page.getByRole('alert')).toContainText('behörighet');
+    await expect(page.getByText('Inköp inklusive moms',{exact:true})).toHaveCount(0);
+    await expect(page.getByText('Hämtar exakt kalkylunderlag…')).toHaveCount(0);
+    assert.equal(await page.evaluate(()=>window.fixture.denials),1);
+  }finally{await page.close();}
+});
+test('a definite VAT validation error keeps editable input while an unverified save source hides every old amount',async()=>{
+  const page=await pageFixture();try{
+    const field=page.getByLabel('Avdragsgill inköpsmoms enligt underlag, kr');await field.fill('50000');
+    await page.evaluate(()=>window.fixture.saveResult={ok:false,code:'invalid_input',message:'Kontrollera momsbeloppet.'});
+    await page.getByRole('button',{name:'Spara momsunderlag',exact:true}).click();await expect(page.getByRole('alert')).toContainText('moms');await expect(field).toHaveValue('50000');await expect(field).toBeEnabled();
+    await page.evaluate(()=>window.fixture.saveResult={ok:true,source:{...window.fixture.source,companyId:'10000000-0000-4000-8000-000000000099'}});
+    await page.getByRole('button',{name:'Spara momsunderlag',exact:true}).click();await expect(page.getByRole('alert')).toContainText('kunde inte verifieras');await expect(page.getByText('Inköp inklusive moms',{exact:true})).toHaveCount(0);await expect(field).toHaveCount(0);
+  }finally{await page.close();}
+});
 test('actual client shows no totals from unsafe snapshot numbers before an exact scoped read completes', async () => {
   const page = await pageFixture({ deferRead: true }); try {
     await expect(page.getByText('Hämtar exakt kalkylunderlag…')).toBeVisible();
