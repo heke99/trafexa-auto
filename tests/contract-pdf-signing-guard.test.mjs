@@ -9,7 +9,7 @@ import { fixture, capability, createSigning, approveOffer, rpc, id, U, C, D, EMA
 import { CONTRACT_PDF_FONT_RANGES, CONTRACT_PDF_FONT_SHA256 } from '../src/lib/contracts/pdf-font-coverage.ts';
 import { contractPdfTextSupported } from '../src/lib/documents/contract-pdf-font.ts';
 
-const migration = new URL('../supabase/migrations/20261112202207_contract_pdf_signature_guard.sql', import.meta.url);
+const migration = new URL('../supabase/migrations/20261112205929_contract_pdf_signature_guard.sql', import.meta.url);
 const customer = id(301);
 const unsupportedNames = ['李文', 'Kund 🚗'];
 

@@ -86,10 +86,10 @@ React-komponenterna granskades för scopebunden state, hooks, läckande sena sva
 
 Två nya migrationer behöver appliceras före den nya appkoden:
 
-1. `20261112202207_contract_pdf_signature_guard.sql`
-2. `20261112202358_vehicle_cost_creation_receipts.sql`
+1. `20261112205929_contract_pdf_signature_guard.sql`
+2. `20261112205947_vehicle_cost_creation_receipts.sql`
 
-De är verifierade i lokal migrationsreplay men **inte applicerade hosted i detta arbete**. Ingen produktionsdeployment eller merge har gjorts. Vid metadata-/aggregatkontrollen fanns inga sparade konto- eller gästsignaturer i produktion; inga personuppgifter lästes för kontrollen.
+Båda migrationerna applicerades hosted den 12 november 2026 före apppubliceringen. Filernas versioner följer Supabases faktiska migrationshistorik; SQL-innehållet är oförändrat från de verifierade filerna. Namn-/kostnadsskydd, RLS och rollgrants kontrollerades efter appliceringen och säkerhetsadvisorn gav inga nya notiser. Efter versionsanpassningen passerade dessutom 7/7 guardfall och 3/3 kostnads-/SQL-fall. Apppubliceringen verifieras separat i PR:ns publiceringsstatus. Vid metadata-/aggregatkontrollen fanns inga sparade konto- eller gästsignaturer i produktion; inga personuppgifter lästes för kontrollen.
 
 Redan historiskt färdigsignerade dokument med oskrivbara tecken skulle behöva separat font-/återställningshantering. Övriga tidigare fynd och verkliga bank-/partnerflöden omfattas inte av denna rättning. En full GREEN-bedömning av hela systemets produktion görs därför inte här.
 

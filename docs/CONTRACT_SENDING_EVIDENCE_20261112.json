@@ -1794,7 +1794,7 @@
       {
         "file": "tests/platform-account-search-db.test.mjs",
         "exitCode": 0,
-        "seconds": 5.0,
+        "seconds": 5,
         "tests": 2,
         "pass": 2,
         "fail": 0,
@@ -2316,7 +2316,7 @@
       "externalDownload": false,
       "transliteration": false
     },
-    "migration": "supabase/migrations/20261112202207_contract_pdf_signature_guard.sql",
+    "migration": "supabase/migrations/20261112205929_contract_pdf_signature_guard.sql",
     "migrationCreation": "Supabase CLI 3.1.0 migration new contract_pdf_signature_guard",
     "hostedApplied": false,
     "checks": {
@@ -2376,7 +2376,7 @@
       "src/lib/data/contract-signing-actions.ts",
       "src/lib/data/guest-customer-actions.ts",
       "src/components/guest-customer-document.tsx",
-      "supabase/migrations/20261112202207_contract_pdf_signature_guard.sql",
+      "supabase/migrations/20261112205929_contract_pdf_signature_guard.sql",
       "tests/contract-pdf-signing-guard.test.mjs",
       "tests/contract-signing-actions.test.mjs",
       "tests/guest-customer-ui.test.mjs"
@@ -2531,12 +2531,14 @@
     "guestSignatures": 0
   },
   "deployment": {
-    "hostedMigrationsApplied": false,
+    "hostedMigrationsApplied": true,
     "deployed": false,
     "requiredMigrations": [
-      "20261112202207_contract_pdf_signature_guard",
-      "20261112202358_vehicle_cost_creation_receipts"
-    ]
+      "20261112205929_contract_pdf_signature_guard",
+      "20261112205947_vehicle_cost_creation_receipts"
+    ],
+    "appliedSourceUnchanged": true,
+    "historyAlignment": "Repository filenames follow the versions actually registered by Supabase; hosted history was not rewritten."
   },
   "cleanup": {
     "testDatabaseFixtures": "closed",
