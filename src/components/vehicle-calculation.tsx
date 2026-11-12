@@ -10,7 +10,7 @@ const NORMAL_SOURCE = 'https://www.skatteverket.se/foretagorganisationer/moms/sa
 function kronor(ore: string | null) { if (ore === null) return ''; const value = BigInt(ore); return `${value / 100n},${(value % 100n).toString().padStart(2, '0')}`; }
 function demoOre(value: number | null) { if (value === null || !Number.isSafeInteger(value) || value < 0) throw new Error(); return String(value); }
 
-export function VehicleCalculation({ item, costs, canEdit, demo }: { item: InventoryItem; costs: VehicleCost[]; canEdit: boolean; demo: boolean }) {
+export function VehicleCalculation({ item, costs, canEdit, demo, onDenied }: { item: InventoryItem; costs: VehicleCost[]; canEdit: boolean; demo: boolean; onDenied?: () => void }) {
   const fieldId = useId();
   const [source, setSource] = useState<VehicleCalculationSource | null>(null);
   const [purchaseVat, setPurchaseVat] = useState('');
@@ -21,14 +21,18 @@ export function VehicleCalculation({ item, costs, canEdit, demo }: { item: Inven
   const [loading, setLoading] = useState(true);
   const [pending, startTransition] = useTransition();
   const generation = useRef(0);
+  const saving = useRef(false);
+  const deniedCallback = useRef(onDenied); deniedCallback.current = onDenied;
   // Snapshot numbers only invalidate reads. They never feed a live calculation.
   const basis = JSON.stringify([item.id, item.asking_price_ore, item.purchase_price_ore, item.vat_scheme, costs.map(cost => [cost.id, cost.amount_ore, cost.description])]);
   function accept(next: VehicleCalculationSource) {
     setSource(next); setPurchaseVat(kronor(next.purchaseVatOre)); setConfirmed(next.vatBasisConfirmed);
     setCostVat(Object.fromEntries(next.costs.map(cost => [cost.id, kronor(cost.deductibleVatOre)])));
   }
+  function erase() { setSource(null); setPurchaseVat(''); setCostVat({}); setConfirmed(false); setNotice(''); }
+  function deny() { ++generation.current; erase(); setLoading(false); deniedCallback.current?.(); }
   async function load(scope: number) {
-    setLoading(true); setSource(null); setError(''); setNotice('');
+    setLoading(true); erase(); setError('');
     try {
       if (demo) {
         const next: VehicleCalculationSource = { companyId: '00000000-0000-4000-8000-000000000001', stockItemId: item.id, version: '1', purchaseGrossOre: demoOre(item.purchase_price_ore), saleGrossOre: demoOre(item.asking_price_ore), vatScheme: 'unknown', purchaseVatOre: null, vatBasisConfirmed: false,
@@ -37,7 +41,7 @@ export function VehicleCalculation({ item, costs, canEdit, demo }: { item: Inven
       } else {
         const result = await getVehicleCalculationAction({ stockItemId: item.id });
         if (generation.current !== scope) return;
-        if (!result.ok || result.source.stockItemId !== item.id) { setError(result.ok ? 'Kalkylen hör till ett annat lagerobjekt.' : result.message); return; }
+        if (!result.ok || result.source.stockItemId !== item.id) { setError(result.ok ? 'Kalkylen hör till ett annat lagerobjekt.' : result.message); if (!result.ok && result.code === 'access_denied') deny(); return; }
         accept(result.source);
       }
     } catch { if (generation.current === scope) setError('Kalkylen kunde inte verifieras. Läs in underlaget igen.'); }
@@ -48,22 +52,24 @@ export function VehicleCalculation({ item, costs, canEdit, demo }: { item: Inven
   useEffect(() => { const scope = ++generation.current; void load(scope); return () => { ++generation.current; }; }, [basis, demo, item, costs]);
   const calculation = source ? calculateVehicle(source) : null;
   function save() {
-    if (!source || !canEdit || demo || pending || loading) return;
+    if (!source || !canEdit || demo || pending || loading || saving.current) return;
     const current = source, scope = generation.current;
     let payload;
     try { payload = { stockItemId: current.stockItemId, companyId: current.companyId, expectedVersion: current.version,
       purchaseVatOre: current.vatScheme === 'vmb' ? null : kronorToOre(purchaseVat), vatBasisConfirmed: current.vatScheme === 'vmb' && confirmed,
       costVat: current.costs.map(cost => ({ costId: cost.id, deductibleVatOre: kronorToOre(costVat[cost.id] ?? '') })) }; }
     catch { setError('Ange avdragsgill moms i kronor med högst två decimaler, eller lämna fältet tomt om underlag saknas.'); return; }
+    saving.current = true;
     startTransition(async () => {
       setError(''); setNotice('');
       try {
         const result = await saveVehicleCalculationMetadataAction(payload);
         if (generation.current !== scope) return;
-        if (!result.ok) { setError(result.message); if (result.conflict) setSource(null); return; }
-        if (result.source.companyId !== current.companyId || result.source.stockItemId !== current.stockItemId) { setError('Det sparade underlaget kunde inte verifieras.'); return; }
+        if (!result.ok) { setError(result.message); if (result.code === 'access_denied') deny(); else if (result.conflict || result.code !== 'invalid_input') { ++generation.current; erase(); } return; }
+        if (result.source.companyId !== current.companyId || result.source.stockItemId !== current.stockItemId) { ++generation.current; erase(); setError('Det sparade underlaget kunde inte verifieras.'); return; }
         accept(result.source); setNotice('Momsunderlaget har sparats för aktuell kalkyl.');
-      } catch { if (generation.current === scope) setError('Sparandet kunde inte verifieras. Läs in aktuellt underlag igen.'); }
+      } catch { if (generation.current === scope) { ++generation.current; erase(); setError('Sparandet kunde inte verifieras. Läs in aktuellt underlag igen.'); } }
+      finally { saving.current = false; }
     });
   }
   return <section aria-labelledby={`${fieldId}-heading`} className="vehicle-costs" style={{ marginTop: 24 }}>

@@ -59,6 +59,8 @@ for(const width of [320,1440])test(`known PDF name rejection preserves the priva
   await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();
   await page.getByRole('button',{name:'Godkänn avtalet',exact:true}).click();
   await expect(page.getByRole('alert')).toContainText('Ingen ny underskrift har sparats');
+  await expect(page.getByRole('alert')).toBeFocused();
+  await expect.poll(async()=>{const feedback=await page.getByRole('alert').boundingBox();return !!feedback&&feedback.y>=0&&feedback.y+feedback.height<=1000;},{message:'The validation explanation must reach the visible viewport.'}).toBe(true);
   await expect(page.getByLabel('Ditt fullständiga namn',{exact:true})).toHaveValue('李文');
   await expect(page.getByText('anna@example.test',{exact:true})).toBeVisible();
   await expect(page.getByRole('checkbox')).not.toBeChecked();

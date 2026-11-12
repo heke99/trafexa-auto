@@ -900,3 +900,47 @@ for(const patch of [{legacy:true},{status:'closed'}])test(`application approval 
   await openLifecycle(page);await expect(page.getByText(patch.legacy?/äldre förfrågan kan inte användas/:/Ansökan är avslutad/)).toBeVisible();await expect(page.getByLabel('Motivering för kontogodkännande')).toBeDisabled();await expect(page.getByRole('button',{name:'Granska godkännande',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Granska förnyelse',exact:true})).toHaveCount(0);assert.equal(await page.evaluate(()=>window.fixture.invitationCalls.length),0);await expect(page.getByLabel('Ny handläggningsstatus')).toBeEnabled();
  }finally{await page.close();}
 });
+
+for (const width of [320, 1440]) test(`Blocket write and receipt readback keep enclosing admin navigation mounted at ${width}px`, async () => {
+  const page = await setup();
+  try {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.evaluate(companyId => {
+      const actorUserId = '30000000-0000-4000-8000-000000000001';
+      const fixture = window.fixture;
+      fixture.blocketPage = { actorUserId, companyId, legalName: 'Fixture AB', organisationNumber: '5561234567', groups: [], nextPageKey: null, connectionVersion: 0, binding: null };
+      fixture.blocketCalls = []; fixture.blocketPending = {};
+      fixture.call = (kind, input) => {
+        const id = fixture.blocketCalls.length; fixture.blocketCalls.push({ id, kind, input });
+        if (kind === 'read' && fixture.blocketCalls.every(call => call.kind === 'read')) return Promise.resolve({ ok: true, ...fixture.blocketPage });
+        return new Promise(resolve => { fixture.blocketPending[id] = resolve; });
+      };
+    }, COMPANY);
+    await page.getByRole('button', { name: 'Blocketkoppling för Fixture AB', exact: true }).click();
+    await page.getByText('Blocketgrupp och företagskoppling', { exact: true }).click();
+    await page.getByLabel('Gruppreferens', { exact: true }).fill('Reviewed group');
+    await page.getByLabel('Serverns nyckelreferens (etikett)', { exact: true }).fill('reviewed_key');
+    await page.getByLabel('Motivering för gruppändring', { exact: true }).fill('Verified partner scope');
+    await page.getByRole('button', { name: 'Granska gruppändring', exact: true }).click();
+    await page.getByRole('checkbox', { name: 'Jag har granskat omfattningen och det manuella underlaget. Ändringen ska registreras.', exact: true }).check();
+    await page.getByRole('button', { name: 'Bekräfta gruppändring', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Översikt', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Stäng företagsvy', exact: true })).toBeDisabled();
+    const link = page.getByRole('link', { name: 'Hantera butikernas annonsprogram', exact: true });
+    await expect(link).toHaveAttribute('aria-disabled', 'true');
+    assert.equal(await link.getAttribute('href'), null);
+    await page.evaluate(() => {
+      const f = window.fixture, call = f.blocketCalls.find(call => call.kind === 'group');
+      const group = { id: call.input.groupId, version: 1, groupReference: call.input.groupReference, credentialReference: call.input.credentialReference, scope: call.input.scope, status: call.input.status, updatedAt: '2026-11-12T12:00:00Z' };
+      f.blocketPage.groups = [group];
+      f.blocketPending[call.id]({ ok: true, actorUserId: f.blocketPage.actorUserId, requestId: call.input.requestId, group });
+    });
+    await page.waitForFunction(() => window.fixture.blocketCalls.filter(call => call.kind === 'read').length === 2);
+    await expect(page.getByRole('button', { name: 'Översikt', exact: true })).toBeDisabled();
+    await page.evaluate(() => { const f = window.fixture, call = f.blocketCalls.at(-1); f.blocketPending[call.id]({ ok: true, ...f.blocketPage }); });
+    await expect(page.getByRole('button', { name: 'Översikt', exact: true })).toBeEnabled();
+    await expect(page.getByRole('link', { name: 'Hantera butikernas annonsprogram', exact: true })).toHaveAttribute('href', `/admin/annonsprogram/${COMPANY}`);
+    await page.getByRole('button', { name: 'Översikt', exact: true }).click();
+    await expect(page.getByRole('region', { name: 'Valt företags administration', exact: true })).toHaveCount(0);
+  } finally { await page.close(); }
+});

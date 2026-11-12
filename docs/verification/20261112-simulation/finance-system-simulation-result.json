@@ -1,0 +1,106 @@
+{
+  "applicationCommit": "32add2dfe75ab1e11c1c7ebfb64665f7e2bfb950",
+  "localFix": "F04 calculation access-denial cleanup",
+  "checkpoints": [
+    {
+      "name": "Bil registrerad via faktisk lager-RPC",
+      "at": "2026-11-12T21:32:37.096Z",
+      "result": "PASS",
+      "evidence": {
+        "purchaseGrossOre": "10000000",
+        "askingGrossOre": "15000000"
+      }
+    },
+    {
+      "name": "F10 verklig action och SQL: tappat commitsvar återförsöks utan dubbel kostnad",
+      "at": "2026-11-12T21:32:37.484Z",
+      "result": "PASS",
+      "evidence": {
+        "costCount": 1,
+        "amountOre": "125050"
+      }
+    },
+    {
+      "name": "Kalkyl sparar uttryckliga momsunderlag och exakta ören via faktisk action och SQL",
+      "at": "2026-11-12T21:32:37.534Z",
+      "result": "PASS",
+      "evidence": {
+        "costGrossOre": "125050",
+        "outputVatOre": "3000000",
+        "netResultOre": "3899960"
+      }
+    },
+    {
+      "name": "Annonspris accepteras, återförsök köar en gång och en verifierad publiceringsenhet behåller accepterat pris",
+      "at": "2026-11-12T21:32:37.620Z",
+      "result": "PASS",
+      "evidence": {
+        "jobs": 1,
+        "uniquePublishedUnits": 1,
+        "frozenUnitOre": "12500",
+        "laterRateOre": "55000",
+        "repeatChargeOre": "0",
+        "externalBoundary": "partnerresultat simulerat; inga Blocket/Wayke-anrop"
+      }
+    },
+    {
+      "name": "Statistik räknar unik publicerad annons per kanal",
+      "at": "2026-11-12T21:32:37.630Z",
+      "result": "PASS",
+      "evidence": {
+        "newPublications": 1
+      }
+    },
+    {
+      "name": "Avslutad månad låses, profiler granskas, moms och faktura frysts; verklig PDF läses",
+      "at": "2026-11-12T21:32:38.178Z",
+      "result": "PASS",
+      "evidence": {
+        "netOre": "12500",
+        "vatOre": "3125",
+        "grossOre": "15625",
+        "pdfBytes": 15910,
+        "timeFixture": "syntetisk publicering placerad i avslutad septembermånad för periodprov"
+      }
+    },
+    {
+      "name": "Manuell betalningsavstämning: delbetalning, säkert återförsök och full avstämning",
+      "at": "2026-11-12T21:32:38.259Z",
+      "result": "PASS",
+      "evidence": {
+        "partialOutstandingOre": "5625",
+        "settledReceivedOre": "15625",
+        "outstandingOre": "0",
+        "bankBoundary": "syntetiska manuella bankreferenser; ingen bankkontakt"
+      }
+    },
+    {
+      "name": "Full kredit och PDF bevarar originalet och visar överskott utan att uppfinna återbetalning",
+      "at": "2026-11-12T21:32:38.503Z",
+      "result": "PASS",
+      "evidence": {
+        "status": "credited",
+        "receivableOre": "0",
+        "surplusOre": "15625",
+        "originalUnchanged": true,
+        "creditPdfBytes": 15747,
+        "refundPerformed": false
+      }
+    }
+  ],
+  "result": "PASS",
+  "boundaries": {
+    "browser": "separata verkliga komponenttester; inte en sammanhängande inloggad Next/hosted-resa",
+    "actions": [
+      "actual vehicle-cost creation",
+      "actual calculation read/save",
+      "actual advertising quote/send"
+    ],
+    "database": "full local migrated PGlite and public role-scoped RPCs",
+    "partner": "simulated accepted publication callback; no Blocket/Wayke requests",
+    "bank": "manual synthetic references; no real bank request",
+    "emails": "none",
+    "productionWrites": false
+  },
+  "cleanup": "local database closed; no hosted records created"
+}

@@ -1,0 +1,47 @@
+[
+  {
+    "path": "/",
+    "family": "'DejaVu Serif',serif",
+    "width": 320,
+    "documentWidth": 320,
+    "financeTrack": "276px"
+  },
+  {
+    "path": "/",
+    "family": "'DejaVu Sans',sans-serif",
+    "width": 320,
+    "documentWidth": 320,
+    "financeTrack": "276px"
+  },
+  {
+    "path": "/",
+    "family": "'Times New Roman',serif",
+    "width": 320,
+    "documentWidth": 320,
+    "financeTrack": "276px"
+  },
+  {
+    "path": "/privacy",
+    "family": "'DejaVu Serif',serif",
+    "width": 320,
+    "documentWidth": 320,
+    "titleWidth": 276,
+    "financeTrack": null
+  },
+  {
+    "path": "/privacy",
+    "family": "'DejaVu Sans',sans-serif",
+    "width": 320,
+    "documentWidth": 320,
+    "titleWidth": 276,
+    "financeTrack": null
+  },
+  {
+    "path": "/privacy",
+    "family": "'Times New Roman',serif",
+    "width": 320,
+    "documentWidth": 320,
+    "titleWidth": 276,
+    "financeTrack": null
+  }
+]

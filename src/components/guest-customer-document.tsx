@@ -14,9 +14,10 @@ const dateLabel=(value:string)=>Number.isFinite(Date.parse(value))?new Intl.Date
 const idOf=(document:GuestDocument)=>document.kind==='offer'?document.review.id:document.signing.id;
 export function GuestCustomerDocument({initialDocument}:{initialDocument:GuestDocument}){
  const [document,setDocument]=useState<GuestDocument|null>(initialDocument),[name,setName]=useState(''),[reason,setReason]=useState(''),[ack,setAck]=useState(false),[review,setReview]=useState<Review|null>(null),[busy,setBusy]=useState(false),[loading,setLoading]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
- const alive=useRef(true),lock=useRef(false),generation=useRef(0),intent=useRef<{fingerprint:string;requestId:string;review:Review}|null>(null),heading=useRef<HTMLHeadingElement>(null);
+ const alive=useRef(true),lock=useRef(false),generation=useRef(0),intent=useRef<{fingerprint:string;requestId:string;review:Review}|null>(null),heading=useRef<HTMLHeadingElement>(null),errorNotice=useRef<HTMLDivElement>(null);
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;++generation.current;};},[]);
  useEffect(()=>{if(review)heading.current?.focus();},[review]);
+ useEffect(()=>{if(error)errorNotice.current?.focus();},[error]);
  function sameScope(value:GuestDocument){return value.kind===initialDocument.kind&&idOf(value)===idOf(initialDocument);}
  function clear(){setDocument(null);setReview(null);setName('');setReason('');setAck(false);}
  function applicable(value:GuestDocument,pending:Review){return value.kind==='offer'&&pending.kind==='offer'?value.review.id===pending.reviewId&&value.review.status==='pending'&&value.review.version===pending.expectedVersion:value.kind==='contract'&&pending.kind==='contract'&&value.signing.id===pending.signingId&&value.signing.canSign&&value.signing.party==='customer'&&value.signing.status==='pending'&&!value.signing.customerSignature&&value.signing.revision===pending.expectedRevision&&value.signing.documentHash===pending.documentHash;}
@@ -33,7 +34,7 @@ export function GuestCustomerDocument({initialDocument}:{initialDocument:GuestDo
  const complete=!!contract&&contract.status==='completed'&&!!contract.customerSignature&&!!contract.companySignature;
  return <main className="guest-document-page"><header className="guest-document-brand"><strong>TRAFEXA</strong><span>Personligt dokument</span></header>
   <div className="guest-document-intro"><p className="eyebrow">{document?.kind==='offer'?'Offert från din bilhandlare':'Avtal från din bilhandlare'}</p><h1>{document?.kind==='offer'?'Granska din offert':document?'Granska och godkänn ditt avtal':'Kontrollera dokumentet'}</h1><p>Du behöver inget konto eller lösenord. Länken är personlig. Vidarebefordra den inte.</p></div>
-  {error&&<div role="alert" className="notice error">{error}</div>}{notice&&<p role="status" className="notice">{notice}</p>}{loading&&<p role="status">Kontrollerar dokumentets status…</p>}
+  {error&&<div ref={errorNotice} tabIndex={-1} role="alert" className="notice error">{error}</div>}{notice&&<p role="status" className="notice">{notice}</p>}{loading&&<p role="status">Kontrollerar dokumentets status…</p>}
   {document&&snapshot&&<><section className="guest-document-summary" aria-label="Dokumentets status"><div><h2>{snapshot.vehicle.make} {snapshot.vehicle.model} · {snapshot.vehicle.registration_number}</h2><p>{snapshot.company.name} · Organisationsnummer {snapshot.company.organisation_number}</p></div><strong>{offer?offerStatus[offer.status]:complete?'Färdigsignerat':contract?.customerSignature?'Ditt godkännande är registrerat':contract?.status==='unavailable'?'Inte tillgängligt för underskrift':'Väntar på underskrifter'}</strong><p>{offer?`Offertversion ${offer.offerVersion} · Giltig till ${dateLabel(snapshot.valid_until)}`:`Avtalsversion ${contract!.draftVersion}`}</p></section>
    <SnapshotDetails snapshot={snapshot}/>
    {contract&&<section className="guest-document-card" aria-label="Avtalsvillkor"><h2>Avtalsvillkor</h2><p className="guest-document-terms">{contract.renderedTerms}</p></section>}

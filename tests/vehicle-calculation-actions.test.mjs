@@ -55,6 +55,15 @@ test('metadata writes are explicit actor-scoped CAS RPCs for owner/admin only', 
     const { actions, calls } = await fixture({ role }); assert.equal((await actions.saveVehicleCalculationMetadataAction(input)).ok, false); assert.equal(calls.some(call=>typeof call==='object'),false);
   }
 });
+test('calculation save distinguishes access revocation and failed post-IO identity proof from recoverable VAT validation',async()=>{
+  for(const options of[{role:'finance'},{role:'sales'},{user:null},{error:{code:'42501'}},{afterRpc:s=>s.role='sales'},{afterRpc:s=>s.approval='suspended'},{afterRpc:s=>s.user={...s.user,id:OTHER}}]){
+    const h=await fixture(options),result=await h.actions.saveVehicleCalculationMetadataAction(input);
+    assert.equal(result.ok,false);assert.equal(result.code,'access_denied');assert.equal('source'in result,false);assert.deepEqual(h.invalidations,[]);
+  }
+  const invalid=await fixture({error:{code:'22023'}}),result=await invalid.actions.saveVehicleCalculationMetadataAction(input);
+  assert.equal(result.code,'invalid_input');assert.equal(result.conflict,undefined);
+  const malformed=await fixture();assert.equal((await malformed.actions.saveVehicleCalculationMetadataAction({...input,expectedVersion:'0'})).code,'invalid_input');assert.deepEqual(malformed.calls,[]);
+});
 test('mutations reject forged actor/amounts, numeric versions and unverified save receipts', async () => {
   for (const patch of [{ actorUserId: USER }, { saleGrossOre: '1' }, { expectedVersion: 1 }, { purchaseVatOre: -1 }, { vatBasisConfirmed: 'true' }, { costVat: [{ costId: OTHER, deductibleVatOre: 1 }] }]) {
     const { actions, calls } = await fixture(); assert.equal((await actions.saveVehicleCalculationMetadataAction({ ...input, ...patch })).ok, false); assert.deepEqual(calls, []);

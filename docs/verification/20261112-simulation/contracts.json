@@ -1,0 +1,147 @@
+{
+  "baseCommit": "32add2d",
+  "boundary": "Actual browser component, real invitation cookie route, real server actions and migrated SQL, actual PDF/evidence/archive code. Local HTTP action transport substitutes for Next RSC. Auth, email provider and Storage HTTP are controlled adapters; no production requests.",
+  "scenarios": [
+    {
+      "order": "guest-first",
+      "width": 320,
+      "checkpoints": [
+        "actual email-link cookie; UI offer acceptance persisted exactly",
+        "real PDF-name validation rejects without signature; input/document retained",
+        "precommit lost response retries exact nonce once",
+        "read-only completed email link; actual PDF/evidence downloads; exact RLS-bound archived bytes and evidence hash",
+        "controlled SQL expiry; UI purges document and download is denied"
+      ],
+      "pageErrors": [],
+      "unexpectedRequests": [],
+      "failedRequests": [],
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "validationFeedback": {
+        "scrollY": 0,
+        "viewportHeight": 1000,
+        "alertTop": 285.375,
+        "alertBottom": 378.15625,
+        "alertIntersectsViewport": true,
+        "alertFocused": true,
+        "activeElement": "DIV"
+      },
+      "pdfSha256": "f720f2c8056d298b6f85d9ad96edc88fac52337f3f0ca02499dc66a41a67fd50",
+      "originalBytes": 15451,
+      "archiveObjects": 2,
+      "expectedDroppedResponse": "before",
+      "status": "PASS",
+      "providerBoundary": "synthetic local acceptance only",
+      "finalActionCount": 7,
+      "serverErrors": []
+    },
+    {
+      "order": "guest-first",
+      "width": 1440,
+      "checkpoints": [
+        "actual email-link cookie; UI offer acceptance persisted exactly",
+        "real PDF-name validation rejects without signature; input/document retained",
+        "precommit lost response retries exact nonce once",
+        "read-only completed email link; actual PDF/evidence downloads; exact RLS-bound archived bytes and evidence hash",
+        "controlled SQL expiry; UI purges document and download is denied"
+      ],
+      "pageErrors": [],
+      "unexpectedRequests": [],
+      "failedRequests": [],
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "validationFeedback": {
+        "scrollY": 185,
+        "viewportHeight": 1000,
+        "alertTop": 61.1875,
+        "alertBottom": 110.78125,
+        "alertIntersectsViewport": true,
+        "alertFocused": true,
+        "activeElement": "DIV"
+      },
+      "pdfSha256": "a84923bc40db1b80bb3b732c31b77f3f5a9ce5f0cd3335210e0ccfd11823a5b6",
+      "originalBytes": 15450,
+      "archiveObjects": 2,
+      "expectedDroppedResponse": "before",
+      "status": "PASS",
+      "providerBoundary": "synthetic local acceptance only",
+      "finalActionCount": 7,
+      "serverErrors": []
+    },
+    {
+      "order": "dealer-first",
+      "width": 320,
+      "checkpoints": [
+        "actual email-link cookie; UI offer acceptance persisted exactly",
+        "real PDF-name validation rejects without signature; input/document retained",
+        "postcommit lost response read-back shows completion without another signature",
+        "read-only completed email link; actual PDF/evidence downloads; exact RLS-bound archived bytes and evidence hash",
+        "controlled SQL expiry; UI purges document and download is denied"
+      ],
+      "pageErrors": [],
+      "unexpectedRequests": [],
+      "failedRequests": [],
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "validationFeedback": {
+        "scrollY": 67,
+        "viewportHeight": 1000,
+        "alertTop": 218.375,
+        "alertBottom": 311.15625,
+        "alertIntersectsViewport": true,
+        "alertFocused": true,
+        "activeElement": "DIV"
+      },
+      "pdfSha256": "70db6cb653abb12ff37ea831fac4352b7dde11159ac8a56216355c0f589e2b9f",
+      "originalBytes": 15458,
+      "archiveObjects": 2,
+      "expectedDroppedResponse": "after",
+      "status": "PASS",
+      "providerBoundary": "synthetic local acceptance only",
+      "finalActionCount": 5,
+      "serverErrors": []
+    },
+    {
+      "order": "dealer-first",
+      "width": 1440,
+      "checkpoints": [
+        "actual email-link cookie; UI offer acceptance persisted exactly",
+        "real PDF-name validation rejects without signature; input/document retained",
+        "postcommit lost response read-back shows completion without another signature",
+        "read-only completed email link; actual PDF/evidence downloads; exact RLS-bound archived bytes and evidence hash",
+        "controlled SQL expiry; UI purges document and download is denied"
+      ],
+      "pageErrors": [],
+      "unexpectedRequests": [],
+      "failedRequests": [],
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+        "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+      ],
+      "validationFeedback": {
+        "scrollY": 0,
+        "viewportHeight": 1000,
+        "alertTop": 246.1875,
+        "alertBottom": 295.78125,
+        "alertIntersectsViewport": true,
+        "alertFocused": true,
+        "activeElement": "DIV"
+      },
+      "pdfSha256": "b645a26ec1f19e48dbfc380e9b041290914198fcc10fb8c8de3ccaaf91402278",
+      "originalBytes": 15452,
+      "archiveObjects": 2,
+      "expectedDroppedResponse": "after",
+      "status": "PASS",
+      "providerBoundary": "synthetic local acceptance only",
+      "finalActionCount": 5,
+      "serverErrors": []
+    }
+  ],
+  "stylesSha256": "558a16775732d545cd9d333a9d359b6b36fbcc8b265c3c553799101e9abb071e"
+}
