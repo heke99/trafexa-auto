@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 1,
+  "applicationCommit": "681df2dbbbc884218cd2d58b03c2ae037446c84c",
+  "date": "2026-11-12",
+  "environment": {
+    "kind": "managed Codex Cloud",
+    "node": "24.19.0",
+    "target": "local production-built Next app",
+    "productionWrites": false
+  },
+  "quality": {
+    "typecheck": "PASS",
+    "build": "PASS",
+    "targetedExisting": {
+      "passed": 127,
+      "failed": 0,
+      "skipped": 0,
+      "groups": {
+        "accountAndRecovery": 48,
+        "advertisingFinance": 41,
+        "stockImport": 16,
+        "vehicleCostReads": 6,
+        "companyContext": 13,
+        "completeContractJourney": 3
+      }
+    },
+    "fullFlatRerunThisPass": false
+  },
+  "reproductions": {
+    "F10": {
+      "name": "Lost committed cost response then identical retry duplicates cost",
+      "oneReceiptOre": "125000",
+      "persistedCostRows": 2,
+      "persistedCostOre": "250000",
+      "boundary": "Actual action and migrated PGlite/RLS; controlled company context and dropped response"
+    },
+    "F11": {
+      "finding": "CJK signing name completes legal state before artifact representability is verified",
+      "severity": "P1",
+      "commit": "681df2dbbbc884218cd2d58b03c2ae037446c84c",
+      "result": "REPRODUCED",
+      "reproTest": {
+        "path": "docs/verification/20261112-additional/cjk-signature.mjs",
+        "command": "node docs/verification/20261112-additional/cjk-signature.mjs",
+        "pass": 1,
+        "fail": 0,
+        "exitCode": 0,
+        "durationMs": 3798.243865
+      },
+      "observed": {
+        "inputName": "李文",
+        "persistedStatus": "completed",
+        "persistedRevision": 3,
+        "persistedSignatures": 2,
+        "pdfRenderer": "throws unsupported glyph",
+        "archiveCode": "unavailable",
+        "guestPdfStatus": 503,
+        "fulfilmentBlockedReason": "original_required",
+        "storageObjectsWritten": 0
+      },
+      "source": [
+        {
+          "file": "src/lib/data/guest-customer-actions.ts",
+          "line": 20
+        },
+        {
+          "file": "src/lib/data/contract-signing-actions.ts",
+          "line": 80
+        },
+        {
+          "file": "src/lib/documents/contract-pdf.ts",
+          "line": 77
+        },
+        {
+          "file": "src/lib/documents/contract-pdf.ts",
+          "line": 129
+        },
+        {
+          "file": "supabase/migrations/20261016094811_guest_customer_documents.sql",
+          "line": 167
+        }
+      ],
+      "boundary": "Actual action/context/migrated PGlite SQL/renderer/archive action/guest download route/fulfilment action. Auth, Storage and outbound provider APIs are controlled local adapters. No browser or real email/production data.",
+      "cleanup": "Only transient PGlite database and in-memory storage; closed by test. No source files modified.",
+      "limitations": "Not an RLS bypass and not a font rejection by itself: defect is persisted completion before PDF representability check. Completed immutable signatures cannot be corrected through the ordinary signing flow."
+    },
+    "F12": {
+      "sourceCommit": "681df2dbbbc884218cd2d58b03c2ae037446c84c",
+      "defect": "Admin deep link destination is lost on session expiry",
+      "result": "REPRODUCED",
+      "results": [
+        {
+          "original": "/admin/annonsprogram/10000000-0000-4000-8000-000000000001",
+          "login": "/login",
+          "next": "/admin"
+        },
+        {
+          "original": "/admin/annonsprogram/10000000-0000-4000-8000-000000000001?result=saved",
+          "login": "/login",
+          "next": "/admin"
+        },
+        {
+          "original": "/my-contracts?contract=10000000-0000-4000-8000-000000000001",
+          "login": "/login",
+          "next": "/my-contracts?contract=10000000-0000-4000-8000-000000000001"
+        }
+      ],
+      "boundary": "Actual proxy and routing source; controlled anonymous Auth, local fake NextResponse. No production requests or changes."
+    }
+  },
+  "browser": [
+    {
+      "width": 320,
+      "path": "/admin/annonsprogram/10000000-0000-4000-8000-000000000001?result=saved",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3100/login?next=%2Fadmin",
+      "next": "/admin",
+      "h1": [
+        "Välkommen tillbaka."
+      ],
+      "overflow": false,
+      "pageErrors": [],
+      "blocked": []
+    },
+    {
+      "width": 320,
+      "path": "/my-contracts?contract=10000000-0000-4000-8000-000000000001",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3100/login?next=%2Fmy-contracts%3Fcontract%3D10000000-0000-4000-8000-000000000001",
+      "next": "/my-contracts?contract=10000000-0000-4000-8000-000000000001",
+      "h1": [
+        "Välkommen tillbaka."
+      ],
+      "overflow": false,
+      "pageErrors": [],
+      "blocked": []
+    },
+    {
+      "width": 320,
+      "path": "/forgot-password",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3100/forgot-password",
+      "next": null,
+      "h1": [
+        "Glömt lösenordet?"
+      ],
+      "overflow": false,
+      "pageErrors": [],
+      "blocked": []
+    },
+    {
+      "width": 1440,
+      "path": "/admin/annonsprogram/10000000-0000-4000-8000-000000000001?result=saved",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3100/login?next=%2Fadmin",
+      "next": "/admin",
+      "h1": [
+        "Välkommen tillbaka."
+      ],
+      "overflow": false,
+      "pageErrors": [],
+      "blocked": []
+    },
+    {
+      "width": 1440,
+      "path": "/my-contracts?contract=10000000-0000-4000-8000-000000000001",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3100/login?next=%2Fmy-contracts%3Fcontract%3D10000000-0000-4000-8000-000000000001",
+      "next": "/my-contracts?contract=10000000-0000-4000-8000-000000000001",
+      "h1": [
+        "Välkommen tillbaka."
+      ],
+      "overflow": false,
+      "pageErrors": [],
+      "blocked": []
+    },
+    {
+      "width": 1440,
+      "path": "/forgot-password",
+      "status": 200,
+      "finalUrl": "http://127.0.0.1:3100/forgot-password",
+      "next": null,
+      "h1": [
+        "Glömt lösenordet?"
+      ],
+      "overflow": false,
+      "pageErrors": [],
+      "blocked": []
+    }
+  ],
+  "observation": {
+    "finding": "Activation checks legal checkbox but does not persist acceptance timestamp or policy version",
+    "result": "DATA_FLOW_CONFIRMED",
+    "destination": "/login?success=Kontot+är+aktiverat.+Logga+in+med+din+e-postadress+och+ditt+nya+lösenord.",
+    "events": [
+      {
+        "kind": "verifyInvite"
+      },
+      {
+        "kind": "cookie",
+        "name": "trafexa-account-invitation"
+      },
+      {
+        "kind": "updateUser",
+        "keys": [
+          "password"
+        ]
+      },
+      {
+        "kind": "signOut"
+      }
+    ],
+    "boundary": "Actual activation action, invitation fingerprint and sign-out code; controlled Auth/store/access IO. No claim of legal noncompliance or live Auth audit inspection."
+  },
+  "cleanup": {
+    "syntheticDatabases": "closed",
+    "browser": "closed",
+    "productionDataCreated": 0,
+    "localServer": "stopped after verification"
+  }
+}
