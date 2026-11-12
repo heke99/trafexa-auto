@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { domainRedirect, isWorkspacePath, isPlatformAdminPath, isCompanyInvitationsPath, isCustomerOffersPath, isGuestCustomerPath, isAuthPath } from '@/lib/routing.mjs';
+import { domainRedirect, isWorkspacePath, isPlatformAdminPath, isCompanyInvitationsPath, isCustomerOffersPath, isGuestCustomerPath, isAuthPath, safeNextPath } from '@/lib/routing.mjs';
 
 export async function proxy(request: NextRequest) {
   const { pathname, search, hostname } = request.nextUrl;
@@ -30,7 +30,7 @@ export async function proxy(request: NextRequest) {
   if (!data?.claims?.sub && (isWorkspacePath(pathname) || isPlatformAdminPath(pathname) || isCompanyInvitationsPath(pathname) || isCustomerOffersPath(pathname) || pathname === '/onboarding')) {
     const login = request.nextUrl.clone(); login.pathname = '/login'; login.search = '';
     if (isWorkspacePath(pathname)) login.searchParams.set('next', pathname);
-    if (isPlatformAdminPath(pathname)) login.searchParams.set('next', '/admin');
+    if (isPlatformAdminPath(pathname)) login.searchParams.set('next', safeNextPath(pathname + search));
     if (isCompanyInvitationsPath(pathname)) login.searchParams.set('next', '/invitations');
     if (isCustomerOffersPath(pathname)) login.searchParams.set('next', pathname + request.nextUrl.search);
     const redirect = NextResponse.redirect(login);

@@ -3,7 +3,13 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   experimental: { serverActions: { bodySizeLimit: '2mb' } },
-  outputFileTracingIncludes: { '/customer-document/pdf': ['./assets/fonts/**/*'], '/customer-document/evidence': ['./assets/fonts/**/*'], '/api/offers/*/pdf': ['./assets/fonts/**/*'], '/api/contracts/*/pdf': ['./assets/fonts/**/*'], '/api/contract-signings/*/pdf': ['./assets/fonts/**/*'], '/api/contract-signings/*/evidence': ['./assets/fonts/**/*'], '/api/purchase-condition/*/*/pdf': ['./assets/fonts/**/*'], '/api/advertising/invoices/*/pdf': ['./assets/fonts/**/*'], '/api/advertising/financial/*/pdf': ['./assets/fonts/**/*'], '/api/advertising/issued/*/pdf': ['./assets/fonts/**/*'], '/api/advertising/credits/*/pdf': ['./assets/fonts/**/*'] },
+  outputFileTracingIncludes: {
+    // Signing actions also render a private preview before committing. Their
+    // workers include dynamic dealer pages, so PDF-route traces alone omit the
+    // font in a standalone/serverless deployment. These are server files only.
+    '/*': ['./assets/fonts/DejaVuSans.ttf', './assets/fonts/LICENSE-DejaVu.txt'],
+    '/customer-document/pdf': ['./assets/fonts/**/*'], '/customer-document/evidence': ['./assets/fonts/**/*'], '/api/offers/*/pdf': ['./assets/fonts/**/*'], '/api/contracts/*/pdf': ['./assets/fonts/**/*'], '/api/contract-signings/*/pdf': ['./assets/fonts/**/*'], '/api/contract-signings/*/evidence': ['./assets/fonts/**/*'], '/api/purchase-condition/*/*/pdf': ['./assets/fonts/**/*'], '/api/advertising/invoices/*/pdf': ['./assets/fonts/**/*'], '/api/advertising/financial/*/pdf': ['./assets/fonts/**/*'], '/api/advertising/issued/*/pdf': ['./assets/fonts/**/*'], '/api/advertising/credits/*/pdf': ['./assets/fonts/**/*'],
+  },
   async headers() {
     return [{ source: '/:path*', headers: [
       { key: 'X-Content-Type-Options', value: 'nosniff' },

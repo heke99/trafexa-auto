@@ -24,6 +24,10 @@ export async function startHarness(){
   tab.on('request',request=>{if(request.method()==='POST')audit.posts.push(request.url());});
   tab.on('pageerror',error=>audit.errors.push(String(error)));
   await tab.route('**/*',route=>route.abort('blockedbyclient'));
+  // Real WebCrypto and per-origin sessionStorage are required by durable creates.
+  await tab.route('https://register-ui.trafexa.invalid/',route=>route.fulfill({contentType:'text/html',body:'<html></html>'}));
+  await tab.goto('https://register-ui.trafexa.invalid/');
+  await tab.unroute('https://register-ui.trafexa.invalid/');
   await tab.setContent(`<html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>${styles}</style><main class="workspace-main" style="width:100%;padding:16px;box-sizing:border-box"><div id="root"></div></main></html>`);
   await tab.evaluate(()=>{
    let serial=0;Object.defineProperty(crypto,'randomUUID',{configurable:true,value:()=>`30000000-0000-4000-8000-${String(++serial).padStart(12,'0')}`});

@@ -49,3 +49,29 @@ test('a completed marker without both signatures never exposes PDF or evidence l
 test('a late read from a previous personal link cannot reveal the old buyer document',async()=>{const page=await setup(contract,{readResponses:[{hold:true}]});try{await page.getByRole('button',{name:'Kontrollera dokumentets status'}).click();await page.waitForFunction(()=>typeof window.guestFixture.releaseRead==='function');const next={kind:'offer',review:{...offer.review,id:'other-offer',snapshot:{...snapshot,customer:{...snapshot.customer,name:'Bertil Ny',email:'bertil@example.test'}}}};await page.evaluate(document=>window.mountGuestDocument(document),next);await page.evaluate(contract=>window.guestFixture.releaseRead({ok:true,document:contract}),contract);await expect(page.getByText('bertil@example.test',{exact:true})).toBeVisible();await expect(page.getByText('anna@example.test',{exact:true})).toHaveCount(0);assert.deepEqual(await calls(page),[]);}finally{await page.close();}});
 
 test('an offer confirmation from an older tab binds the observed review and clears on a swapped cookie',async()=>{const page=await setup();try{await prepare(page);await page.evaluate(()=>window.guestFixture.current={...window.guestFixture.current,review:{...window.guestFixture.current.review,id:'another-offer',recipientEmail:'other@example.test'}});await page.getByRole('button',{name:'Bekräfta och godkänn offerten',exact:true}).click();await expect(page.getByRole('alert')).toContainText('annan personlig länk');await expect(page.getByText('anna@example.test',{exact:false})).toHaveCount(0);await expect(page.getByText('other@example.test',{exact:false})).toHaveCount(0);assert.equal((await calls(page))[0].input.reviewId,'offer-1');assert.equal(await page.evaluate(()=>window.guestFixture.current.review.status),'pending');}finally{await page.close();}});
+
+for(const width of [320,1440])test(`known PDF name rejection preserves the private document and entered name at ${width}px`,async()=>{
+ const page=await setup(contract,{signResponses:[{ok:false,code:'invalid_input',message:'Namnet kan ännu inte återges i avtalsoriginalet. Ingen ny underskrift har sparats. Kontakta bilhandlaren för hjälp.'}]});
+ try{
+  await page.setViewportSize({width,height:1000});
+  await page.getByLabel('Ditt fullständiga namn',{exact:true}).fill('李文');
+  await page.getByRole('checkbox').check();
+  await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();
+  await page.getByRole('button',{name:'Godkänn avtalet',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('Ingen ny underskrift har sparats');
+  await expect(page.getByLabel('Ditt fullständiga namn',{exact:true})).toHaveValue('李文');
+  await expect(page.getByText('anna@example.test',{exact:true})).toBeVisible();
+  await expect(page.getByRole('checkbox')).not.toBeChecked();
+  await expect(page.getByRole('heading',{name:'Bekräfta godkännandet',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('link',{name:'Hämta signerat avtal som PDF'})).toHaveCount(0);
+  const rejected=(await calls(page))[0];
+  assert.equal(rejected.input.fullName,'李文');
+  await prepare(page);
+  await page.getByRole('button',{name:'Godkänn avtalet',exact:true}).click();
+  await expect(page.getByText('Ditt godkännande är registrerat',{exact:true})).toBeVisible();
+  const recovered=(await calls(page))[1];
+  assert.equal(recovered.input.fullName,'Anna Exempel');
+  assert.notEqual(recovered.input.requestId,rejected.input.requestId);
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ }finally{await page.close();}
+});

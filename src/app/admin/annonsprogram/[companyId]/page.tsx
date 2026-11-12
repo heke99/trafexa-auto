@@ -95,8 +95,10 @@ export default async function AdvertisingProgramPage({ params, searchParams }: {
 }) {
   const { companyId } = await params;
   if (!id.safeParse(companyId).success) notFound();
+  const query = await searchParams;
+  const nextPath = `/admin/annonsprogram/${companyId}${typeof query.result === 'string' ? `?${new URLSearchParams({ result: query.result })}` : ''}`;
   const { db } = await requirePlatformAdminContext().catch(error => {
-    if (error instanceof PlatformAdminError && error.code === 'unauthenticated') redirect('/login?next=/admin');
+    if (error instanceof PlatformAdminError && error.code === 'unauthenticated') redirect(`/login?${new URLSearchParams({ next: nextPath })}`);
     if (error instanceof PlatformAdminError && error.code === 'forbidden') notFound();
     throw error;
   });
@@ -106,7 +108,7 @@ export default async function AdvertisingProgramPage({ params, searchParams }: {
   const company = z.object({ companyId: id, name: z.string(), organisationNumber: z.string(), stores: storesSchema }).parse(response.data);
   const { stores } = company;
   if (company.companyId !== companyId || stores.some(store => store.company_id !== companyId)) throw Error('Felaktig butikslista.');
-  const { result } = await searchParams;
+  const { result } = query;
   const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Stockholm' }).format(new Date());
   return <main className="surface">
     <Link href="/admin">Tillbaka till superadmin</Link>

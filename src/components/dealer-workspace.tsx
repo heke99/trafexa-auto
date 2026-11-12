@@ -9,7 +9,7 @@ import { useCallback, useEffect, useId, useRef, useState, useTransition, type Re
 import { useFormStatus } from 'react-dom';
 import { ArrowDownLeft, ArrowRight, ArrowUpRight, Banknote, Building2, CarFront, Check, ChevronDown, ChevronRight, CircleHelp, ClipboardList, FileText, LayoutDashboard, Menu, Network, Plus, Search, Settings, ShieldCheck, Users, X } from 'lucide-react';
 import type { InventoryItem, VehicleCost, WorkspaceSnapshot } from '@/lib/data/workspace';
-import { createVehicleAction, reserveVehicleAction, releaseReservationAction, updateVehiclePriceAction, createVehicleCostAction, signOutAction, selectCompanyAction } from '@/lib/data/actions';
+import { createVehicleAction, reserveVehicleAction, releaseReservationAction, updateVehiclePriceAction, signOutAction, selectCompanyAction } from '@/lib/data/actions';
 import { Brand } from './brand';
 import { StockImport } from './stock-import';
 import { DealerRegisters } from './dealer-registers';
@@ -19,6 +19,7 @@ import { CustomerCreateForm } from './customer-create-form';
 import { DealerGettingStarted } from './dealer-getting-started';
 import type { DealerRegisterDeal, DealerRegisterPage } from '@/lib/registers/types';
 import { loadVehicleCosts } from '@/lib/data/vehicle-cost-actions';
+import { VehicleCostCreateForm } from './vehicle-cost-create-form';
 import { DealOffers } from './deal-offers';
 import { CustomerLeads } from './customer-leads';
 import { canReadInternalFinance, canManageStockIntake, canWriteInternalFinance } from '@/lib/access/dealer-capabilities';
@@ -195,17 +196,18 @@ function Modal({title,onClose,children}:{title:string;onClose:()=>void;children:
 function PendingButton({children,disabled=false,small=false}:{children:ReactNode;disabled?:boolean;small?:boolean}) { const {pending}=useFormStatus();return <button type="submit" disabled={pending||disabled} className={small?'button button-outline button-small':'button button-green'}>{pending?'Sparar…':children}</button>; }
 function VehicleCosts({item,demoCosts,canEdit,demo,companyId,userId,role,revision}:{item:InventoryItem;demoCosts:VehicleCost[];canEdit:boolean;demo:boolean;companyId:string;userId:string;role:string;revision:WorkspaceSnapshot}) {
  const [reload,setReload]=useState(0);
+ const [writeDenied,setWriteDenied]=useState(false);
  const [read,setRead]=useState<{key:string;costs:VehicleCost[]|null;error:string;loading:boolean}|null>(null);
  const [,startRead]=useTransition();
  const sequence=useRef(0);
  const key=JSON.stringify([companyId,userId,role,item.id]);
  const current=read?.key===key?read:null;
- const costs=demo?demoCosts:current&&!current.loading&&!current.error?current.costs:null;
- const loading=!demo&&(!current||current.loading);
- const error=demo?'':current?.error??'';
- const hasLoadedCosts=demo||Boolean(current?.costs);
+ const costs=writeDenied?null:demo?demoCosts:current&&!current.loading&&!current.error?current.costs:null;
+ const loading=!demo&&!writeDenied&&(!current||current.loading);
+ const error=writeDenied?'Din behörighet till bilens kostnader kunde inte verifieras. Läs in sidan igen.':demo?'':current?.error??'';
+ const hasLoadedCosts=!writeDenied&&(demo||Boolean(current?.costs));
  useEffect(()=>{
-  if(demo)return;
+  if(demo||writeDenied)return;
   const token=++sequence.current;let cancelled=false;
   setRead(previous=>({key,costs:previous?.key===key?previous.costs:null,error:'',loading:true}));
   startRead(async()=>{
@@ -218,24 +220,17 @@ function VehicleCosts({item,demoCosts,canEdit,demo,companyId,userId,role,revisio
    } catch {if(!cancelled&&token===sequence.current)setRead(previous=>({key,costs:previous?.key===key?previous.costs:null,error:'Bilens kostnader kunde inte hämtas. Försök igen.',loading:false}));}
   });
   return ()=>{cancelled=true;sequence.current++;};
- },[key,reload,item.id,companyId,userId,role,revision,demo]);
+ },[key,reload,item.id,companyId,userId,role,revision,demo,writeDenied]);
  const orderedCosts=costs?[...costs].sort((a,b)=>b.incurred_on.localeCompare(a.incurred_on)||b.created_at.localeCompare(a.created_at)):null;
  const labels:Record<VehicleCost['category'],string>={repair:'Reparation / rekond',transport:'Transport',inspection:'Besiktning',finance:'Finanskostnad',other:'Övrigt'};
  const amount=money;
- const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm'}).format(new Date());
  return <section className="surface" style={{marginTop:24,marginBottom:24}} aria-label="Bilens kostnader och kalkyl">
   <PanelHeading title="Kostnader & kalkyl" aside={demo?<span className="badge">Fiktiva kostnader</span>:undefined}/>
   <p className="settings-note">Kostnadsunderlagen listas här. Den verifierade kalkylen nedan hämtar aktuella belopp och momsunderlag för bilen.</p>
   {loading?<p role="status" className="quiet-empty">Hämtar bilens kostnader…</p>:null}
-  {error?<div className="quiet-empty"><p role="alert">{error}</p><button type="button" className="button button-outline button-small" onClick={()=>setReload(value=>value+1)}>Försök igen med kostnaderna</button></div>:null}
+  {error?<div className="quiet-empty"><p role="alert">{error}</p>{!writeDenied?<button type="button" className="button button-outline button-small" onClick={()=>setReload(value=>value+1)}>Försök igen med kostnaderna</button>:null}</div>:null}
   {orderedCosts?orderedCosts.length?<div className="table-scroll"><table className="data-table"><caption className="sr-only">Registrerade kostnader för {item.vehicles.registration_number}</caption><thead><tr><th>Datum</th><th>Kostnad</th><th>Belopp</th></tr></thead><tbody>{orderedCosts.map(cost=><tr key={cost.id}><td>{cost.incurred_on}</td><td><strong className="cell-subtext" style={{overflowWrap:'anywhere'}}>{cost.description}</strong><span className="cell-subtext">{labels[cost.category]}</span></td><td className="numeric">{amount(cost.amount_ore)}</td></tr>)}</tbody></table></div>:<p className="quiet-empty">Inga kostnader har registrerats på bilen ännu.</p>:null}
-  {canEdit&&hasLoadedCosts?<form action={createVehicleCostAction} onSubmit={event=>{if(loading||error||costs===null)event.preventDefault();}} className="workspace-form" style={{padding:20,borderTop:'1px solid #e8edde'}}>
-   <input type="hidden" name="stock_item_id" value={item.id}/>
-   <label>Kostnadstyp<select name="category" required defaultValue="repair">{Object.entries(labels).map(([value,text])=><option key={value} value={value}>{text}</option>)}</select></label>
-   <label>Beskrivning<input name="description" required maxLength={500} placeholder="Till exempel service och rekond"/></label>
-   <div className="field-pair"><label>Totalbelopp inklusive eventuell moms, kr<input name="amount" type="number" required min="0" max="9999999999.99" step="0.01"/></label><label>Kostnadsdatum<input name="incurred_on" type="date" required min="0001-01-01" max="9999-12-31" defaultValue={today}/></label></div>
-   <PendingButton small disabled={loading||Boolean(error)||costs===null}>Registrera kostnad <Plus size={15}/></PendingButton>
-  </form>:null}
+  {canEdit&&hasLoadedCosts?<VehicleCostCreateForm companyId={companyId} stockItemId={item.id} userId={userId} role={role} demo={demo} disabled={loading||Boolean(error)||costs===null} onCreated={()=>setReload(value=>value+1)} onDenied={()=>{sequence.current++;setWriteDenied(true);setRead({key,costs:null,error:'Din behörighet till bilens kostnader kunde inte verifieras. Läs in sidan igen.',loading:false});}}/>:null}
   {costs!==null?<VehicleCalculation item={item} costs={costs} canEdit={canEdit} demo={demo}/>:null}
  </section>;
 }

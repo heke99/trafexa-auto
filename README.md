@@ -2,6 +2,8 @@
 
 ## Köra tester från en ren installation
 
+Miljöpaket, browser-/PDF-kontroll och isolerad körning beskrivs i [testmiljöguiden](docs/TEST_ENVIRONMENT.md).
+
 Kör `npm ci`, därefter `npm run test:setup` och `npm test -- --test-concurrency=2`.
 Flat-sviten använder databasfixturerna i `tests/crm-db` och `tests/company-team-db`.
 `pretest` kontrollerar beroendena och packar upp testwebbläsaren före parallella
