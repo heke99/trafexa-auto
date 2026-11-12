@@ -32,8 +32,10 @@ before(async () => {
 });
 after(async () => { await browser?.close(); if (directory) await rm(directory, { recursive: true, force: true }); });
 
-async function setup(overrides={},props={}) {
- const page=await browser.newPage();await page.route('**/*',route=>route.abort());await page.setContent(`<style>${styles}</style><div class="wrap" id="root"></div>`);
+async function setup(overrides={},props={},currentTime='2026-10-18T12:00:00Z') {
+ const page=await browser.newPage();
+ // Date-only clock control keeps fixtures deterministic without freezing timers.
+ await page.clock.setFixedTime(new Date(currentTime));await page.route('**/*',route=>route.abort());await page.setContent(`<style>${styles}</style><div class="wrap" id="root"></div>`);
  await page.evaluate(({overrides})=>{
   window.billingCalls=[];window.billingResponses=[];window.billingMutationResponses=[];let nonce=0;Object.defineProperty(crypto,'randomUUID',{configurable:true,value:()=>`20000000-0000-4000-8000-${String(++nonce).padStart(12,'0')}`});
   const item={publicationId:'10000000-0000-4000-8000-000000000010',listingId:'10000000-0000-4000-8000-000000000011',channel:'blocket',publishedAt:'2026-09-19T12:00:00Z',unitPriceOre:null,priceSource:null,rateVersion:null};
@@ -125,4 +127,23 @@ test('billing opens invoice profiles before month locking only after explicit re
   await expect(page.getByRole('heading',{name:'Gällande kanalpriser'})).toHaveCount(0);
   await expect(page.getByRole('heading',{name:'Köparens faktureringsuppgifter',exact:true})).toHaveCount(0);
  }finally{await page.close();}
+});
+
+test('billing defaults to the previous Stockholm month and explicit month selection reaches the API',async()=>{
+ for(const [currentTime,expectedMonth] of [
+  ['2026-10-18T12:00:00Z','2026-09'],
+  ['2026-10-31T22:30:00Z','2026-09'],
+  ['2026-10-31T23:30:00Z','2026-10'],
+  ['2027-01-01T00:30:00Z','2026-12'],
+ ]){
+  const page=await setup({}, {}, currentTime);
+  try{
+   await expect(page.getByLabel('Avstämningsmånad')).toHaveValue(expectedMonth);
+   assert.equal(await page.evaluate(()=>window.billingCalls.find(call=>call.kind==='read').month),expectedMonth);
+   await page.getByLabel('Avstämningsmånad').fill('2026-08');
+   await expect.poll(()=>page.evaluate(()=>window.billingCalls.filter(call=>call.kind==='read').at(-1).month)).toBe('2026-08');
+   await expect(page.getByRole('heading',{name:'Gällande kanalpriser'})).toBeVisible();
+   assert.equal(await page.evaluate(()=>window.billingCalls.some(call=>call.kind!=='read')),false);
+  }finally{await page.close();}
+ }
 });
