@@ -37,4 +37,4 @@ Ingen riktig autentiserad Next-produktionsresa, native PostgreSQL-samtidighet, k
 
 ## Slutkontroller
 
-Samlad regression och slutligt bygge redovisas här när körningarna är klara. Källändringarna publiceras som en separat granskningsbar PR; denna simulering ändrar inte produktion eller databas.
+**1 999/1 999 fall PASS**, 218 befintliga testfiler, 0 fail/skip och inga saknade fallantal. Varje flat testfil kördes direkt i en egen Node-process, tre filer parallellt; 425,01 sekunder. Resultatet inkluderar de uppdaterade kalkyl-/parent-/signeringsregressionerna. `npm run typecheck`, `npm run build` och `git diff --check` PASS. Slutbygget krypkördes på nytt: 48 sid-/viewportprov och sex typsnittsprov PASS. [Maskinläsbart testutfall och källhashar](verification/20261112-simulation/full-regression.json). Källändringarna publiceras som en separat granskningsbar PR; denna simulering ändrar inte produktion eller databas.
