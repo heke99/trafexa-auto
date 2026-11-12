@@ -1,6 +1,6 @@
 # Kompletterande reproduktioner 12 november 2026
 
-Appbaslinje: `681df2dbbbc884218cd2d58b03c2ae037446c84c`. Kör från repositoryroten efter `npm ci --ignore-scripts` och `npm run test:setup`, med Node 24 och de dokumenterade PDF-/testberoendena.
+Appbaslinje: `681df2dbbbc884218cd2d58b03c2ae037446c84c`. Skripten gäller den angivna baslinjen. Kör dem endast i en separat arbetskopia på `681df2d`; på en rättad branch ska regressionstesterna användas i stället. Kör från repositoryroten efter `npm ci --ignore-scripts` och `npm run test:setup`, med Node 24 och de dokumenterade PDF-/testberoendena.
 
 ```sh
 node docs/verification/20261112-additional/cost-replay.mjs

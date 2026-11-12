@@ -55,6 +55,11 @@ async function harness() {
         getClaims() { throw new Error('Authorization must use verified getUser(), not JWT/user metadata.'); },
       },
       rpc(name, args) {
+        if (name === 'create_vehicle_cost_request') return {async abortSignal() {
+          (request.costRequests??=[]).push(args);
+          request.inserts.push({table:'vehicle_costs',value:{company_id:args.p_company_id,stock_item_id:args.p_stock_item_id,category:args.p_category,description:args.p_description,amount_ore:args.p_amount_ore,incurred_on:args.p_incurred_on}});
+          return {data:{companyId:args.p_company_id,actorId:request.user.id,requestId:args.p_request_id,kind:'vehicle_cost',recordId:STOCK,stockItemId:args.p_stock_item_id,category:args.p_category,description:args.p_description,amountOre:String(args.p_amount_ore),incurredOn:args.p_incurred_on,createdAt:'2026-10-15T10:00:00Z'},error:null};
+        }};
         if (name === 'create_customer_request') return {async abortSignal() {
           request.inserts.push({table:'customers',value:{company_id:args.p_company_id,name:args.p_name,kind:args.p_kind,email:args.p_email||null,phone:args.p_phone||null,address:args.p_address||null,notes:args.p_notes||null}});
           return {data:{companyId:args.p_company_id,actorId:request.user.id,requestId:args.p_request_id,kind:'customer',recordId:STOCK,createdAt:'2026-10-15T10:00:00Z'},error:null};
@@ -254,7 +259,7 @@ test('explicit company selection repairs a stale cookie but rejects foreign, ina
 });
 
 test('cost writes authorize actual membership roles rather than editable user metadata', async () => {
-  const h = await harness(), input = form({ stock_item_id: STOCK, category: 'repair', description: 'Service', amount: '1250,50', incurred_on: '2026-10-13', company_id: B });
+  const h = await harness(), input = form({ expected_company_id:A,request_id:STOCK,stock_item_id: STOCK, category: 'repair', description: 'Service', amount: '1250,50', incurred_on: '2026-10-13', company_id: B });
   for (const role of ['owner', 'admin', 'sales', 'viewer', 'finance']) {
     const request = fixture({ cookie: A, memberships: [membership(A, { role })] });
     await h.request(request, async () => {
@@ -262,8 +267,8 @@ test('cost writes authorize actual membership roles rather than editable user me
       if (['owner', 'admin'].includes(role)) {
         assert.match(outcome, /^\/inventory\?success=/);
         assert.equal(request.inserts[0].value.company_id, A); assert.equal(request.inserts[0].value.amount_ore, 125050);
-        assert.ok(request.queries.some((query) => query.table === 'stock_items' && query.filters.company_id === A && query.filters.id === STOCK));
-      } else { assert.match(outcome, /Du har inte behörighet/); assert.deepEqual(request.inserts, []); }
+        assert.equal(request.costRequests[0].p_company_id,A);assert.equal(request.costRequests[0].p_stock_item_id,STOCK);assert.equal(request.costRequests[0].p_request_id,STOCK);
+      } else { assert.match(outcome, /behörighet/); assert.deepEqual(request.inserts, []); }
     });
   }
 });

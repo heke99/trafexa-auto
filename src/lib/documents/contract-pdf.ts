@@ -1,10 +1,9 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import fontkit from '@pdf-lib/fontkit';
 import { PDFDocument, rgb } from 'pdf-lib';
 import { z } from 'zod';
 import { CONTRACT_PLACEHOLDERS, type ContractDraft } from '../contracts/types.ts';
 import { parseOfferSnapshot, formatOfferMoney, formatOfferSignedMoney, wrapOfferText, type OfferSnapshot } from './offer-pdf.ts';
+import { getContractPdfFontBytes } from './contract-pdf-font.ts';
 
 const uuid = z.string().uuid();
 const positive = z.number().int().min(1).max(2147483647);
@@ -47,11 +46,6 @@ const schema = z.object({
 
 /** Only the server-stored draft is accepted; unknown provider/Auth fields are stripped. */
 export function parseContractDraft(value: unknown): ContractDraft { return schema.parse(value); }
-let fontBytes: Promise<Buffer> | undefined;
-function getFontBytes(): Promise<Buffer> {
-  fontBytes ??= readFile(join(process.cwd(), 'assets', 'fonts', 'DejaVuSans.ttf')).catch(error => { fontBytes = undefined; throw error; });
-  return fontBytes;
-}
 
 /** The source offer and approved template version are frozen; this renders no signature or payment state. */
 export type ContractPdfSignature = { authenticationMethod?: 'email_link'; party: 'customer' | 'company'; fullName: string; signedAt: string; strokes: { points: { x: number; y: number }[] }[] };
@@ -63,7 +57,7 @@ export async function generateContractPdf(value: unknown): Promise<Uint8Array> {
 export async function renderContractPdf(value: unknown, completion?: ContractPdfCompletion): Promise<Uint8Array> {
   const draft = parseContractDraft(value), offer = draft.sourceOffer;
   const document = await PDFDocument.create(); document.registerFontkit(fontkit);
-  const font = await document.embedFont(await getFontBytes(), { subset: true }), supported = new Set(font.getCharacterSet());
+  const font = await document.embedFont(await getContractPdfFontBytes(), { subset: true }), supported = new Set(font.getCharacterSet());
   const created = new Date(draft.createdAt);
   document.setTitle(`${completion ? 'SIGNERAT AVTAL' : 'AVTALSUTKAST – OSIGNERAT'} – v${draft.version} – ${offer.vehicle.registration_number}`);
   document.setAuthor(offer.company.name); document.setCreator('Trafexa');

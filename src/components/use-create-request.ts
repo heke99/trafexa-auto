@@ -3,7 +3,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {useRouter} from 'next/navigation';
 
-type Receipt={companyId:string;actorId:string;requestId:string;recordId:string;kind:'customer'|'finance_intake';createdAt:string};
+type Receipt={companyId:string;actorId:string;requestId:string;recordId:string;kind:'customer'|'finance_intake'|'vehicle_cost';createdAt:string};
 type Result={ok:true;receipt:Receipt}|{ok:false;code:string;message:string};
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const normalizeCreateText=(value:string)=>value.trim();
@@ -34,7 +34,7 @@ async function recoverPending(scope:string,payload:string){
  return {requestId,storageKey};
 }
 /** Keep an ambiguous attempt's immutable request ID and payload for an exact retry. */
-export function useCreateRequest<T extends {companyId:string}>(options:{companyId:string;actorId:string;kind:Receipt['kind'];action:(input:T&{requestId:string})=>Promise<Result>;onSuccess:()=>void;onDenied?:()=>void}){
+export function useCreateRequest<T extends {companyId:string}>(options:{companyId:string;actorId:string;kind:Receipt['kind'];action:(input:T&{requestId:string})=>Promise<Result>;onSuccess:()=>void;onDenied?:()=>void;receiptMatches?:(receipt:Receipt,input:T)=>boolean}){
  const router=useRouter();
  const live=useRef(true),busy=useRef(false);
  type Attempt={key:string;requestId:string;input:T;storageKey:string};
@@ -64,11 +64,11 @@ export function useCreateRequest<T extends {companyId:string}>(options:{companyI
     return;
    }
    const receipt=result.receipt;
-   if(!receipt||receipt.companyId!==options.companyId||receipt.actorId!==options.actorId||receipt.requestId!==current.requestId||receipt.kind!==options.kind||!uuid.test(receipt.recordId)||typeof receipt.createdAt!=='string'||!/^\d{4}-\d{2}-\d{2}T/.test(receipt.createdAt)||!Number.isFinite(Date.parse(receipt.createdAt))){
+   if(!receipt||receipt.companyId!==options.companyId||receipt.actorId!==options.actorId||receipt.requestId!==current.requestId||receipt.kind!==options.kind||!uuid.test(receipt.recordId)||typeof receipt.createdAt!=='string'||!/^\d{4}-\d{2}-\d{2}T/.test(receipt.createdAt)||!Number.isFinite(Date.parse(receipt.createdAt))||options.receiptMatches&&!options.receiptMatches(receipt,current.input)){
     setState({status:'unknown',message:'Kvittot kunde inte verifieras. Uppgifterna finns kvar. Försök igen med samma uppgifter.'});return;
    }
    removePending(current.storageKey);attempts.current.delete(key);attempt.current=null;
-   setState({status:'success',message:options.kind==='customer'?'Kunden har registrerats.':'Intresseanmälan har registrerats hos Trafexa. Den är inte skickad till en finanspartner.'});
+   setState({status:'success',message:options.kind==='customer'?'Kunden har registrerats.':options.kind==='vehicle_cost'?'Kostnaden har registrerats på bilen.':'Intresseanmälan har registrerats hos Trafexa. Den är inte skickad till en finanspartner.'});
    options.onSuccess();router.refresh();
   }catch{
    if(live.current)setState(sent?{status:'unknown',message:'Svaret kunde inte tas emot. Uppgifterna finns kvar. Försök igen med samma uppgifter för att kontrollera samma begäran.'}:{status:'error',message:'Ingen ny begäran skickades. Säker återförsökning är inte tillgänglig i den här webbläsarsessionen. Kontakta en ansvarig innan du fortsätter. Rensa inte olösta begäranden utan avstämning.'});

@@ -14,7 +14,7 @@ export async function archiveOfferAction(input) {
 const unexpected = async () => { throw new Error('Unexpected unrelated Server Action'); };
 export const createVehicleAction = unexpected, createCustomerAction = unexpected, createDealAction = unexpected,
   reserveVehicleAction = unexpected, createFinanceRequestAction = unexpected, releaseReservationAction = unexpected,
-  updateVehiclePriceAction = unexpected, createVehicleCostAction = unexpected, signOutAction = unexpected, selectCompanyAction = unexpected;
+  updateVehiclePriceAction = unexpected, createVehicleCostAction = unexpected, createVehicleCostRequestAction = unexpected, signOutAction = unexpected, selectCompanyAction = unexpected;
 
 export async function loadDealerRegisterPage(input) {
   const snapshot = window.fixture.workspaceSnapshot;

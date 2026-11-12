@@ -7,10 +7,13 @@ import { input, record, id, integer, text } from '@/lib/contracts/validation';
 import { CONTRACT_SIGNING_CONSENT_VERSION, type ContractSigning, type ContractSigningPage, type ContractSigningDelivery, type SignContractInput } from '@/lib/contracts/signing-types';
 import type { ContractResult } from '@/lib/contracts/types';
 import { contractEmailConfigurationStatus } from '@/lib/email/server';
+import { assertContractPdfName, ContractPdfValidationError } from '@/lib/documents/contract-pdf-font';
+import { assertContractSigningRenderable } from '@/lib/documents/contract-signing-preflight';
 type Dealer = Awaited<ReturnType<typeof requireDealerSigningContext>>;
 type Customer = Awaited<ReturnType<typeof requireCustomerSigningContext>>;
 type Context = Dealer | Customer;
 function failure(e: unknown, validation = false): ContractResult<never> {
+  if (e instanceof ContractPdfValidationError) return { ok: false, code: 'invalid_input', message: e.message };
   const raw = e && typeof e === 'object' && 'code' in e ? e.code : null;
   const code = e instanceof CrmError ? e.code : validation ? 'invalid_input' : raw === '40001' ? 'conflict' : raw === '42501' ? 'access_denied' : raw === '22023' ? 'invalid_input' : 'unavailable';
   return { ok: false, code, message: code === 'invalid_input' ? 'Kontrollera namn, namnteckning och bekräftelse av avtalets villkor.' : code === 'conflict' ? 'Affären har redan en signering eller underlaget har ändrats. Uppdatera för att se det aktuella avtalet.' : code === 'access_denied' || code === 'unauthenticated' ? 'Din inloggning eller behörighet till avtalet kunde inte verifieras.' : 'Resultatet kunde inte bekräftas. Uppdatera och försök vid behov igen med samma begäran.' };
@@ -79,7 +82,17 @@ export async function signContractAction(value: SignContractInput): Promise<Cont
   try { const r = input(value, ['signingId', 'companyId', 'expectedRevision', 'documentHash', 'fullName', 'strokes', 'acknowledged', 'consentVersion', 'requestId']); if (r.acknowledged !== true || r.consentVersion !== CONTRACT_SIGNING_CONSENT_VERSION) throw Error('Consent required');
     v = { signingId: id(r.signingId), ...(r.companyId === undefined ? {} : { companyId: id(r.companyId) }), expectedRevision: integer(r.expectedRevision, 1, 2), documentHash: hash(r.documentHash), fullName: text(r.fullName, 2, 160), strokes: signatureStrokes(r.strokes), acknowledged: true, consentVersion: CONTRACT_SIGNING_CONSENT_VERSION, requestId: id(r.requestId) };
   } catch (e) { return failure(e, true); }
-  try { const c = await context(v.companyId, true), response = await c.db.rpc('sign_contract', { p_signing_id: v.signingId, p_company_id: v.companyId ?? null, p_expected_revision: v.expectedRevision, p_document_hash: v.documentHash, p_full_name: v.fullName, p_strokes: v.strokes, p_acknowledged: true, p_consent_version: v.consentVersion, p_request_id: v.requestId }); if (response.error) throw response.error;
+  try {
+    const c = await context(v.companyId, true);
+    await assertContractPdfName(v.fullName);
+    const current = await c.db.rpc('get_contract_signing', { p_signing_id: v.signingId, p_company_id: v.companyId ?? null });
+    if (current.error) throw current.error;
+    const envelope = record(current.data); scope(envelope, c);
+    const before = parse(envelope.signing, c);
+    if (before.id !== v.signingId || before.documentHash !== v.documentHash) throw { code: '40001' };
+    if (before.party === null) throw new CrmError('access_denied');
+    await assertContractSigningRenderable(before, { party: before.party, fullName: v.fullName, strokes: v.strokes });
+    const response = await c.db.rpc('sign_contract', { p_signing_id: v.signingId, p_company_id: v.companyId ?? null, p_expected_revision: v.expectedRevision, p_document_hash: v.documentHash, p_full_name: v.fullName, p_strokes: v.strokes, p_acknowledged: true, p_consent_version: v.consentVersion, p_request_id: v.requestId }); if (response.error) throw response.error;
     const r = record(response.data); scope(r, c, v.requestId); const saved = parse(r.signing, c), receipt = 'companyId' in c ? saved.companySignature : saved.customerSignature;
     if (saved.id !== v.signingId || saved.documentHash !== v.documentHash || saved.revision !== v.expectedRevision + 1 || !receipt || receipt.fullName !== v.fullName || JSON.stringify(receipt.strokes) !== JSON.stringify(v.strokes)) throw Error('Invalid signature receipt');
     await fresh(c, true); if (saved.status === 'completed') { await dispatch('contract_completed', saved.id); await dispatch('contract_completed_company', saved.id); } await fresh(c, true); invalidate(); return { ok: true, signing: saved };

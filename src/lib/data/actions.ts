@@ -11,8 +11,9 @@ import { getAuthenticatedLandingPath } from '@/lib/auth/landing';
 import { passwordChangeUnconfirmedWarning, savedPasswordSignOutWarning, sessionSignOutUnconfirmedWarning, tryGlobalSignOut } from '@/lib/auth/sign-out';
 import { getPasswordRecoveryFingerprint } from '@/lib/auth/password-recovery-intent';
 import { PASSWORD_RECOVERY_COOKIE, PASSWORD_RECOVERY_COOKIE_PATH, validPasswordRecoveryToken } from '@/lib/auth/password-recovery-token';
-import { canManageStockIntake, canWriteInternalFinance } from '@/lib/access/dealer-capabilities';
+import { canManageStockIntake } from '@/lib/access/dealer-capabilities';
 import { createCustomerRequestAction, createFinanceIntakeRequestAction } from './create-record-actions';
+import { createVehicleCostRequestAction } from './vehicle-cost-actions';
 
 function outcome(path:string,type:'error'|'success',message:string):never {redirect(`${path}${path.includes('?')?'&':'?'}${type}=${encodeURIComponent(message)}`);}
 function friendlyError(error:unknown) {
@@ -129,22 +130,12 @@ export async function updateVehiclePriceAction(form:FormData) {
 
 export async function createVehicleCostAction(form:FormData) {
  await mutate('/inventory',async()=>{
-  const {db,company,role}=await context();
-  if(!canWriteInternalFinance(role))throw new Error('Du har inte behörighet att registrera kostnader.');
-  const stock=uuidField(form,'stock_item_id');
-  const category=enumField(form,'category',['repair','transport','inspection','finance','other']);
-  const description=requiredField(form,'description',1,500);
-  const amount=moneyField(form,'amount',true);
-  const incurredOn=requiredField(form,'incurred_on',10,10);
-  const date=new Date(`${incurredOn}T00:00:00Z`);
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(incurredOn)||incurredOn.startsWith('0000')||Number.isNaN(date.getTime())||date.toISOString().slice(0,10)!==incurredOn)throw new Error('Ange ett giltigt kostnadsdatum.');
-  const {data:vehicle,error:stockError}=await db.from('stock_items').select('id').eq('company_id',company).eq('id',stock).maybeSingle();
-  if(stockError)throw stockError;
-  if(!vehicle)throw new Error('Bilen kunde inte hittas i ditt företag.');
-  const {data:saved,error}=await db.from('vehicle_costs').insert({company_id:company,stock_item_id:stock,category,description,amount_ore:amount,incurred_on:incurredOn}).select('id').single();
-  if(error)throw error;
-  if(!saved)throw new Error('Kostnaden kunde inte sparas. Försök igen.');
- },'Kostnaden har registrerats på bilen.');
+  const {company}=await context(uuidField(form,'expected_company_id'));
+  const result=await createVehicleCostRequestAction({companyId:company,requestId:uuidField(form,'request_id'),stockItemId:uuidField(form,'stock_item_id'),
+   category:enumField(form,'category',['repair','transport','inspection','finance','other'])as 'repair'|'transport'|'inspection'|'finance'|'other',
+   description:requiredField(form,'description',1,500),amount:requiredField(form,'amount'),incurredOn:requiredField(form,'incurred_on',10,10)});
+  if(!result.ok)throw new Error(result.message);
+ },'Kostnaden har registrerats på bilen.',false);
 }
 
 export async function forgotPasswordAction(form:FormData) {
