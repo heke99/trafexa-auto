@@ -1,0 +1,397 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-12",
+  "applicationCommit": "681df2dbbbc884218cd2d58b03c2ae037446c84c",
+  "environment": {
+    "sessionId": "sbx_gGDF7deHOReoufIBPpcKiM3F7qoe",
+    "node": "24.22.3",
+    "chromium": "153",
+    "vcpus": 4,
+    "memoryMiB": 8192,
+    "productionSecretsCopied": false
+  },
+  "qualityGates": {
+    "typecheck": {
+      "result": "pass",
+      "commandId": "cmd_d6355731ca3d4cde811c0d044efc"
+    },
+    "build": {
+      "result": "pass",
+      "exitCode": 0,
+      "durationSeconds": 49.527,
+      "commandId": "cmd_b59f086df9a64b1a92391622600f"
+    },
+    "preflight": {
+      "result": "pass",
+      "commandId": "cmd_0fd1cf96fcaf45c9a43b7e18a4cd"
+    },
+    "initialFlat": {
+      "exitCode": 1,
+      "tests": 1965,
+      "pass": 1927,
+      "fail": 19,
+      "skipped": 19,
+      "environmentIncomplete": true
+    },
+    "repairedToolFocused": {
+      "exitCode": 1,
+      "tests": 43,
+      "pass": 40,
+      "fail": 3,
+      "cause": "Billing fixture uses September but wall clock now November; PDF and archive tools now available."
+    },
+    "billingClockFix": {
+      "exitCode": 0,
+      "tests": 13,
+      "pass": 13,
+      "commandId": "cmd_6b16230fb85e43eabc9d7330f119",
+      "sha256": "d782140ecbdfda78f63c71b2767977577120b821546f46f96ad5dca055f69d69",
+      "durationSeconds": 24.122834
+    },
+    "repairedToolsFlat": {
+      "exitCode": 1,
+      "tests": 1965,
+      "pass": 1962,
+      "fail": 3,
+      "skipped": 0,
+      "durationSeconds": 585.959871,
+      "commandId": "cmd_d2d946f660554371ad8522c3081d",
+      "note": "Only the three date-dependent billing fixtures failed; fixed file separately passed 13/13."
+    },
+    "finalFlat": {
+      "exitCode": 0,
+      "tests": 1966,
+      "pass": 1966,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "durationSeconds": 513.1192834,
+      "concurrency": 3,
+      "commandId": "cmd_d78b6e39204c4036aab3d160f444",
+      "invocation": "npm test -- --test-concurrency=3",
+      "sourceDirectory": "/vercel/trafexa-env-fix"
+    }
+  },
+  "focusedChecks": [
+    {
+      "name": "company profile UI",
+      "pass": 29,
+      "commandId": "cmd_c39a5dec334742479d6c4691c987"
+    },
+    {
+      "name": "store program profile roles tenants SQL/API",
+      "pass": 6,
+      "commandId": "cmd_6b02ff0ee2d54ccf9aed3c3ca2f4"
+    },
+    {
+      "name": "atomic company creation receipt and replay",
+      "result": "pass",
+      "commandId": "cmd_cb7eca5f646e4fdf9c9d5bebb4d3"
+    },
+    {
+      "name": "contract complete, both signing orders and link renewal",
+      "pass": 3,
+      "commandId": "cmd_eb2fa1a3e49149ff885805a4b7be"
+    },
+    {
+      "name": "finance actions and guest fulfilment",
+      "pass": 29,
+      "commandId": "cmd_0af3f62d6d9144119f08fe84bb80"
+    },
+    {
+      "name": "calculation SQL",
+      "pass": 7
+    },
+    {
+      "name": "fulfilment UI",
+      "pass": 5
+    },
+    {
+      "name": "synthetic provider HTTP worker and migrated SQL",
+      "pass": 73,
+      "commandId": "cmd_70ca0600d34d475a81149d2b3771"
+    }
+  ],
+  "nextBrowserCrawl": {
+    "commandId": "cmd_ffa03c212e6d4205ba8d4f83f3d4",
+    "pages": [
+      {
+        "path": "/login",
+        "width": 320,
+        "status": 200,
+        "overflow": false,
+        "errors": 0,
+        "external": 0
+      },
+      {
+        "path": "/demo?section=dashboard",
+        "width": 320,
+        "status": 200,
+        "overflow": false,
+        "errors": 0,
+        "external": 0
+      },
+      {
+        "path": "/demo?section=settings",
+        "width": 320,
+        "status": 200,
+        "overflow": false,
+        "errors": 0,
+        "external": 0
+      },
+      {
+        "path": "/demo?section=inventory",
+        "width": 320,
+        "status": 200,
+        "overflow": false,
+        "errors": 0,
+        "external": 0
+      },
+      {
+        "path": "/demo?section=deals",
+        "width": 320,
+        "status": 200,
+        "overflow": false,
+        "errors": 0,
+        "external": 0
+      },
+      {
+        "path": "/login",
+        "width": 1440,
+        "status": 200,
+        "overflow": false,
+        "errors": 0,
+        "external": 0
+      },
+      {
+        "path": "/demo?section=dashboard",
+        "width": 1440,
+        "status": 200,
+        "overflow": false,
+        "errors": 0,
+        "external": 0
+      },
+      {
+        "path": "/demo?section=settings",
+        "width": 1440,
+        "status": 200,
+        "overflow": false,
+        "errors": 0,
+        "external": 0
+      },
+      {
+        "path": "/demo?section=inventory",
+        "width": 1440,
+        "status": 200,
+        "overflow": false,
+        "errors": 0,
+        "external": 0
+      },
+      {
+        "path": "/demo?section=deals",
+        "width": 1440,
+        "status": 200,
+        "overflow": false,
+        "errors": 0,
+        "external": 0
+      }
+    ],
+    "failures": []
+  },
+  "reproducedDefects": [
+    {
+      "id": "F01",
+      "name": "invalid program form discards values",
+      "boundary": "actual React SSR/action/SQL with adapted local HTTP Next form transport",
+      "commandId": "cmd_bef12a7350d54314b03a8b179de7"
+    },
+    {
+      "id": "F02",
+      "name": "expired auth or thrown RPC misses intended recovery",
+      "boundary": "actual action with controlled Auth/RPC failure",
+      "commandId": "cmd_bef12a7350d54314b03a8b179de7"
+    },
+    {
+      "id": "F03",
+      "name": "lost program commit response gives overlap instead of original receipt",
+      "boundary": "actual action and SQL; exactly one revision, no duplicate record",
+      "commandId": "cmd_bef12a7350d54314b03a8b179de7"
+    },
+    {
+      "id": "F04",
+      "name": "denied save retains private financial values",
+      "boundary": "actual calculation action and component with revoked context fixture"
+    },
+    {
+      "id": "F05",
+      "name": "parent Blocket navigation enabled during pending write",
+      "boundary": "actual Chromium, deferred action response",
+      "commandId": "cmd_773b470c42034691bef28cd30a61"
+    },
+    {
+      "id": "F09",
+      "name": "mobile home/application and privacy overflow",
+      "boundary": "actual production-built Next app at localhost with blocked external IO",
+      "commandId": "cmd_caf922c3e7e04062be705e04bcc3",
+      "measurements": {
+        "viewport": 320,
+        "homeDocument": 327,
+        "privacyDocument": 364,
+        "desktopViewport": 1440,
+        "desktopDocument": 1440
+      },
+      "causes": [
+        "finance grid min-content track",
+        "legal heading does not wrap"
+      ]
+    }
+  ],
+  "security": {
+    "npmAudit": {
+      "high": 1,
+      "dependency": "zod",
+      "version": "4.1.12",
+      "advisory": "GHSA-mrhx-c7xc-m3w5",
+      "fixVersion": "4.6.7",
+      "fixed": false
+    }
+  },
+  "unverified": [
+    "authenticated production journeys",
+    "real Blocket/Wayke/Bytbil delivery",
+    "real email delivery in this run",
+    "bank verification",
+    "native PostgreSQL concurrency",
+    "separate archive backup restore"
+  ],
+  "productionMutations": false,
+  "retention": "This sanitized summary is durable. Raw temporary sandbox PNGs/logs are not retained after shutdown.",
+  "publicBrowserCrawl": {
+    "views": 10,
+    "documentGetCount": 8,
+    "documentStatus": 200,
+    "anchorNavigations": 2,
+    "viewports": [
+      320,
+      1440
+    ],
+    "pages": [
+      "/",
+      "/#kontakt",
+      "/privacy",
+      "/cookies",
+      "/terms"
+    ],
+    "javascriptErrors": 0,
+    "consoleErrors": 0,
+    "realSubmissions": 0,
+    "openRegistrationForm": false,
+    "contactEmail": "info@trafexa.com",
+    "overflow": {
+      "sha": "681df2dbbbc884218cd2d58b03c2ae037446c84c",
+      "finding": "F09",
+      "method": "scrollTo(0,0); document.documentElement.scrollWidth; element.getBoundingClientRect(); Range.selectNodeContents(element).getBoundingClientRect()",
+      "source": "src/app/globals.css:3,9; src/app/privacy/page.tsx:6",
+      "measurements": [
+        {
+          "path": "/",
+          "viewport": 320,
+          "documentWidth": 327,
+          "elements": [
+            {
+              "selector": ".finance-layout",
+              "boxWidth": 276,
+              "right": 298,
+              "textRight": 327,
+              "scrollWidth": 305,
+              "fontSize": "15px",
+              "grid": "305.234px"
+            },
+            {
+              "selector": ".finance-layout h2",
+              "boxWidth": 305,
+              "right": 327,
+              "textRight": 327,
+              "scrollWidth": 305,
+              "fontSize": "42px",
+              "grid": "none"
+            }
+          ]
+        },
+        {
+          "path": "/privacy",
+          "viewport": 320,
+          "documentWidth": 364,
+          "elements": [
+            {
+              "selector": ".legal-content h1",
+              "boxWidth": 276,
+              "right": 298,
+              "textRight": 364,
+              "scrollWidth": 342,
+              "fontSize": "43px",
+              "grid": "none"
+            }
+          ]
+        },
+        {
+          "path": "/",
+          "viewport": 1440,
+          "documentWidth": 1440,
+          "elements": [
+            {
+              "selector": ".finance-layout",
+              "boxWidth": 1304,
+              "right": 1372,
+              "textRight": 1372,
+              "scrollWidth": 1304,
+              "fontSize": "15px",
+              "grid": "594.5px 594.5px"
+            },
+            {
+              "selector": ".finance-layout h2",
+              "boxWidth": 595,
+              "right": 663,
+              "textRight": 594,
+              "scrollWidth": 595,
+              "fontSize": "54px",
+              "grid": "none"
+            }
+          ]
+        },
+        {
+          "path": "/privacy",
+          "viewport": 1440,
+          "documentWidth": 1440,
+          "elements": [
+            {
+              "selector": ".legal-content h1",
+              "boxWidth": 760,
+              "right": 1100,
+              "textRight": 784,
+              "scrollWidth": 760,
+              "fontSize": "55px",
+              "grid": "none"
+            }
+          ]
+        }
+      ],
+      "boundary": "Actual local Next/Chromium; fake Supabase; external requests blocked; no submissions; no product edits"
+    },
+    "legalComplianceVerified": false
+  },
+  "reviewedFileBlobs": {
+    "README.md": "ba152f1022251715ad628f7204736b45777a4ca7",
+    "docs/TEST_ENVIRONMENT.md": "aee363b972be23c984a1a101d04d4ce8bedb8913",
+    "scripts/prepare-test-runtime.mjs": "0f3829c60aeac5651a66ca9f1518c8df97f68b34",
+    "tests/advertising-billing-ui.test.mjs": "5bc7f958984aef9664e9d6e3bcf1e1135086f502"
+  },
+  "cleanup": {
+    "sandboxStatus": "stopped",
+    "sessionStatus": "stopped",
+    "stoppedAt": "2026-11-12T18:39:16.621Z",
+    "productionRecordsCreated": 0,
+    "baselineGitStatus": "clean",
+    "finalDiffCheckExit": 0
+  }
+}
