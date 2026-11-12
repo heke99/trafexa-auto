@@ -83,9 +83,11 @@ export async function generateAdvertisingInvoicePdf(value: unknown): Promise<Uin
     const reductions = snapshot.basis.adjustments.filter(row => row.publicationId === item.publicationId)
       .reduce((sum, row) => sum + BigInt(row.amountOre), 0n);
     draw(`${item.channel === 'blocket' ? 'Blocket' : 'Wayke'} · Annons-ID: ${item.listingId}`, 10);
+    if(item.program)draw(`Butik: ${item.program.storeName} · Avtal: ${item.program.agreementReference} · Prisrevision: ${item.program.version}`,9,muted);
     draw(`Publicerings-ID: ${item.publicationId} · Antal: 1`, 9, muted);
     draw(`Original ${invoiceMoney(item.unitPriceOre!)} · Nedsättning ${invoiceMoney(reductions.toString())} · Återstår ${invoiceMoney((BigInt(item.unitPriceOre!) - reductions).toString())}`, 9);
   }
+  if(original.storeFees?.length){section('Granskade månadsavgifter för butiker');for(const fee of original.storeFees){if(y<margin+130)newPage();draw(`Butiksavgift · ${fee.storeName}`,11);draw(`Avgifts-ID: ${fee.feeId} · Butiks-ID: ${fee.storeId}`,8,muted);draw(`Avtal: ${fee.agreementReference} · Revision: ${fee.programVersion} · Tjänstedatum: ${fee.serviceDate}`,9);draw(`${invoiceMoney(fee.unitPriceOre)} exklusive moms · Antal: 1`,9);for(const period of fee.programBasis??[])draw(`Månadsbeslutets avtalsgrund: ${period.agreementReference} · revision ${period.version} · bekräftad start ${period.confirmedStart??'saknas'} · avtalsslut ${period.contractEnd??'ej angivet'} · bekräftat slut ${period.confirmedEnd??'saknas'}`,9);if(fee.programMonthlyFeeOre!==undefined)draw(`Avtalets månadspris: ${invoiceMoney(fee.programMonthlyFeeOre)} exklusive moms · Särskilt månadsbeslut: ${fee.amountOverrideAcknowledged?'Uttryckligen godkänt':'Nej'}`,9);draw(`Granskningsmotivering: ${fee.reason}`,9);}}
   section('Rättelser i den sparade versionen');
   if (!snapshot.basis.adjustments.length) draw('Inga nedsättningar registrerade i detta utkast.');
   for (const adjustment of snapshot.basis.adjustments) {

@@ -1,18 +1,18 @@
 import { ore } from './billing-validation.ts';
 import { parseAdvertisingInvoiceDraft } from './invoice-validation.ts';
 import type { AdvertisingInvoiceDraft } from './invoice-types';
-import type { AdvertisingFinancialSettingsFields as FinancialSettingsFields } from './financial-types';
+import type { AdvertisingFinancialSettingsFields as FinancialSettingsFields, AdvertisingStoreFeeLine } from './financial-types';
 
 import { isValidFinancialPaymentAccount } from './financial-payment.ts';
 import { allocateAdvertisingVatV2 } from './vat-allocation.ts';
 export { isValidFinancialPaymentAccount } from './financial-payment.ts';
 
 export type AdvertisingFinancialLine = {
-  publicationId: string; listingId: string; channel: 'blocket' | 'wayke';
+  program?:NonNullable<import('./billing-types').AdvertisingBillingItem['program']>;publicationId: string; listingId: string; channel: 'blocket' | 'wayke';
   originalOre: string; reductionOre: string; netOre: string; vatOre: string | null; grossOre: string | null;
 };
 export type AdvertisingFinancialPreview = {
-  lines: AdvertisingFinancialLine[]; netTotalOre: string; vatTotalOre: string | null; grossTotalOre: string | null; blockers: string[];
+  lines: AdvertisingFinancialLine[]; storeFeeLines?: AdvertisingStoreFeeLine[]; netTotalOre: string; vatTotalOre: string | null; grossTotalOre: string | null; blockers: string[];
 };
 
 /** Version 1: SEK, VAT rounded half up per net publication row, then summed. */
@@ -54,18 +54,24 @@ function computeFinancialPreview(value: AdvertisingInvoiceDraft, fields: Financi
     const netOre = ore((BigInt(originalOre) - BigInt(reductionOre)).toString());
     const vatOre = taxKnown && version === 1 ? ore(((BigInt(netOre) * 25n + 50n) / 100n).toString()) : null;
     const grossOre = vatOre === null ? null : ore((BigInt(netOre) + BigInt(vatOre)).toString());
-    return { publicationId: item.publicationId, listingId: item.listingId, channel: item.channel, originalOre, reductionOre, netOre, vatOre, grossOre };
+    return { ...(item.program===undefined?{}:{program:item.program}), publicationId: item.publicationId, listingId: item.listingId, channel: item.channel, originalOre, reductionOre, netOre, vatOre, grossOre };
   });
-  const netTotalOre = ore(lines.reduce((sum, row) => sum + BigInt(row.netOre), 0n).toString());
+  const sourceFees=snapshot.basis.original!.storeFees;
+  const storeFeeLines:AdvertisingStoreFeeLine[]|undefined=sourceFees?.map(({unitPriceOre,...fee})=>{
+    const vatOre=taxKnown&&version===1?ore(((BigInt(unitPriceOre)*25n+50n)/100n).toString()):null;
+    return{...fee,originalOre:unitPriceOre,reductionOre:'0',netOre:unitPriceOre,vatOre,grossOre:vatOre===null?null:ore((BigInt(unitPriceOre)+BigInt(vatOre)).toString())};
+  });
+  const combined=[...lines,...(storeFeeLines??[])];
+  const netTotalOre = ore(combined.reduce((sum, row) => sum + BigInt(row.netOre), 0n).toString());
   if (netTotalOre !== snapshot.basis.netTotalOre) throw Error('Financial net does not match frozen source');
   if (taxKnown && version === 2) {
-    const taxes = allocateAdvertisingVatV2(lines);
-    for (let index = 0; index < lines.length; index++) {
-      lines[index].vatOre = taxes[index];
-      lines[index].grossOre = ore((BigInt(lines[index].netOre) + BigInt(taxes[index])).toString());
+    const taxes = allocateAdvertisingVatV2(combined.map(row=>({publicationId:'publicationId' in row?row.publicationId:row.feeId,netOre:row.netOre})));
+    for (let index = 0; index < combined.length; index++) {
+      combined[index].vatOre = taxes[index];
+      combined[index].grossOre = ore((BigInt(combined[index].netOre) + BigInt(taxes[index])).toString());
     }
   }
-  const vatTotalOre = taxKnown ? ore(lines.reduce((sum, row) => sum + BigInt(row.vatOre!), 0n).toString()) : null;
+  const vatTotalOre = taxKnown ? ore(combined.reduce((sum, row) => sum + BigInt(row.vatOre!), 0n).toString()) : null;
   const grossTotalOre = vatTotalOre === null ? null : ore((BigInt(netTotalOre) + BigInt(vatTotalOre)).toString());
-  return { lines, netTotalOre, vatTotalOre, grossTotalOre, blockers: [...new Set(blockers)] };
+  return { lines, ...(storeFeeLines===undefined?{}:{storeFeeLines}), netTotalOre, vatTotalOre, grossTotalOre, blockers: [...new Set(blockers)] };
 }

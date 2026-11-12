@@ -61,7 +61,7 @@ export async function generateAdvertisingFinancialPdf(value: unknown): Promise<U
   draw('Momshantering: Svensk standardmoms, uttryckligen granskad för detta underlag.');
   draw(saved.calculationVersion === 1
     ? 'Moms beräknas på varje publiceringsrads återstående belopp efter nedsättningar, avrundas till närmaste öre med halva ören uppåt och summeras därefter.'
-    : 'Moms beräknas på hela nettobeloppet efter nedsättningar och avrundas till närmaste öre med halva ören uppåt. Örena fördelas mellan raderna efter störst decimalrest; publicerings-ID avgör lika rest.', 9, muted);
+    : 'Moms beräknas på hela nettobeloppet efter nedsättningar och avrundas till närmaste öre med halva ören uppåt. Örena fördelas mellan raderna efter störst decimalrest; radens referens avgör lika rest.', 9, muted);
   section(`Betalningsuppgifter · Inställningsversion ${saved.settings.version}`);
   draw(`Betalningsvillkor inför utställning: ${saved.settings.fields.paymentDays} dagar från fakturadatum.`);
   const methods = { bankgiro: 'Bankgiro', plusgiro: 'PlusGiro', iban: 'Svensk IBAN', unresolved: 'Ej fastställt' };
@@ -72,9 +72,24 @@ export async function generateAdvertisingFinancialPdf(value: unknown): Promise<U
   for (const row of saved.lines) {
     if (y < margin + 130) newPage();
     draw(`${row.channel === 'blocket' ? 'Blocket' : 'Wayke'} · Annons-ID: ${row.listingId}`);
+    if(row.program)draw(`Butik: ${row.program.storeName} · Avtal: ${row.program.agreementReference} · Prisrevision: ${row.program.version}`,9,muted);
     draw(`Publicerings-ID: ${row.publicationId} · Antal: 1`, 9, muted);
     draw(`Original ${invoiceMoney(row.originalOre)} · Nedsättning ${invoiceMoney(row.reductionOre)}`, 9);
     draw(`Netto ${invoiceMoney(row.netOre)} · Moms ${invoiceMoney(row.vatOre!)} · Inklusive moms ${invoiceMoney(row.grossOre!)}`, 9);
+  }
+  if(saved.storeFeeLines?.length){
+    section('Månadsavgifter för butiker');
+    for(const row of saved.storeFeeLines){
+      if(y<margin+150)newPage();
+      draw(`Butiksavgift · ${row.storeName}`,11);
+      draw(`Tjänstedatum (granskat): ${row.serviceDate} · Antal: 1`,9);
+      draw(`Avtal: ${row.agreementReference} · Prisrevision: ${row.programVersion}`,9);
+      draw(`Butiks-ID: ${row.storeId} · Avgifts-ID: ${row.feeId}`,8,muted);
+      for(const period of row.programBasis??[])draw(`Månadsbeslutets avtalsgrund: ${period.agreementReference} · revision ${period.version} · bekräftad start ${period.confirmedStart??'saknas'} · avtalsslut ${period.contractEnd??'ej angivet'} · bekräftat slut ${period.confirmedEnd??'saknas'}`,9);
+      if(row.programMonthlyFeeOre!==undefined)draw(`Avtalets månadspris: ${invoiceMoney(row.programMonthlyFeeOre)} exklusive moms · Särskilt månadsbeslut: ${row.amountOverrideAcknowledged?'Uttryckligen godkänt':'Nej'}`,9);
+      draw(`Granskningsmotivering: ${row.reason}`,9);
+      draw(`Netto ${invoiceMoney(row.netOre)} · Moms ${invoiceMoney(row.vatOre!)} · Inklusive moms ${invoiceMoney(row.grossOre!)}`,9);
+    }
   }
   section('Sparade källor');
   draw(`Fakturautkast: ${saved.draft.id} · Version ${saved.draft.version}`, 9);

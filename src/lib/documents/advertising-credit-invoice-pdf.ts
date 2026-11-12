@@ -67,10 +67,25 @@ export async function generateAdvertisingCreditInvoicePdf(value: unknown): Promi
     const channel = row.channel === 'blocket' ? 'Blocket' : 'Wayke';
     draw(`Publicering av unik fordonsannons på ${channel}`, 11);
     draw(`Tjänstedatum (granskat): ${row.serviceDate} · Antal: ${row.quantity}`, 10);
+    if(row.program)draw(`Butik: ${row.program.storeName} · Avtal: ${row.program.agreementReference} · Prisrevision: ${row.program.version}`,9,muted);
     draw(`Annons-ID: ${row.listingId} · Publicerings-ID: ${row.publicationId}`, 8, muted);
     draw(`Originalets enhetspris exkl. moms: ${invoiceMoney(row.originalOre)} · Ursprunglig nedsättning: ${invoiceMoney(row.reductionOre)}`, 9);
     draw(`Radbelopp exkl. moms: ${creditMoney(row.netOre)} · Momssats: 25 % · Moms: ${creditMoney(row.vatOre!)}`, 9);
     draw(`Radbelopp inkl. moms: ${creditMoney(row.grossOre!)}`, 9);
+  }
+  if(saved.storeFeeLines?.length){
+    section('Månadsavgifter för butiker');
+    for(const row of saved.storeFeeLines){
+      if(y<margin+150)newPage();
+      draw(`Butiksavgift · ${row.storeName}`,11);
+      draw(`Tjänstedatum (granskat): ${row.serviceDate} · Antal: 1`,9);
+      draw(`Avtal: ${row.agreementReference} · Prisrevision: ${row.programVersion}`,9);
+      draw(`Butiks-ID: ${row.storeId} · Avgifts-ID: ${row.feeId}`,8,muted);
+      for(const period of row.programBasis??[])draw(`Månadsbeslutets avtalsgrund: ${period.agreementReference} · revision ${period.version} · bekräftad start ${period.confirmedStart??'saknas'} · avtalsslut ${period.contractEnd??'ej angivet'} · bekräftat slut ${period.confirmedEnd??'saknas'}`,9);
+      if(row.programMonthlyFeeOre!==undefined)draw(`Avtalets månadspris: ${invoiceMoney(row.programMonthlyFeeOre)} exklusive moms · Särskilt månadsbeslut: ${row.amountOverrideAcknowledged?'Uttryckligen godkänt':'Nej'}`,9);
+      draw(`Granskningsmotivering: ${row.reason}`,9);
+      draw(`Netto ${creditMoney(row.netOre)} · Moms ${creditMoney(row.vatOre!)} · Inklusive moms ${creditMoney(row.grossOre!)}`,9);
+    }
   }
   section('Dokumentreferenser');
   draw(`Kreditfakturareferens: ${credit.id}`, 9);

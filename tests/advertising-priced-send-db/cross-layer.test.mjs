@@ -5,7 +5,7 @@ import {randomUUID} from 'node:crypto';
 import {after, before, beforeEach, test} from 'node:test';
 import {createDatabase, asRole} from '../crm-db/helpers.mjs';
 import {createSourceLoader} from '../helpers/source-loader.mjs';
-import {fixtureSql, id, U, C, S, L, P, SALES, FOREIGN, rate, counts, publish} from './fixtures.mjs';
+import {fixtureSql, id, A, call, U, C, S, L, P, SALES, FOREIGN, rate, counts, publish} from './fixtures.mjs';
 
 let database;
 before(async () => { database = await createDatabase(); });
@@ -47,7 +47,7 @@ async function integration({actor = U, company = C} = {}) {
     },
     async rpc(name, args) {
       assert.ok(['get_advertising_send_quote', 'send_vehicle_advertisement_priced', 'list_company_advertising', 'save_vehicle_advertisement',
-        'list_advertising_billing', 'list_advertising_quantities'].includes(name), `Unexpected dealer RPC ${name}`);
+        'list_advertising_billing', 'list_advertising_quantities', 'bind_advertising_listing_program'].includes(name), `Unexpected dealer RPC ${name}`);
       state.calls.push(['rpc', name, structuredClone(args)]);
       try {
         const entries = Object.entries(args);
@@ -205,4 +205,18 @@ test('priced send cross-layer: lost committed response retries recover the exact
   await database.query("update private.account_approvals set status='suspended' where user_id=$1", [U]);
   assert.equal((await h.actions.sendAdvertisingListingAction(input)).code, 'access_denied');
   assert.deepEqual(await counts(database), {jobs: 1, commitments: 1, bindings: 1, audits: 2, publications: 0, prices: 0});
+});
+
+test('program price actual actions+SQL: lost store receipt retries exactly, customer provenance reaches frozen publication price and billing parser',async()=>{
+ const store=await call(database,'select public.save_advertising_program($1,null,$2) r',[C,{store_name:'Stockholm',dealer_code:'fixture'}],A);
+ await call(database,'select public.save_advertising_program($1,$2,$3) r',[C,store,{version:0,agreement_reference:'Customer signed agreement',desired_start:'2026-01-01',confirmed_start:'2026-01-01',blocket_price_ore:'62000',monthly_fee_ore:'0',partial_month_rule:'full',blocket_cost_ore:'55555555'}],A);
+ const h=await integration(),input={companyId:C,listingId:L,expectedVersion:2,storeId:store,requestId:randomUUID()};
+ h.state.loseReceipt='bind_advertising_listing_program';const lost=await h.actions.bindAdvertisingListingProgramAction(input);assert.equal(lost.ok,false);assert.equal(lost.code,'unavailable');
+ success(await h.actions.bindAdvertisingListingProgramAction(input),h);assert.equal((await database.query('select count(*)::int n from private.advertising_program_binding_receipts')).rows[0].n,1);
+ const q=success(await h.actions.getAdvertisingSendQuoteAction(selection(['blocket'])),h).quote;assert.equal(q.items[0].unitPriceOre,'62000');assert.equal(q.items[0].program.storeId,store);assert.equal(q.items[0].rateId,null);assert.equal(JSON.stringify(q).includes('55555555'),false);
+ const receipt=success(await h.actions.sendAdvertisingListingAction(sendInput(q)),h).receipt;assert.deepEqual(receipt.quote,q);await publish(database,receipt.jobs[0]);
+ const page=success(await h.billing.listAdvertisingBillingAction({companyId:C,month:await month()}),h).page;
+ assert.equal(page.items[0].priceSource,'program');assert.equal(page.items[0].program.storeId,store);assert.equal(page.items[0].program.version,1);assert.equal(page.items[0].unitPriceOre,'62000');assert.equal(JSON.stringify(page).includes('55555555'),false);
+ await database.query("update public.memberships set status='suspended' where company_id=$1 and user_id=$2",[C,U]);
+ const denied=await h.actions.bindAdvertisingListingProgramAction(input);assert.equal(denied.ok,false);assert.equal(denied.code,'access_denied');
 });

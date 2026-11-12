@@ -66,17 +66,32 @@ export async function generateAdvertisingIssuedInvoicePdf(value: unknown): Promi
     const channel = row.channel === 'blocket' ? 'Blocket' : 'Wayke';
     draw(`Publicering av unik fordonsannons på ${channel}`, 11);
     draw(`Tjänstedatum (granskat): ${row.serviceDate} · Antal: ${row.quantity}`, 10);
+    if(row.program)draw(`Butik: ${row.program.storeName} · Avtal: ${row.program.agreementReference} · Prisrevision: ${row.program.version}`,9,muted);
     draw(`Annons-ID: ${row.listingId} · Publicerings-ID: ${row.publicationId}`, 8, muted);
     draw(`Enhetspris exkl. moms: ${invoiceMoney(row.originalOre)} · Nedsättning: ${invoiceMoney(row.reductionOre)}`, 9);
     draw(`Radbelopp exkl. moms: ${invoiceMoney(row.netOre)} · Momssats: 25 % · Moms: ${invoiceMoney(row.vatOre!)}`, 9);
     draw(`Radbelopp inkl. moms: ${invoiceMoney(row.grossOre!)}`, 9);
+  }
+  if(saved.storeFeeLines?.length){
+    section('Månadsavgifter för butiker');
+    for(const row of saved.storeFeeLines){
+      if(y<margin+150)newPage();
+      draw(`Butiksavgift · ${row.storeName}`,11);
+      draw(`Tjänstedatum (granskat): ${row.serviceDate} · Antal: 1`,9);
+      draw(`Avtal: ${row.agreementReference} · Prisrevision: ${row.programVersion}`,9);
+      draw(`Butiks-ID: ${row.storeId} · Avgifts-ID: ${row.feeId}`,8,muted);
+      for(const period of row.programBasis??[])draw(`Månadsbeslutets avtalsgrund: ${period.agreementReference} · revision ${period.version} · bekräftad start ${period.confirmedStart??'saknas'} · avtalsslut ${period.contractEnd??'ej angivet'} · bekräftat slut ${period.confirmedEnd??'saknas'}`,9);
+      if(row.programMonthlyFeeOre!==undefined)draw(`Avtalets månadspris: ${invoiceMoney(row.programMonthlyFeeOre)} exklusive moms · Särskilt månadsbeslut: ${row.amountOverrideAcknowledged?'Uttryckligen godkänt':'Nej'}`,9);
+      draw(`Granskningsmotivering: ${row.reason}`,9);
+      draw(`Netto ${invoiceMoney(row.netOre)} · Moms ${invoiceMoney(row.vatOre!)} · Inklusive moms ${invoiceMoney(row.grossOre!)}`,9);
+    }
   }
   section('Dokumentreferenser');
   draw(`Fakturareferens: ${invoice.id}`, 9);
   draw(`Granskat underlag: ${saved.assessment.id} · Version ${saved.assessment.version}`, 9);
   draw(financial.calculationVersion === 1
     ? 'Moms avrundas per nettorad till närmaste öre med halva ören uppåt och summeras sedan. Betalningsbeloppet avrundas inte till hela kronor.'
-    : 'Moms beräknas på hela nettobeloppet och avrundas till närmaste öre med halva ören uppåt. Örena fördelas på raderna efter störst decimalrest, sedan publicerings-ID. Betalningsbeloppet avrundas inte till hela kronor.', 9, muted);
+    : 'Moms beräknas på hela nettobeloppet och avrundas till närmaste öre med halva ören uppåt. Örena fördelas på raderna efter störst decimalrest, sedan radens referens. Betalningsbeloppet avrundas inte till hela kronor.', 9, muted);
   draw(`Fakturans SHA-256: ${invoice.sourceHash}`, 8, muted);
   draw('Detta dokument är en utfärdad faktura och utgör inte ett betalningskvitto.', 9, muted);
   const pages = document.getPages();

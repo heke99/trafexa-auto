@@ -1,6 +1,7 @@
 import type { Database, Json } from '@/lib/supabase/database.types';
 
 type AdvertisingFunctions = {
+  bind_advertising_listing_program: { Args: { p_company_id:string; p_listing_id:string; p_expected_version:number; p_store_id:string; p_request_id:string }; Returns:Json };
   get_platform_advertising_invoice_email_page: { Args: { p_company_id: string; p_document_kind: string; p_document_id: string }; Returns: Json };
   list_advertising_invoice_email_page: { Args: { p_company_id: string; p_document_kind: string; p_document_id: string }; Returns: Json };
   queue_advertising_invoice_email: { Args: { p_company_id: string; p_document_kind: string; p_document_id: string; p_expected_document_source_hash: string; p_expected_review_token: string; p_review_acknowledged: boolean; p_request_id: string }; Returns: Json };
@@ -43,7 +44,8 @@ export type AdvertisingWorkspacePage = AdvertisingScope & { listings: Advertisin
 export type AdvertisingStockPage = AdvertisingScope & { stock: AdvertisingStock[]; nextPageKey: string | null };
 export type StockAdvertisingDetails = AdvertisingScope & { listing: AdvertisingListing | null; jobs: AdvertisingJob[]; channels: AdvertisingConnection[] };
 export type AdvertisingListingReceipt = { listing: AdvertisingListing };
-export type AdvertisingSendQuoteItem = { channel: AdvertisingChannel; rateId: string | null; rateVersion: number | null; unitPriceOre: string | null; chargeOre: string | null; alreadyPublished: boolean; publicationId: string | null };
-export type AdvertisingSendQuote = { companyId: string; actorUserId: string; listingId: string; listingVersion: number; channels: AdvertisingChannel[]; currency: 'SEK'; taxBasis: 'exclusive'; billingUnit: 'unique_publication'; items: AdvertisingSendQuoteItem[]; totalOre: string | null; reviewToken: string };
+export type AdvertisingProgramPrice = { storeId:string; storeName:string; periodId:string; version:number; agreementReference:string };
+export type AdvertisingSendQuoteItem = { program?:AdvertisingProgramPrice; blockedReason?:'store_required'|'agreement_inactive'|'agreement_ambiguous'|'program_price_missing'|'destination_mismatch'; channel: AdvertisingChannel; rateId: string | null; rateVersion: number | null; unitPriceOre: string | null; chargeOre: string | null; alreadyPublished: boolean; publicationId: string | null };
+export type AdvertisingSendQuote = { programStores?:{id:string;name:string}[]; selectedProgramStoreId?:string|null; companyId: string; actorUserId: string; listingId: string; listingVersion: number; channels: AdvertisingChannel[]; currency: 'SEK'; taxBasis: 'exclusive'; billingUnit: 'unique_publication'; items: AdvertisingSendQuoteItem[]; totalOre: string | null; reviewToken: string };
 export type AdvertisingSendReceipt = { status: 'queued'; jobs: AdvertisingJob[]; listing: AdvertisingListing; quote: AdvertisingSendQuote };
 export type AdvertisingResult<T> = ({ ok: true } & T) | { ok: false; code: 'unauthenticated' | 'access_denied' | 'invalid_input' | 'conflict' | 'not_found' | 'connection_required' | 'unavailable'; message: string };

@@ -50,3 +50,7 @@ Detta återställer filer till ett isolerat prov. Det registrerar inte ett nytt 
 Nästa driftsteg är val av separat lagringsplats, åtkomst och kryptering, ansvarig driftägare, bevarandetid, backupfrekvens samt kontrollerad återställning i en avskild miljö. En backup av Supabase-databasen omfattar inte Storage-filernas innehåll. Den här exporten ändrar inga bevaranderegler och raderar inga original.
 
 Körda prov och publicering redovisas i [implementationsstatus](IMPLEMENTATION_STATUS.md). Grundarkivets bindningar och begränsningar finns i [NATIVE_CONTRACT_ARCHIVE](NATIVE_CONTRACT_ARCHIVE.md).
+
+## Repeterad sammanhängande driftkontroll
+
+`npm run test:archive-restore` verifierar nu den skyddade export-routen från ett faktiskt lokalt signerat/arkiverat avtal, separat sparad exporthash och offline-CLI-återställning i en ny privat katalog. Det kontrollerar återlästa originalbytes och negativa korruptions-/överskrivningsfall. Körningen använder endast syntetiska lokala underlag och aktiverar ingen automatisk extern backup. [Aktuellt bevis och exakta återstående driftberoenden](CONTRACT_BACKUP_READINESS_20261112.md) skiljer det godkända filprovet från en ännu ej vald separat lagringsplats och en komplett produktionsåterställning.
