@@ -288,3 +288,28 @@ test('late quote after company change cannot restore previous tenant prices or c
     assert.equal(await page.evaluate(() => window.fixture.sendCalls.length), 0);
   } finally { await page.close(); }
 });
+
+for (const width of [320,1440]) test(`program store selection shows customer agreement and retries lost binding before channel send at ${width}px`,async()=>{
+ const store='10000000-0000-4000-8000-000000000030';
+ const page=await setup({listings:[listing()],photos:[photo()],channels:[{channel:'blocket',status:'verified',accountReference:'dealer-12',dispatcherAvailable:true}],programStores:[{id:store,name:'Stockholm butik'},{id:'10000000-0000-4000-8000-000000000032',name:'Göteborg butik'}],bindProgramResponses:[{throw:true}]});
+ try {
+  await page.setViewportSize({width,height:900});await chooseStock(page);await page.getByRole('button',{name:'Förbered kanalutskick',exact:true}).click();
+  await expect(page.getByText('Välj butik för att läsa avtalspriset',{exact:true})).toBeVisible();await expect(page.getByLabel('Blocket',{exact:true})).toBeDisabled();
+  await page.getByLabel('Butik för Blocket-annonsen',{exact:true}).selectOption(store);await page.getByRole('button',{name:'Använd vald butik',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('samma butik igen');await expect(page.getByLabel('Butik för Blocket-annonsen',{exact:true})).toHaveValue(store);
+  await page.getByRole('button',{name:'Använd vald butik',exact:true}).click();await expect(page.getByText(/Avtal Avtal Stockholm, version 2/)).toBeVisible();
+  const calls=await page.evaluate(()=>window.fixture.bindProgramCalls);assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);
+  await page.getByLabel('Butik för Blocket-annonsen',{exact:true}).selectOption('10000000-0000-4000-8000-000000000032');
+  await expect(page.getByLabel('Blocket',{exact:true})).toBeDisabled();
+  await page.getByLabel('Butik för Blocket-annonsen',{exact:true}).selectOption(store);
+  await page.getByLabel('Blocket',{exact:true}).check();await page.getByRole('button',{name:'Fortsätt till bekräftelse',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Bekräfta kanalutskick',exact:true})).toBeVisible();assert.equal(await page.evaluate(()=>window.fixture.sendCalls.length),0);
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ }finally{await page.close();}
+});
+
+test('revoked write during store binding removes all previous company advertisements, prices and controls',async()=>{
+ const store='10000000-0000-4000-8000-000000000030';
+ const page=await setup({listings:[listing()],photos:[photo()],programStores:[{id:store,name:'Stockholm privat butik'}],bindProgramResponses:[{ok:false,code:'access_denied',message:'Åtkomsten har återkallats.'}]});
+ try {await chooseStock(page);await page.getByRole('button',{name:'Förbered kanalutskick',exact:true}).click();await page.getByLabel('Butik för Blocket-annonsen',{exact:true}).selectOption(store);await page.getByRole('button',{name:'Använd vald butik',exact:true}).click();await expect(page.getByRole('alert')).toContainText('återkallats');await expect(page.getByRole('region',{name:'Granska annonsversionen',exact:true})).toHaveCount(0);await expect(page.getByRole('combobox',{name:'Butik för Blocket-annonsen',exact:true})).toHaveCount(0);await expect(page.locator('img')).toHaveCount(0);assert.equal(await page.evaluate(()=>window.fixture.sendCalls.length),0);}finally{await page.close();}
+});

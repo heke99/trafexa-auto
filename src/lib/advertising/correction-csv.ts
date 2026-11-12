@@ -30,7 +30,7 @@ export function generateAdvertisingCorrectionsCsv(value: unknown) {
     ['Täckning', original.coverage === 'full' ? 'Hela perioden' : 'Del av perioden — uttryckligen granskad'],
     ['Äldre publicerade jobb som inte ingår', original.legacyPublishedJobs],
     ['Valuta', 'SEK'], ['Belopp', 'Exklusive moms'], [],
-    ['Publicerings-ID', 'Annons-ID', 'Kanal', 'Registrerad publicering', 'Antal', 'Originalbelopp i öre', 'Nedsättning i öre', 'Återstående belopp i öre'],
+    [...(original.storeFees?.length?['Rad-ID','Annons-/butiks-ID','Radtyp/kanal','Tjänstedag/publicering']:['Publicerings-ID','Annons-ID','Kanal','Registrerad publicering']), 'Antal', 'Originalbelopp i öre', 'Nedsättning i öre', 'Återstående belopp i öre'],
   ];
   for (const item of original.items) {
     if (item.unitPriceOre === null) throw Error('Unpriced original');
@@ -39,7 +39,9 @@ export function generateAdvertisingCorrectionsCsv(value: unknown) {
     rows.push([item.publicationId, item.listingId, item.channel === 'blocket' ? 'Blocket' : 'Wayke',
       item.publishedAt, 1, item.unitPriceOre, reduction.toString(), (BigInt(item.unitPriceOre) - reduction).toString()]);
   }
-  rows.push(['Totalt', '', '', '', original.count, original.totalOre, page.reductionTotalOre, page.netTotalOre!], [],
+  for(const fee of original.storeFees??[])rows.push([fee.feeId,fee.storeId,'Butiksavgift',fee.serviceDate,1,fee.unitPriceOre,'0',fee.unitPriceOre]);
+  if(original.storeFees?.length)rows.push(['Butiksavgifter','','','',original.storeFees.length,original.storeFees.reduce((sum,fee)=>sum+BigInt(fee.unitPriceOre),0n).toString(),'0',original.storeFees.reduce((sum,fee)=>sum+BigInt(fee.unitPriceOre),0n).toString()]);
+  rows.push([original.storeFees?.length?'Totalt (antalet avser unika publiceringar)':'Totalt', '', '', '', original.count, original.totalOre, page.reductionTotalOre, page.netTotalOre!], [],
     ['Rättelse-ID', 'Publicerings-ID', 'Nedsättning i öre', 'Motivering', 'Registrerad', 'Registrerad av']);
   for (const row of page.adjustments) rows.push([row.id, row.publicationId, row.amountOre, row.reason, row.createdAt, row.createdBy]);
   rows.push([], ['Originalrader och antal bevaras även när återstående belopp är noll.'],

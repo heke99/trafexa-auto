@@ -13,3 +13,4 @@ async function mutate(kind,input) { window.billingCalls.push({kind,...input}); c
 export const saveAdvertisingChannelRateAction = input => mutate('rate',input);
 export const reconcileAdvertisingBillingAction = input => mutate('reconcile',input);
 export const lockAdvertisingBillingPeriodAction = input => mutate('lock',input);
+export const reviewAdvertisingStoreFeeAction = input => mutate('storeFee',input);

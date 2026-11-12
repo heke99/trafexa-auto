@@ -1,0 +1,50 @@
+{
+  "quality": {
+    "dependencyVulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "typecheck": "PASS",
+    "productionBuild": "PASS",
+    "canonicalCases": 2042,
+    "pageViewportChecks": 48,
+    "fallbackFontChecks": 6,
+    "nativeConcurrencyChecks": 7
+  },
+  "migrations": [
+    "20261112215300_application_shared_mailbox",
+    "20261112220752_advertising_program_requests",
+    "20261112220925_advertising_program_publication_prices",
+    "20261112220940_advertising_store_fee_rows"
+  ],
+  "postMigration": {
+    "superadminPreserved": true,
+    "programStoresCreated": 0,
+    "programRevisionsCreated": 0,
+    "feeRowsCreated": 0,
+    "historicalPendingLeftUnchanged": 2,
+    "privateJournalAndFeeRls": true,
+    "anonAndAuthenticatedDirectRead": false,
+    "anonMutationRpcExecute": false,
+    "newSecurityWarningCategories": 0
+  },
+  "unsignedPdfEmail": {
+    "providerId": "01a1d1c7-4911-7393-a8ce-a3a9547ab400",
+    "providerStatus": "sent",
+    "recipient": "previously approved test recipient; omitted",
+    "recipientConfirmed": false,
+    "applicationContractDispatch": false,
+    "signingLink": false,
+    "pdfSha256": "db3baec43f530fe0bc524900dfccb0924a147d01550c3952ff86396dda773af2"
+  },
+  "remaining": [
+    "legitimate authenticated production account and contract journeys",
+    "external backup destination and operations choices",
+    "Auth leaked-password setting",
+    "external partner integration"
+  ]
+}

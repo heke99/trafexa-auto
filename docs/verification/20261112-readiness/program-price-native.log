@@ -1,0 +1,11 @@
+✔ legacy program save holds shared billing lock: blocked quote reads committed latest customer price (21390.48079ms)
+✔ quoted program lock serializes legacy price edit; stale accepted quote creates no jobs or charge (1221.807088ms)
+✔ fee review commit prevents stale concurrent period lock; closing freezes fee before waiting program revision (1575.45057ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 24920.506055

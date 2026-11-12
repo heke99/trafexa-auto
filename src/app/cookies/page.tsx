@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import { LEGAL_POLICY_VERSION, LEGAL_POLICY_UPDATED_LABEL } from '@/lib/privacy/policy-version';
+import { COOKIE_POLICY_VERSION, COOKIE_POLICY_UPDATED_LABEL } from '@/lib/privacy/cookies';
 import { Brand } from '@/components/brand';
 import { PublicFooter } from '@/components/public-site';
 import { CookieSettingsButton } from '@/components/cookie-consent';
 export const metadata: Metadata = { title: 'Cookiepolicy' };
 export default function CookiesPage() {
-  return <><header className="public-header wrap"><Brand/></header><main className="legal-content wrap"><a className="text-link" href="/">← Till startsidan</a><p className="eyebrow">Uppdaterad {LEGAL_POLICY_UPDATED_LABEL} · Version {LEGAL_POLICY_VERSION}</p><h1>Cookiepolicy.</h1>
+  return <><header className="public-header wrap"><Brand/></header><main className="legal-content wrap"><a className="text-link" href="/">← Till startsidan</a><p className="eyebrow">Uppdaterad {COOKIE_POLICY_UPDATED_LABEL} · Version {COOKIE_POLICY_VERSION}</p><h1>Cookiepolicy.</h1>
     <p>Cookies är små uppgifter som sparas i din webbläsare. Trafexa använder endast nödvändiga cookies. Vi använder inga analysverktyg, annonspixlar eller cookies för marknadsföring på webbplatsen.</p>
     <h2>Cookies som används</h2><div className="cookie-table-scroll"><table className="cookie-table"><thead><tr><th scope="col">Namn</th><th scope="col">Ändamål</th><th scope="col">Lagring</th></tr></thead><tbody>
       <tr><td>sb-…-auth-token (kan delas i flera delar)</td><td>Supabase-inloggning: håller din session aktiv och förnyar den. Används när du loggar in eller använder kontofunktioner.</td><td>Förnyas under aktiv session. Upp till 400 dagar enligt autentiseringsbibliotekets cookieinställning; avslutas eller uppdateras när du loggar ut.</td></tr>
@@ -17,6 +17,7 @@ export default function CookiesPage() {
       <tr><td>trafexa-cookie-notice</td><td>Kommer ihåg att du har läst cookieinformationen och vilken version du såg. Innehåller inga kontaktuppgifter.</td><td>180 dagar från din bekräftelse.</td></tr>
     </tbody></table></div>
     <p>De beskrivna cookies är bundna till den värd där funktionen används och delas inte automatiskt mellan www.trafexa.com och app.trafexa.com. Dokument-, aktiverings- och återställningscookies är dessutom begränsade till sina angivna sökvägar. Dessa tre cookies använder SameSite=Lax och Secure vid HTTPS. Inloggningscookies hanteras av Trafexa med autentisering från Supabase. Cookien för cookieinformationen skickas inte till en analystjänst. En cookies lagringstid är inte ett löfte om att en session, inbjudan eller dokumentbehörighet är giltig lika länge; behörighet och giltighet kontrolleras separat.</p>
+    <h2>Nödvändig sessionslagring</h2><p>För att återhämta en avbruten sparning av annonsprogram används sessionStorage med nyckelprefixet trafexa-program-request:v1:. Där sparas ett slumpmässigt begärande-id, åtgärdstyp, berörda objekt-id och versionsnummer, avgränsat till aktuell användare och företag. Inga namn, texter, belopp, mejladresser, lösenord eller inloggningstoken lagras där. Uppgifterna ger ingen behörighet och tas bort när resultatet har verifierats eller åtkomsten nekas. Lagringen gäller den aktuella fliken och försvinner normalt när fliken stängs; webbläsarens sessionsåterställning kan bevara den.</p>
     <h2>Dina val</h2><p>Nödvändiga cookies behöver inget samtycke enligt reglerna om elektronisk kommunikation. Knappen ”Jag förstår” bekräftar att du har läst informationen; den ger inget samtycke till statistik, reklam eller annan personuppgiftsbehandling. Du kan använda ansökningsformuläret utan att trycka på knappen.</p>
     <p><CookieSettingsButton/> låter dig öppna informationen igen och glömma bekräftelsen. Du kan även radera eller blockera cookies i webbläsarens inställningar. Om nödvändiga cookies blockeras kan inloggning, personliga dokumentlänkar eller kontoaktivering sluta fungera.</p>
     <h2>Mer information och kontakt</h2><p>Läs <a href="/privacy">integritetspolicyn</a> om behandling av personuppgifter. Frågor: <a href="mailto:info@trafexa.com">info@trafexa.com</a>.</p><p>Se även <a href="https://www.pts.se/internet-och-telefoni/kakor-cookies/">Post- och telestyrelsens information om cookies</a>.</p>

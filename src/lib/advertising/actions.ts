@@ -48,17 +48,28 @@ function sendQuote(value: unknown, companyId: string, userId: string, listingId:
     if (requestedChannel !== channels[index]) throw new ActionError('unavailable');
     const alreadyPublished = bool(item.alreadyPublished), publicationId = item.publicationId === null ? null : uuid(item.publicationId);
     if (!alreadyPublished && publicationId !== null) throw new ActionError('unavailable');
+    const program = item.program === undefined ? undefined : (() => { const p=object(item.program); return {storeId:uuid(p.storeId),storeName:text(p.storeName,160),periodId:uuid(p.periodId),version:integer(p.version),agreementReference:text(p.agreementReference,300)}; })();
+    const blockedReason = item.blockedReason === undefined ? undefined : (() => { if (!['store_required','agreement_inactive','agreement_ambiguous','program_price_missing','destination_mismatch'].includes(String(item.blockedReason))) throw new ActionError('unavailable'); return item.blockedReason as NonNullable<AdvertisingSendQuote['items'][number]['blockedReason']>; })();
+    if (program && (requestedChannel !== 'blocket' || item.rateId !== null || item.rateVersion !== null)) throw new ActionError('unavailable');
     const rateId = item.rateId === null ? null : uuid(item.rateId);
     const rateVersion = item.rateVersion === null ? null : integer(item.rateVersion);
     const unitPriceOre = item.unitPriceOre === null ? null : money(item.unitPriceOre);
-    if ((rateId === null) !== (rateVersion === null) || (rateId === null) !== (unitPriceOre === null)) throw new ActionError('unavailable');
+    if ((rateId === null) !== (rateVersion === null) || !program && (rateId === null) !== (unitPriceOre === null)) throw new ActionError('unavailable');
     const chargeOre = item.chargeOre === null ? null : money(item.chargeOre);
-    if (chargeOre !== (rateId === null ? null : alreadyPublished ? '0' : unitPriceOre)) throw new ActionError('unavailable');
-    return { channel: requestedChannel, rateId, rateVersion, unitPriceOre, chargeOre, alreadyPublished, publicationId };
+    if (chargeOre !== (unitPriceOre === null || blockedReason ? null : alreadyPublished ? '0' : unitPriceOre)) throw new ActionError('unavailable');
+    return { channel: requestedChannel, rateId, rateVersion, unitPriceOre, chargeOre, alreadyPublished, publicationId, ...(program ? {program} : {}), ...(blockedReason ? {blockedReason} : {}) };
   });
   const sum = items.some(item => item.chargeOre === null) ? null : items.reduce((total, item) => total + BigInt(item.chargeOre!), BigInt(0)).toString();
   if (row.totalOre !== sum) throw new ActionError('unavailable');
-  return { companyId, actorUserId: userId, listingId, listingVersion: version, channels, currency: 'SEK', taxBasis: 'exclusive', billingUnit: 'unique_publication', items, totalOre: sum, reviewToken: quoteToken(row.reviewToken) };
+  const programScope = row.programStores === undefined ? {} : (() => {
+    if (!Array.isArray(row.programStores) || !row.programStores.length || row.programStores.length > 1000) throw new ActionError('unavailable');
+    const programStores=row.programStores.map(value=>{const store=object(value);return {id:uuid(store.id),name:text(store.name,160)};});
+    const selectedProgramStoreId=row.selectedProgramStoreId === null ? null : uuid(row.selectedProgramStoreId);
+    if (new Set(programStores.map(store=>store.id)).size !== programStores.length || selectedProgramStoreId && !programStores.some(store=>store.id===selectedProgramStoreId)) throw new ActionError('unavailable');
+    if (items.some(item=>item.program && item.program.storeId!==selectedProgramStoreId)) throw new ActionError('unavailable');
+    return {programStores,selectedProgramStoreId};
+  })();
+  return { ...programScope, companyId, actorUserId: userId, listingId, listingVersion: version, channels, currency: 'SEK', taxBasis: 'exclusive', billingUnit: 'unique_publication', items, totalOre: sum, reviewToken: quoteToken(row.reviewToken) };
 }
 function jobStatus(value: unknown): AdvertisingJobStatus {
   if (value !== 'queued' && value !== 'dispatching' && value !== 'outcome_unknown' && value !== 'submitted' && value !== 'published' && value !== 'rejected' && value !== 'retryable') throw new ActionError('unavailable');
@@ -269,7 +280,7 @@ export async function sendAdvertisingListingAction(value: unknown): Promise<Adve
       const jobs = row.jobs.map(value => job(value, companyId));
       if (new Set(jobs.map(item => item.id)).size !== jobs.length || new Set(jobs.map(item => item.channel)).size !== jobs.length || jobs.some(item => item.stockId !== sent.stockId || item.listingId !== listingId || item.listingVersion !== expectedVersion || item.status !== 'queued' || !channels.includes(item.channel) || JSON.stringify(item.snapshot) !== JSON.stringify(sent.snapshot))) throw new Error();
       const quote = sendQuote(row.quote, companyId, context.userId, listingId, expectedVersion, channels);
-      if (quote.reviewToken !== expectedQuoteToken || quote.totalOre === null || quote.items.some(item => item.rateId === null)) throw new Error();
+      if (quote.reviewToken !== expectedQuoteToken || quote.totalOre === null || quote.items.some(item => item.unitPriceOre === null || item.blockedReason !== undefined || item.rateId === null && !item.program)) throw new Error();
       return { status: 'queued' as const, jobs, listing: sent, quote };
     });
     if (!receipt) throw new ActionError('connection_required');
@@ -287,4 +298,17 @@ export async function getAdvertisingSendQuoteAction(value: unknown): Promise<Adv
     const quote = output(() => sendQuote(result.data, companyId, context.userId, listingId, expectedVersion, channels));
     return { ok: true, ...scope(context), quote };
   } catch (error) { return failure(error); }
+}
+
+/** Explicit internal store selection never provisions a marketplace destination. */
+export async function bindAdvertisingListingProgramAction(value:unknown):Promise<AdvertisingResult<AdvertisingScope & {storeId:string;listingId:string;requestId:string}>> {
+ try {
+  const row=input(value,['companyId','listingId','expectedVersion','storeId','requestId']);
+  const companyId=uuid(row.companyId),listingId=uuid(row.listingId),storeId=uuid(row.storeId),requestId=uuid(row.requestId),expectedVersion=integer(row.expectedVersion);
+  const context=await requireAdvertisingContext(companyId,'write');
+  const result=await context.db.rpc('bind_advertising_listing_program',{p_company_id:companyId,p_listing_id:listingId,p_expected_version:expectedVersion,p_store_id:storeId,p_request_id:requestId});rpcError(result.error);
+  return output(()=>{const receipt=object(result.data);receiptActor(receipt,context.userId,requestId);
+   if (uuid(receipt.companyId)!==companyId || uuid(receipt.listingId)!==listingId || uuid(receipt.storeId)!==storeId || integer(receipt.expectedVersion)!==expectedVersion) throw new ActionError('unavailable');
+   refresh();return {ok:true,...scope(context),listingId,storeId,requestId};});
+ } catch(error){return failure(error);}
 }

@@ -54,10 +54,22 @@ export async function getAdvertisingSendQuoteAction(input) {
   if (response?.delay) { await new Promise(resolve => window.resolveAdvertisingQuote = resolve); response = response.result; }
   if (response) return response;
   const items = [...input.channels].sort().map(channel => {
+    if (channel==='blocket' && window.fixture.programStores) {
+      const store=window.fixture.programStores.find(item=>item.id===window.fixture.selectedProgramStoreId);
+      return {channel,rateId:null,rateVersion:null,unitPriceOre:store?'62000':null,chargeOre:store?'62000':null,alreadyPublished:false,publicationId:null,...(store?{program:{storeId:store.id,storeName:store.name,periodId:'10000000-0000-4000-8000-000000000031',version:2,agreementReference:'Avtal Stockholm'}}:{blockedReason:'store_required'})};
+    }
     const unit = window.fixture.prices[channel] ?? null;
     const alreadyPublished = window.fixture.alreadyPublished.includes(channel);
     return { channel, rateId: unit === null ? null : '10000000-0000-4000-8000-000000000010', rateVersion: unit === null ? null : 1, unitPriceOre: unit, chargeOre: unit === null ? null : alreadyPublished ? '0' : unit, alreadyPublished, publicationId: alreadyPublished ? '10000000-0000-4000-8000-000000000011' : null };
   });
   const quote = { companyId: input.companyId, actorUserId: window.fixture.userId, listingId: input.listingId, listingVersion: input.expectedVersion, channels: [...input.channels].sort(), currency: 'SEK', taxBasis: 'exclusive', billingUnit: 'unique_publication', items, totalOre: items.some(item => item.chargeOre === null) ? null : items.reduce((sum, item) => sum + BigInt(item.chargeOre), 0n).toString(), reviewToken: window.fixture.quoteToken };
+  if (window.fixture.programStores) {quote.programStores=window.fixture.programStores;quote.selectedProgramStoreId=window.fixture.selectedProgramStoreId??null;}
   return { ok: true, ...scope(), quote };
+}
+export async function bindAdvertisingListingProgramAction(input) {
+  (window.fixture.bindProgramCalls ??= []).push({...input});
+  const response=take(window.fixture.bindProgramResponses ?? []);
+  if (response) return response;
+  window.fixture.selectedProgramStoreId=input.storeId;
+  return {ok:true,...scope(),storeId:input.storeId,listingId:input.listingId,requestId:input.requestId};
 }

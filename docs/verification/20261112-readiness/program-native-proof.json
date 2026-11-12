@@ -1,0 +1,32 @@
+{
+  "result": "PASS",
+  "engine": "native PostgreSQL, independent persistent psql backends",
+  "database": "trafexa_program_requests_review_test",
+  "checks": [
+    {
+      "scenario": "two independent PostgreSQL sessions save the same request",
+      "result": "PASS",
+      "lockWaitObserved": true,
+      "stores": 1
+    },
+    {
+      "scenario": "resolver waits for the uncommitted writer and returns its saved receipt",
+      "result": "PASS",
+      "lockWaitObserved": true
+    },
+    {
+      "scenario": "resolver tombstone wins first and prevents the delayed original write",
+      "result": "PASS",
+      "lockWaitObserved": true,
+      "delayedStores": 0
+    },
+    {
+      "scenario": "program save waits for the shared company billing lock",
+      "result": "PASS",
+      "lockWaitObserved": true
+    }
+  ],
+  "productionMutations": 0,
+  "externalCalls": 0,
+  "cleanup": "All sessions closed and only this dedicated test database dropped."
+}

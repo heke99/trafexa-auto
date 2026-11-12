@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-12",
+  "dependency": {
+    "name": "zod",
+    "before": "4.1.12",
+    "after": "4.6.7",
+    "advisory": "GHSA-mrhx-c7xc-m3w5",
+    "affectedRange": "<4.6.6",
+    "packagesChanged": 1,
+    "auditBefore": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 1,
+      "critical": 0,
+      "total": 1
+    },
+    "auditAfter": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "auditAfterExitCode": 0
+  },
+  "backup": {
+    "schemaVersion": 1,
+    "result": "PASS",
+    "source": "actual protected archive route after actual dealer/guest signing, RLS registration and delivery",
+    "verified": true,
+    "restored": true,
+    "packageSha256": "cb85be737747af93d02708e92b0901d064017b8dc3f4bfdc1204c4b0847676c1",
+    "manifestSha256": "8c87fad0a08f807212912cedee1c34cedcedb93846727c7f9fa9e90af82736e7",
+    "pdfSha256": "e51806eb2d351caa1f44b59c4608f83af4312c7cbfbc567f3ba3ede1e9bc716b",
+    "evidenceSha256": "42d0fbc81e084c5c5d746eb40b76eec847af8c677f07c629611a011e57dde13d",
+    "bytes": {
+      "package": 25600,
+      "pdf": 15634,
+      "evidence": 1485
+    },
+    "directoryMode": "0700",
+    "fileMode": "0600",
+    "negativeChecks": [
+      "existing target refused",
+      "corruption refused before restore",
+      "wrong trusted hash refused",
+      "symlink refused",
+      "source corruption blocks export"
+    ],
+    "outboundProvider": "synthetic local acceptance only",
+    "remoteStorageBackupVerified": false,
+    "productionRestoreVerified": false
+  },
+  "verification": {
+    "archiveRestoreSuite": {
+      "command": "npm run test:archive-restore",
+      "tests": 23,
+      "pass": 23,
+      "fail": 0,
+      "skip": 0,
+      "durationMs": 8470.420168
+    },
+    "normalDealerGuestJourneys": {
+      "command": "node tests/dealer-guest-complete-journey.test.mjs",
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skip": 0,
+      "durationMs": 10517.928241
+    },
+    "typecheck": "PASS",
+    "diffCheck": "PASS"
+  },
+  "production": {
+    "hostedChanges": false,
+    "realRecipients": false,
+    "realCustomerDocuments": false,
+    "externalBackupLocationSelected": false,
+    "scheduledExternalBackupActive": false,
+    "productionDatabaseRestoreVerified": false
+  },
+  "remaining": [
+    "Select independent storage destination and access/key management",
+    "Approve retention and backup frequency with measurable RPO/RTO",
+    "Prepare provider-specific collection/transfer and monitoring once destination exists",
+    "Establish matching trusted database backup and reviewed staging restoration",
+    "Complete an explicitly scoped production contract smoke test with safe test identities"
+  ]
+}

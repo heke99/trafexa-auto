@@ -4,6 +4,8 @@ import type { WebApplicationSeeking, WebApplicationStatus } from '@/lib/web-appl
 type PlatformFunctions = {
   list_advertising_program: { Args: { p_company: string }; Returns: Json };
   save_advertising_program: { Args: { p_company: string; p_store: string | null; p_input: Json }; Returns: string };
+  save_advertising_program_request: { Args: { p_company: string; p_store: string | null; p_input: Json; p_request_id: string }; Returns: Json };
+  resolve_advertising_program_request: { Args: { p_company: string; p_request_id: string }; Returns: Json };
   get_platform_admin_session: { Args: Record<string, never>; Returns: Json };
   claim_platform_admin_access: { Args: Record<string, never>; Returns: Json };
   list_platform_companies: { Args: { p_search: string; p_page_key: string | null; p_limit: number }; Returns: Json };

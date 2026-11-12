@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import dynamic from 'next/dynamic';
-import { createAdvertisingListingAction, getAdvertisingSendQuoteAction, getStockAdvertisingAction, listAdvertisingStockAction, listAdvertisingWorkspaceAction, markAdvertisingListingReadyAction, saveAdvertisingListingAction, sendAdvertisingListingAction } from '@/lib/advertising/actions';
+import { bindAdvertisingListingProgramAction, createAdvertisingListingAction, getAdvertisingSendQuoteAction, getStockAdvertisingAction, listAdvertisingStockAction, listAdvertisingWorkspaceAction, markAdvertisingListingReadyAction, saveAdvertisingListingAction, sendAdvertisingListingAction } from '@/lib/advertising/actions';
 import { ChannelConnections, channelNames, type AdvertisingChannel } from './channel-connections';
 import { VehiclePhotoGallery } from '@/components/vehicle-photo-gallery';
 import type { AdvertisingWorkspacePage, AdvertisingStockPage, AdvertisingPhoto } from '@/lib/advertising/database.types';
@@ -12,7 +12,7 @@ type StockPage = AdvertisingStockPage & { ok: true };
 type Listing = WorkspacePage['listings'][number];
 type Editor = { stockId: string; listing: Listing | null; title: string; description: string; photoIds: string[]; includeRegistrationNumber: boolean };
 type SendQuote = Extract<Awaited<ReturnType<typeof getAdvertisingSendQuoteAction>>, { ok: true }>['quote'];
-type Review = { kind: 'ready' | 'send'; listing: Listing; channels: AdvertisingChannel[]; confirmed: boolean; quote?: SendQuote; confirmationQuote?: SendQuote };
+type Review = { storeChoice?:string; kind: 'ready' | 'send'; listing: Listing; channels: AdvertisingChannel[]; confirmed: boolean; quote?: SendQuote; confirmationQuote?: SendQuote };
 const AdvertisingBillingPanel = dynamic(() => import('./advertising-billing-panel').then(module => module.AdvertisingBillingPanel), { loading: () => <p role="status">Läser in prisunderlag…</p> });
 const AdvertisingUsagePanel = dynamic(() => import('./advertising-usage-panel').then(module => module.AdvertisingUsagePanel), { loading: () => <p role="status">Läser in annonsstatistik…</p> });
 const money = (ore: string) => { const amount = BigInt(ore); return `${new Intl.NumberFormat('sv-SE').format(amount / BigInt(100))},${String(amount % BigInt(100)).padStart(2, '0')} kr`; };
@@ -188,6 +188,29 @@ export function AdvertisingWorkspace({ companyId, role, userId, demo = false }: 
       finally { if (generation.current === requestGeneration) inFlight.current = false; }
     });
   }
+  function bindStore() {
+    if (!review || review.kind !== 'send' || !review.storeChoice || busy || inFlight.current || !canEdit) return;
+    const selected=review, storeId=review.storeChoice;
+    const payload={companyId,listingId:selected.listing.id,expectedVersion:selected.listing.version,storeId};
+    const requestId=nonce({kind:'program-store',...payload});
+    const requestGeneration=++generation.current;inFlight.current=true;setError(null);
+    startTransition(async()=>{
+      try {
+        const result=await bindAdvertisingListingProgramAction({...payload,requestId});
+        if (generation.current!==requestGeneration) return;
+        if (!result.ok) {failure(result);return;}
+        if (!identity(result)) return;
+        const quoted=await getAdvertisingSendQuoteAction({companyId,listingId:selected.listing.id,expectedVersion:selected.listing.version,channels:['blocket','wayke']});
+        if (generation.current!==requestGeneration) return;
+        if (!quoted.ok) {setReview(null);failure(quoted);return;}
+        if (!quoteMatches(quoted,selected.listing,['blocket','wayke'])) return;
+        if (quoted.quote.selectedProgramStoreId !== storeId) {setReview(null);setError('Butiksvalet har ändrats. Förbered utskicket igen för att granska aktuell butik.');return;}
+        setReview({...selected,channels:[],confirmed:false,quote:quoted.quote,confirmationQuote:undefined});
+        setNotice('Butiken är vald. Granska aktuellt avtal och kanalpris före utskick.');
+      } catch {if (generation.current===requestGeneration) setError('Butiksvalets svar kunde inte verifieras. Välj samma butik igen för att kontrollera resultatet.');}
+      finally {if (generation.current===requestGeneration) inFlight.current=false;}
+    });
+  }
   function prepareConfirmation() {
     if (!review || busy || inFlight.current) return;
     if (review.kind === 'ready') { setReview({ ...review, confirmed: true }); return; }
@@ -251,15 +274,15 @@ export function AdvertisingWorkspace({ companyId, role, userId, demo = false }: 
       {editor.listing && <div className="table-controls" style={{ flexWrap: 'wrap' }}>{canEdit && editor.listing.status === 'draft' && <button type="button" className="button button-outline" disabled={busy || !!dirty || !editor.listing.snapshot.photos.length} onClick={() => { if (editor.listing) setReview({ kind: 'ready', listing: editor.listing, channels: [], confirmed: false }); }}>Granska annonsversion</button>}{canEdit && editor.listing.status === 'ready' && <button type="button" className="button button-green" disabled={busy || !!dirty} onClick={() => { if (editor.listing) openSend(editor.listing); }}>Förbered kanalutskick</button>}</div>}
     </form></section>}
     {!denied && review && <section className="surface" style={{ marginTop: 24 }} aria-labelledby={reviewId}><div className="panel-heading"><h2 id={reviewId} ref={heading} tabIndex={-1}>{review.confirmed ? 'Bekräfta annonsversionen' : 'Granska annonsversionen'}</h2></div><div className="dialog-content"><SnapshotPreview listing={review.listing}/>
-      {review.kind === 'send' && <>
+      {review.kind === 'send' && <>{review.quote?.programStores && <div className="form-field"><label htmlFor={`${reviewId}-store`}>Butik för Blocket-annonsen</label><select id={`${reviewId}-store`} value={review.storeChoice ?? review.quote.selectedProgramStoreId ?? ''} disabled={busy || review.confirmed} onChange={event=>setReview({...review,storeChoice:event.target.value,channels:[],confirmationQuote:undefined})}><option value="">Välj butik</option>{review.quote.programStores.map(store=><option key={store.id} value={store.id}>{store.name}</option>)}</select>{!review.confirmed && <button type="button" className="button button-outline" disabled={busy || !review.storeChoice || review.storeChoice===review.quote.selectedProgramStoreId} onClick={bindStore}>Använd vald butik</button>}<p className="settings-note">Butiken binds till annonsens publiceringspris. Efter accepterat Blocket-utskick kan butiken inte bytas. En separat verifierad kanalanslutning krävs.</p></div>}
         <p>Annonsavgift i SEK exklusive moms per första verifierade unika publicering och kanal. Uppdateringar och nya leveransförsök ger ingen ny avgift.</p>
         {!review.quote && <p role="status">Verifierar kanalpriser…</p>}
         <fieldset disabled={busy || review.confirmed} style={{ border: 0, padding: 0 }}><legend>Välj annonskanaler</legend>{(['blocket', 'wayke'] as const).map(channel => {
           const item = (review.confirmed ? review.confirmationQuote : review.quote)?.items.find(item => item.channel === channel);
           const status = !eligible(channel) ? page?.channels.some(item => item.channel === channel && item.status === 'verified') ? ' · leverans ej aktiverad' : ' · anslutning krävs' : '';
           const mediaStatus = channel === 'blocket' && !blocketSupported(review.listing) ? ' · vald WebP-bild stöds inte' : '';
-          return <div key={channel} style={{ marginBottom: 12 }}><label className="auth-checkbox"><input type="checkbox" aria-label={`${channelNames[channel]}${status}${mediaStatus}`} aria-describedby={`${reviewId}-${channel}-price`} checked={review.channels.includes(channel)} disabled={!eligible(channel) || !item || item.chargeOre === null || !!mediaStatus} onChange={event => setReview({ ...review, channels: event.target.checked ? [...review.channels, channel] : review.channels.filter(item => item !== channel), confirmationQuote: undefined })}/><span>{channelNames[channel]}{status}{mediaStatus}</span></label>
-            <p id={`${reviewId}-${channel}-price`} className="settings-note" style={{ marginLeft: 30 }}>{!item ? review.confirmed ? 'Ej vald kanal' : 'Pris verifieras' : item.chargeOre === null ? 'Pris saknas · kanalen kan inte väljas' : item.alreadyPublished ? 'Ingen ny avgift · publiceringen är redan registrerad' : `${money(item.chargeOre)} exkl. moms per unik publicering`}</p></div>;
+          return <div key={channel} style={{ marginBottom: 12 }}><label className="auth-checkbox"><input type="checkbox" aria-label={`${channelNames[channel]}${status}${mediaStatus}`} aria-describedby={`${reviewId}-${channel}-price`} checked={review.channels.includes(channel)} disabled={review.storeChoice !== undefined && review.storeChoice !== review.quote?.selectedProgramStoreId || !eligible(channel) || !item || item.chargeOre === null || !!mediaStatus} onChange={event => setReview({ ...review, channels: event.target.checked ? [...review.channels, channel] : review.channels.filter(item => item !== channel), confirmationQuote: undefined })}/><span>{channelNames[channel]}{status}{mediaStatus}</span></label>
+            <p id={`${reviewId}-${channel}-price`} className="settings-note" style={{ marginLeft: 30 }}>{!item ? review.confirmed ? 'Ej vald kanal' : 'Pris verifieras' : item.chargeOre === null ? (item.blockedReason ? {store_required:'Välj butik för att läsa avtalspriset',agreement_inactive:'Butiken saknar ett bekräftat aktivt avtal',agreement_ambiguous:'Butikens avtal behöver granskas av Trafexa',program_price_missing:'Avtalspris saknas · kontakta Trafexa',destination_mismatch:'Butikens kanalanslutning behöver verifieras'}[item.blockedReason] : 'Pris saknas · kanalen kan inte väljas') : item.alreadyPublished ? 'Ingen ny avgift · publiceringen är redan registrerad' : `${money(item.chargeOre)} exkl. moms per unik publicering`}{item?.program && <> · {item.program.storeName} · Avtal {item.program.agreementReference}, version {item.program.version}</>}</p></div>;
         })}</fieldset>
         {!(['blocket', 'wayke'] as const).some(eligible) && <p className="notice">Ingen kanal är klar för leverans. <a href="#advertising-connections">Anslut kanal</a> och invänta verifierad anslutning.</p>}
         {!blocketSupported(review.listing) && <p className="form-privacy">Blocket kräver JPEG eller PNG. Välj sådana bilder för ett framtida Blocket-utskick; inga bilder konverteras automatiskt.</p>}
