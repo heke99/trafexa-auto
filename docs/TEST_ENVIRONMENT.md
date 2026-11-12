@@ -40,7 +40,7 @@ En körbar Chromium-fil räcker inte: i den rena Ubuntu-bilden saknades först N
 ## Arbetsordning och bevis
 
 1. Lås källans commit, kontrollera ren arbetskatalog och kör baslinjen före ändringar.
-2. Kör högst två flat-testprocesser samtidigt på den verifierade 4-vCPU/8-GB-miljön; sänk vid resursfel.
+2. Börja med två flat-testprocesser samtidigt på en 4-vCPU/8-GB-miljö; sänk vid resursfel. Redovisa antalet om en större parallellism provas.
 3. Spara faktisk exitstatus och slutantal. Ett reproduktionsprov som lyckas bevisa ett fel är inte bevis på att felet är rättat.
 4. Separera verklig SQL/SDK/browser från kontrollerad Auth-/Storage-/partnertransport.
 5. Använd avsedda provkonton och en städplan för eventuella liveprov. Blocket-/Waykenycklar, inloggningssessioner och mejlaktivering ska inte läggas i chatten.
