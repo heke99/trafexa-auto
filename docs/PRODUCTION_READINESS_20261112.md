@@ -33,7 +33,7 @@ Avtalsingången i handlarvyn heter nu **Avtal och underskrifter**. Superadmin f�
 
 [Backupberedskap och återställningsbevis](CONTRACT_BACKUP_READINESS_20261112.md): verklig lokal arkivexport → separat betrodd hash → befintlig offline-CLI utan servermiljö → återställda byte/hashar och privata filrättigheter. **23/23** prov samt tre ordinarie avtals-/leveransresor PASS. Användaren har bekräftat att separat backupdestination ännu inte är vald. Ingen extern driftbackup eller DB-backup utanför plattformen påstås vara aktiverad.
 
-Zod är uppdaterad från 4.1.12 till exakt 4.6.7. Paketgranskningen efter uppdateringen gav **0 kända sårbarheter**. Hosted Supabase-advisorn hade före ändringarna två WARN-kategorier: avsiktligt adminskyddad SECURITY DEFINER-RPC samt avstängd läckt-lösenordskontroll. Den senare Auth-inställningen kan inte ändras via tillgängliga kopplingar. Privata tabeller med RLS utan direkta policies är stängda och används genom bevakade funktioner; direktåtkomst ska inte öppnas för att tysta denna information.
+Zod är uppdaterad från 4.1.12 till exakt 4.6.7. Paketgranskningen efter uppdateringen gav **0 kända sårbarheter**. Hosted Supabase-advisorn hade före ändringarna två WARN-kategorier: avsiktligt adminskyddad SECURITY DEFINER-RPC samt avstängd läckt-lösenordskontroll. Den senare Auth-inställningen kan inte ändras via tillgängliga kopplingar. [Aktivera skydd mot läckta lösenord](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection). Privata tabeller med RLS utan direkta policies är stängda och används genom bevakade funktioner; direktåtkomst ska inte öppnas för att tysta denna information.
 
 Cookieinformationen har en separat revision `2026-11-12` och beskriver annonsprogrammets nödvändiga sessionStorage, som endast innehåller begärande-/målmetadata. Integritetspolicyns ansökningsversion hålls stabil så att befintliga formulär och sparade medgivanden inte omtolkas. Policyprov **2/2**, cookiebrowser **3/3**, befintlig avtals-UI **10/10 PASS** före slutlig samlad regression.
 
@@ -47,7 +47,9 @@ Riktade prisprov: sex SQL, sex actions/SQL-kedjor, tio legacyprisfall och 15 bro
 
 Applicerade migrationsversioner: `20261112215300_application_shared_mailbox`, `20261112220752_advertising_program_requests`, `20261112220925_advertising_program_publication_prices`, `20261112220940_advertising_store_fee_rows`. Repositoryfilernas namn har anpassats till dessa faktiskt tilldelade versioner; hosted historik har inte skrivits om. Backend och frontend levereras tillsammans. Ingen butik, avgift, pris eller partneranslutning skapades i produktion av migrationerna.
 
-Arbetsmiljön startades om under den första slutkörningen. Den avbrutna delkörningen räknas inte som ett godkänt resultat; full regression startades om efter att miljön var klar. Slutlig samlad regression och release kompletteras nedan.
+Arbetsmiljön startades om under den första slutkörningen. Den avbrutna delkörningen räknas inte som ett godkänt resultat; full regression startades om efter att miljön var klar. **Slutlig samlad regression: 2 042/2 042 PASS**, 224 canonical flat-testfiler, 0 fail/skip och inga saknade fallantal. Tre separata Node-processer parallellt; 420,517 sekunder. Pretest, typkontroll, produktionsbygge och diffkontroll PASS. Det slutliga lokala Next-bygget klarade även 48 sid-/viewportkombinationer och sex typsnittsprov. Vercel-kontrollen för den testade källan `922636d37cc98704bc1bcd20abe2c8a042b291b2` är grön. [Maskinläsbart helresultat med källhashar](verification/20261112-readiness/full-regression.json).
+
+Ändringarna publiceras genom [PR #62](https://github.com/heke99/trafexa-auto/pull/62); slutlig merge-SHA, produktionsdeployment och efterkontroll följs i PR:ns leveransmetadata. De godkända kvalitetskontrollerna är inte ett fullständigt produktionsgodkännande av de ej åtkomliga P0-resorna ovan.
 
 ## Återstående användarberoenden
 
@@ -55,3 +57,8 @@ Arbetsmiljön startades om under den första slutkörningen. Den avbrutna delkö
 2. Separat backupdestination och driftval (ägare, åtkomst, intervall, retention, RPO/RTO och DB-återställning) är fortfarande inte valda.
 3. Auth-leverantörens läckt-lösenordskontroll behöver aktiveras via dess ordinarie inställningar och verklig SMTP-/Auth-konfiguration bekräftas; ingen sådan aktivering har påståtts.
 4. Partnerkontrakt och riktiga externa kopplingar ligger utanför dessa bevis. Manuella betalningsavstämningar kan användas utan att påstå bankintegration.
+
+
+## Städning
+
+Native PostgreSQL använde `postgres@sha256:665dc7b37ac52a17e298511414c21d23ffa4e6a6ef6225b3e5d59c7afb35e994`, utan nätverk eller publicerade portar. Egna sessionsprocesser/databaser avslutades och den egna containern togs bort efter proven. Lokal Next-server och browser stängdes efter sidproven. Inga produktionskunder, offerter, underskrifter, fakturor eller avgiftsrader skapades. Det uttryckligen beställda osignerade PDF-provet skickades separat och efterlämnade inga produktionsavtalsrader.
