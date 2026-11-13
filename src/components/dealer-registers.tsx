@@ -6,6 +6,8 @@ import { loadDealerRegisterPage } from '@/lib/data/register-actions';
 import type { Customer, InventoryItem, WorkspaceSnapshot } from '@/lib/data/workspace';
 import type { DealerRegisterDeal, DealerRegisterKind, DealerRegisterPage, DealerRegisterRole, DealerRegisterSort } from '@/lib/registers/types';
 
+export type DealerRegisterCriteria = { query: string; status: string; cursor: string | null };
+
 export type DealerRegistersProps = {
   kind: DealerRegisterKind;
   blocked?: boolean;
@@ -16,7 +18,7 @@ export type DealerRegistersProps = {
   snapshot: WorkspaceSnapshot;
   renderRows: (page: DealerRegisterPage) => ReactNode;
   onCriteriaChange?: () => void;
-  onPage?: (page: DealerRegisterPage) => void;
+  onPage?: (page: DealerRegisterPage, criteria: DealerRegisterCriteria) => void;
 };
 
 const filters: Record<DealerRegisterKind, [string, string][]> = {
@@ -90,7 +92,7 @@ function RegisterPanel(props: DealerRegistersProps) {
         if (result.page.kind !== kind || result.page.companyId.toLowerCase() !== companyId.toLowerCase() || result.page.actorId.toLowerCase() !== userId.toLowerCase() || result.page.role !== role) {
           onCriteriaChange?.(); setState({ key: readKey, page: null, error: 'Företaget eller behörigheten har ändrats. Läs in sidan igen för att fortsätta.', loading: false }); return;
         }
-        onPage?.(result.page);
+        onPage?.(result.page, { query, status, cursor: currentCursor });
         setState({ key: readKey, page: result.page, error: '', loading: false });
       } catch {
         if (!cancelled && token === sequence.current) { onCriteriaChange?.(); setState({ key: readKey, page: null, error: 'Registret kunde inte hämtas. Försök igen.', loading: false }); }

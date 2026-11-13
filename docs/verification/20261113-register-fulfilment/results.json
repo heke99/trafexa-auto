@@ -1,0 +1,111 @@
+{
+  "baseCommit": "f1c4f41ba5ad985b39f87812147deada03451cb3",
+  "scope": "register selection/drafts, manual financial confirmation and enclosing navigation",
+  "tests": 128,
+  "pass": 128,
+  "fail": 0,
+  "skipped": 0,
+  "suites": [
+    {
+      "evidence": "fulfilment.log",
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "compact-final.log",
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "fulfilment-actions.log",
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "direct-backend.log",
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "guest-fulfilment.log",
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "continuity.log",
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "finance-access.log",
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "register-refresh-after.log",
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "register-ui-other-review.log",
+      "tests": 55,
+      "pass": 55,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "register-workspace-other-review.log",
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "register-ssr-other-review.log",
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    }
+  ],
+  "typecheck": "PASS",
+  "productionBuild": "PASS",
+  "externalEmails": 0,
+  "productionDataMutations": 0,
+  "sourceSha256": {
+    "src/components/deal-fulfilment.tsx": "e777109394fc76ae0eec235e252115fe074c304bd75abc89d663cafb77a8fd97",
+    "src/components/dealer-registers.tsx": "f6422458e1c73779a1474d312bb25b1abc313a7b78590ba41829e3001671ff82",
+    "src/components/dealer-workspace.tsx": "9f14bdd9fc563b8d0d7403868f313eb7c07c66f7abfbd951b124c4cd2d3ed5f1",
+    "tests/compact-deals-ui.test.mjs": "6f7f1925b0ffbe116811db38c8a5229e77f3ed105685ab68f5b4821db367e5a0",
+    "tests/deal-fulfilment-ui.test.mjs": "97eaf7f155580989dea3f3af674145aa53792be941b806295876d0508bb302a5",
+    "tests/helpers/deal-fulfilment-ui/entry.js": "02fa10ef4cb24b9a4a7269cfc43dc0446d99123d460b39d91eab666d6f0e7748",
+    "tests/helpers/register-ui/dynamic.js": "3e0163428ba763fcbf6099d6447c85ada945ecad18a9d3d6b55fe8a417e01984"
+  }
+}

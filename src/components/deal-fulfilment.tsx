@@ -3,22 +3,24 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { getDealFulfilmentAction, mutateDealFulfilmentAction } from '@/lib/deal-fulfilment/actions';
 import type { FulfilmentMutation, FulfilmentPage } from '@/lib/deal-fulfilment/types';
 
-const reasons = { accepted_offer_required: 'En accepterad offert behövs.', contract_required: 'Båda parter behöver signera avtalet.', original_required: 'Det signerade originalet behöver arkiveras.', trade_in_settlement_unsupported: 'Inbytesaffärer kräver separat avstämning av inbyte, skuld och eventuell utbetalning. Leveransstödet kan ännu inte avsluta dessa affärer.', deal_unavailable: 'Affären kan inte avslutas i sitt aktuella läge.' };
+const reasons = { accepted_offer_required: 'Skapa och signera affärens avtal för att gå vidare.', contract_required: 'Båda parter behöver signera avtalet.', original_required: 'Det signerade originalet behöver arkiveras.', trade_in_settlement_unsupported: 'Inbytesaffärer kräver separat avstämning av inbyte, skuld och eventuell utbetalning. Leveransstödet kan ännu inte avsluta dessa affärer.', deal_unavailable: 'Affären kan inte avslutas i sitt aktuella läge.' };
 function money(value: string) { return new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(Number(value) / 100); }
-export function DealFulfilment(props: { companyId: string; userId: string; role: string; dealId: string; demo?: boolean; onDelivered?: () => void }) {
+export function DealFulfilment(props: { companyId: string; userId: string; role: string; dealId: string; demo?: boolean; onDelivered?: () => void; onBusyChange?: (busy: boolean) => void; onAccessDenied?: (message: string) => void }) {
   if (!['owner', 'admin', 'finance'].includes(props.role)) return null;
   return <FulfilmentPanel key={`${props.companyId}:${props.userId}:${props.role}:${props.dealId}:${!!props.demo}`} {...props} />;
 }
-function FulfilmentPanel({ companyId, dealId, role, demo, onDelivered }: { companyId: string; userId: string; role: string; dealId: string; demo?: boolean; onDelivered?: () => void }) {
+function FulfilmentPanel({ companyId, dealId, role, demo, onDelivered, onBusyChange, onAccessDenied }: { companyId: string; userId: string; role: string; dealId: string; demo?: boolean; onDelivered?: () => void; onBusyChange?: (busy: boolean) => void; onAccessDenied?: (message: string) => void }) {
   const prefix = useId(), alive = useRef(false), lock = useRef(false), retries = useRef(new Map<string, string>());
   const [open, setOpen] = useState(false), [page, setPage] = useState<FulfilmentPage | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState(''), [review, setReview] = useState<Omit<FulfilmentMutation, 'requestId'> | null>(null), [blocked, setBlocked] = useState(false);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  useEffect(() => () => onBusyChange?.(false), [onBusyChange]);
+  function reportBusy(value: boolean) { setBusy(value); onBusyChange?.(value); }
   async function load() {
     if (lock.current || demo) return;
-    lock.current = true; setBusy(true); setError(''); setReview(null);
-    try { const result = await getDealFulfilmentAction({ companyId, dealId }); if (!alive.current) return; if (result.ok) { setPage(result.page); setBlocked(false); } else { setPage(null); setError(result.message); } }
+    lock.current = true; reportBusy(true); setError(''); setReview(null);
+    try { const result = await getDealFulfilmentAction({ companyId, dealId }); if (!alive.current) return; if (result.ok) { setPage(result.page); setBlocked(false); } else { setPage(null); setError(result.message); if (['access_denied','unauthenticated'].includes(result.code)) onAccessDenied?.(result.message); } }
     catch { if (alive.current) { setPage(null); setError('Avstämningen kunde inte hämtas. Försök igen.'); } }
-    finally { lock.current = false; if (alive.current) setBusy(false); }
+    finally { lock.current = false; if (alive.current) reportBusy(false); }
   }
   function prepare(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!page || busy || blocked || role === 'finance' || !event.currentTarget.reportValidity()) return;
@@ -32,16 +34,16 @@ function FulfilmentPanel({ companyId, dealId, role, demo, onDelivered }: { compa
     if (!review || lock.current || blocked || demo || role === 'finance') return;
     const fingerprint = JSON.stringify(review); let requestId = retries.current.get(fingerprint);
     if (!requestId) { requestId = crypto.randomUUID(); retries.current.set(fingerprint, requestId); }
-    lock.current = true; setBusy(true); setError('');
+    lock.current = true; reportBusy(true); setError('');
     try {
       const result = await mutateDealFulfilmentAction({ ...review, requestId }); if (!alive.current) return;
-      if (!result.ok) { setError(result.message); if (['conflict', 'access_denied', 'unauthenticated'].includes(result.code)) { setPage(null); setReview(null); setBlocked(true); } return; }
+      if (!result.ok) { setError(result.message); if (['conflict', 'access_denied', 'unauthenticated'].includes(result.code)) { setPage(null); setReview(null); setBlocked(true); if (['access_denied','unauthenticated'].includes(result.code)) onAccessDenied?.(result.message); } return; }
       setPage(result.page); setReview(null); retries.current.clear(); if (result.page.delivery) onDelivered?.();
     } catch { if (alive.current) setError('Resultatet kunde inte bekräftas. Försök igen med samma granskade begäran.'); }
-    finally { lock.current = false; if (alive.current) setBusy(false); }
+    finally { lock.current = false; if (alive.current) reportBusy(false); }
   }
   const reversalTarget = review?.operation === 'reverse' ? page?.entries.find(entry => entry.id === review.reversalOf && !entry.reversalOf) : null;
-  return <section aria-label="Betalning och leverans"><button type="button" className="button button-outline button-small" aria-expanded={open} onClick={() => { setOpen(!open); if (!open && !page) void load(); }}>Betalning och leverans</button>
+  return <section aria-label="Betalning och leverans"><button type="button" className="button button-outline button-small" aria-expanded={open} disabled={busy} onClick={() => { if (lock.current) return; setOpen(!open); if (!open && !page) void load(); }}>Betalning och leverans</button>
     {open ? <div className="stack"><p className="muted small">Manuell avstämning mot handlarens eget bankunderlag. Uppgifterna är inte bankverifierade och inga pengar överförs.</p>
       {demo ? <p>Avstämning sparas inte i demon.</p> : null}{error ? <p role="alert">{error}</p> : null}{busy ? <p role="status">Arbetar…</p> : null}
       {!demo ? <button type="button" className="button button-outline button-small" disabled={busy} onClick={() => void load()}>Läs in aktuell avstämning</button> : null}
@@ -57,7 +59,7 @@ function FulfilmentPanel({ companyId, dealId, role, demo, onDelivered }: { compa
           <label htmlFor={`${prefix}-date`}>Bokföringsdatum</label><input id={`${prefix}-date`} name="date" type="date" min="2000-01-01" max={page.businessDate} defaultValue={page.businessDate} required disabled={busy || blocked} />
           <label htmlFor={`${prefix}-reason`}>Anteckning om avstämningen</label><input id={`${prefix}-reason`} name="reason" minLength={2} maxLength={300} required disabled={busy || blocked} />
           <button type="submit" className="button button-green" disabled={busy || blocked}>Granska inbetalning</button>
-        </form>{page.canDeliver ? <form onSubmit={event => { event.preventDefault(); if (!busy && !blocked) { const data = new FormData(event.currentTarget); setReview({ companyId, dealId, expectedVersion: page.version, operation: 'deliver', reason: String(data.get('reason')).trim() }); } }}><label>Leveransanteckning<input name="reason" minLength={2} maxLength={300} required disabled={busy || blocked} /></label><button type="submit" className="button button-green" disabled={busy || blocked}>Granska leverans</button></form> : <p>Leverans kräver full manuellt avstämd betalning, accepterad offert, signerat arkiverat avtal och att bilen är reserverad till denna affär.</p>}</> : null}
+        </form>{page.canDeliver ? <form onSubmit={event => { event.preventDefault(); if (!busy && !blocked) { const data = new FormData(event.currentTarget); setReview({ companyId, dealId, expectedVersion: page.version, operation: 'deliver', reason: String(data.get('reason')).trim() }); } }}><label>Leveransanteckning<input name="reason" minLength={2} maxLength={300} required disabled={busy || blocked} /></label><button type="submit" className="button button-green" disabled={busy || blocked}>Granska leverans</button></form> : <p>Leverans kräver full manuellt avstämd betalning, ett signerat och arkiverat avtal samt en aktiv reservation för affären.</p>}</> : null}
       </> : null}
       {review ? <div role="region" aria-label="Granska avstämning"><h3>Granska {review.operation === 'payment' ? 'inbetalning' : review.operation === 'reverse' ? 'återföring' : 'leverans'}</h3><p>{reversalTarget ? <>Återför {money(reversalTarget.amountOre)} · {reversalTarget.bankReference} · {reversalTarget.bookedOn}</> : <>{review.amountOre ? money(review.amountOre) : ''} {review.bankReference} {review.bookedOn}</>}</p><p>{review.reason}</p>{review.operation === 'deliver' ? <p>Bekräftelsen markerar bilen som såld, avslutar affären och frigör dess reservation. Den kan inte ångras här. Kontrollera och avpublicera även bilens externa annonser; de tas inte bort automatiskt.</p> : <p>Detta är din manuella registrering utifrån bankunderlaget.</p>}<button type="button" disabled={busy} className="button button-outline" onClick={() => setReview(null)}>Tillbaka</button><button type="button" disabled={busy || blocked || review.operation === 'reverse' && !reversalTarget} className="button button-green" onClick={() => void confirm()}>Bekräfta {review.operation === 'deliver' ? 'leverans' : 'registrering'}</button></div> : null}
     </div> : null}
