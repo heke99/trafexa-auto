@@ -1,3 +1,4 @@
+import {contractDraftContent} from '../contracts/types.ts';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { isValidSignatureCanvas } from '../signing/docuseal-ported/signature-validation.ts';
@@ -10,7 +11,7 @@ const signature = z.object({
   party: z.enum(['customer', 'company']), fullName: z.string().min(2).max(160).refine(v => v === v.trim() && !/[\u0000-\u001f\u007f]/.test(v)),
   signedAt: timestamp, documentHash: hash, consentVersion: z.literal('2026-10-14'),
   strokes: z.array(z.object({ points: z.array(point).max(4096) })).max(256),
-  authenticationMethod:z.literal('email_link').optional(),approvalMethod:z.literal('typed_name').optional(),guestInvitationId:uuid.optional(),recipientEmail:z.string().email().optional(),
+  authenticationMethod:z.enum(['email_link','account']).optional(),approvalMethod:z.literal('typed_name').optional(),guestInvitationId:uuid.optional(),recipientEmail:z.string().email().optional(),
 });
 const completion = z.object({
   id: uuid, companyId: uuid, dealId: uuid, draftId: uuid, draftVersion: z.number().int().positive(),
@@ -31,10 +32,11 @@ export function parseCompletedContract(value: unknown) {
     const left = Object.keys(a), right = Object.keys(b);
     return left.length === right.length && left.every(key => Object.hasOwn(b, key) && equal((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]));
   };
-  if (!equal(canonical, { draftId:d.id, companyId:d.companyId, dealId:d.dealId, draftVersion:d.version, content:{ offerVersion:d.offerVersion, template:d.template, sourceOffer:d.sourceOffer } })) throw Error('Signed contract content mismatch');
+  if (!equal(canonical, { draftId:d.id, companyId:d.companyId, dealId:d.dealId, draftVersion:d.version, content:contractDraftContent(d) })) throw Error('Signed contract content mismatch');
   if (s.customerSignature.party !== 'customer' || s.companySignature.party !== 'company') throw Error('Invalid signing parties');
   for (const receipt of [s.customerSignature, s.companySignature]) {
-    if(receipt.authenticationMethod==='email_link'){if(receipt.party!=='customer'||receipt.approvalMethod!=='typed_name'||!receipt.guestInvitationId||receipt.recipientEmail!==d.sourceOffer.customer.email?.trim().toLowerCase()||receipt.strokes.length!==0)throw Error('Invalid guest signature');}
+    if(receipt.authenticationMethod==='account'){if(d.sourceKind!=='direct_deal'||receipt.party!=='company'||receipt.approvalMethod!=='typed_name'||receipt.guestInvitationId!==undefined||receipt.recipientEmail!==undefined||receipt.strokes.length!==0)throw Error('Invalid dealer approval');}
+    else if(receipt.authenticationMethod==='email_link'){if(receipt.party!=='customer'||receipt.approvalMethod!=='typed_name'||!receipt.guestInvitationId||receipt.recipientEmail!==d.sourceOffer.customer.email?.trim().toLowerCase()||receipt.strokes.length!==0)throw Error('Invalid guest signature');}
     else if(receipt.approvalMethod!==undefined||receipt.guestInvitationId!==undefined||receipt.recipientEmail!==undefined||!isValidSignatureCanvas(receipt.strokes))throw Error('Invalid account signature');
     if (receipt.documentHash !== s.documentHash || Date.parse(receipt.signedAt) < Date.parse(s.createdAt) || Date.parse(receipt.signedAt) > Date.parse(s.completedAt)) throw Error('Invalid signing receipt');
   }
@@ -49,7 +51,7 @@ export async function generateSignedContractArtifacts(value: unknown) {
     schemaVersion:1, method:'trafexa-simple-electronic-signature', signingId:s.id,
     draftId:s.draftId, draftVersion:s.draftVersion, documentContentSha256:s.documentHash,
     signedPdfSha256:sha256(pdf), completedAt:s.completedAt,
-    receipts:[s.customerSignature,s.companySignature].map(({party,fullName,signedAt,documentHash,consentVersion,authenticationMethod,approvalMethod,guestInvitationId,recipientEmail}) => ({party,fullName,signedAt,documentHash,consentVersion,...(authenticationMethod==='email_link'?{authenticationMethod,approvalMethod,guestInvitationId,recipientEmail}:{})})),
+    receipts:[s.customerSignature,s.companySignature].map(({party,fullName,signedAt,documentHash,consentVersion,authenticationMethod,approvalMethod,guestInvitationId,recipientEmail}) => ({party,fullName,signedAt,documentHash,consentVersion,...(authenticationMethod==='email_link'?{authenticationMethod,approvalMethod,guestInvitationId,recipientEmail}:authenticationMethod==='account'?{authenticationMethod,approvalMethod}:{})})),
     assurance:s.customerSignature.authenticationMethod==='email_link'?'Customer approved the exact contract by entering their name and explicitly confirming through a personal email link; company signed using its authorized Trafexa account. Email-link possession is not independent identity verification, BankID identification or a certificate-based PDF signature.':'Verified email and authenticated account authorized to access this contract; no BankID identification or certificate-based PDF signature.',
   };
   return { pdf, evidence: new TextEncoder().encode(JSON.stringify(evidence, null, 2)) };

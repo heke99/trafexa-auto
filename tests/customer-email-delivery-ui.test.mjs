@@ -29,7 +29,7 @@ test('owner retries only after recipient review and consent, locks double clicks
   await page.getByRole('checkbox',{name:ack}).check();await page.getByRole('button',{name:'Försök skicka mejlet igen',exact:true}).dblclick();
   await page.waitForFunction(()=>typeof window.fixture.releaseCustomerEmailRetry==='function');assert.equal((await retryCalls(page)).length,1);
   await page.evaluate(props=>window.fixture.releaseCustomerEmailRetry({ok:true,delivery:{...props,actorUserId:props.userId,actorRole:props.role,recipientEmail:'anna@example.com',status:'accepted',transport:'configured'}}),props);
-  await expect(page.getByText('Mejltjänsten har tagit emot inbjudan',{exact:true})).toBeVisible();await expect(page.getByText('Mejlet har accepterats för utskick. Leverans till kundens inkorg är ännu inte bekräftad.',{exact:true})).toBeVisible();
+  await expect(page.getByText('Skickat',{exact:true})).toBeVisible();await page.getByText('Leverans och dokumentlänk',{exact:true}).click();await expect(page.getByText('Mejltjänsten har accepterat utskicket. Leverans till inkorgen är inte bekräftad.',{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Granska nytt utskicksförsök'})).toHaveCount(0);
   assert.deepEqual((await retryCalls(page))[0].input,{companyId:props.companyId,dealId:props.dealId,referenceId:props.referenceId,kind:props.kind,acknowledged:true});
  }finally{await page.close();}
@@ -38,12 +38,12 @@ for(const [status,transport,role] of [['pending','configured','finance'],['unkno
  const page=await setup({role},{deliveryResponse:{ok:true,delivery:{status,transport}}});try{await expect(page.getByRole('button',{name:'Uppdatera mejlinbjudans status'})).toBeEnabled();await expect(page.getByRole('button',{name:'Granska nytt utskicksförsök'})).toHaveCount(0);assert.deepEqual(await retryCalls(page),[]);}finally{await page.close();}
 });
 test('offer retry preserves sales rights while viewer reads and sales cannot read contract delivery',async()=>{
- const sales=await setup({role:'sales',kind:'offer_invitation'});try{await review(sales);await sales.getByRole('checkbox',{name:ack}).check();await sales.getByRole('button',{name:'Försök skicka mejlet igen',exact:true}).click();await expect(sales.getByText('Mejltjänsten har tagit emot inbjudan',{exact:true})).toBeVisible();assert.equal((await retryCalls(sales)).length,1);}finally{await sales.close();}
- const viewer=await setup({role:'viewer',kind:'offer_invitation'});try{await expect(viewer.getByText('Mejlinbjudan väntar på utskick',{exact:true})).toBeVisible();await expect(viewer.getByRole('button',{name:'Granska nytt utskicksförsök'})).toHaveCount(0);}finally{await viewer.close();}
+ const sales=await setup({role:'sales',kind:'offer_invitation'});try{await review(sales);await sales.getByRole('checkbox',{name:ack}).check();await sales.getByRole('button',{name:'Försök skicka mejlet igen',exact:true}).click();await expect(sales.getByText('Skickat',{exact:true})).toBeVisible();assert.equal((await retryCalls(sales)).length,1);}finally{await sales.close();}
+ const viewer=await setup({role:'viewer',kind:'offer_invitation'});try{await expect(viewer.getByText('Väntar på utskick',{exact:true})).toBeVisible();await expect(viewer.getByRole('button',{name:'Granska nytt utskicksförsök'})).toHaveCount(0);}finally{await viewer.close();}
  const blocked=await setup({role:'sales'});try{await expect(blocked.getByRole('region',{name:'Kundens mejlinbjudan'})).toHaveCount(0);assert.deepEqual(await blocked.evaluate(()=>window.fixture.customerEmailCalls??[]),[]);}finally{await blocked.close();}
 });
 test('unknown transport clears the pending snapshot and requires a fresh read before another review',async()=>{
- const page=await setup({}, {customerEmailRetries:[{throw:true}]});try{await review(page);await page.getByRole('checkbox',{name:ack}).check();await page.getByRole('button',{name:'Försök skicka mejlet igen',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Uppdatera mejlstatus');await expect(page.getByText('anna@example.com',{exact:false})).toHaveCount(0);await expect(page.getByRole('button',{name:'Granska nytt utskicksförsök'})).toHaveCount(0);await page.evaluate(()=>window.fixture.deliveryResponse={ok:true,delivery:{status:'unknown',transport:'configured'}});await page.getByRole('button',{name:'Uppdatera mejlinbjudans status'}).click();await expect(page.getByText('Utskickets utfall behöver kontrolleras',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Granska nytt utskicksförsök'})).toHaveCount(0);assert.equal((await retryCalls(page)).length,1);}finally{await page.close();}
+ const page=await setup({}, {customerEmailRetries:[{throw:true}]});try{await review(page);await page.getByRole('checkbox',{name:ack}).check();await page.getByRole('button',{name:'Försök skicka mejlet igen',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Uppdatera mejlstatus');await expect(page.getByText('anna@example.com',{exact:false})).toHaveCount(0);await expect(page.getByRole('button',{name:'Granska nytt utskicksförsök'})).toHaveCount(0);await page.evaluate(()=>window.fixture.deliveryResponse={ok:true,delivery:{status:'unknown',transport:'configured'}});await page.getByRole('button',{name:'Uppdatera mejlinbjudans status'}).click();await expect(page.getByText('Kontroll krävs',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Granska nytt utskicksförsök'})).toHaveCount(0);assert.equal((await retryCalls(page)).length,1);}finally{await page.close();}
 });
 test('actor mismatch in a retry response purges recipient and confirmation without a second attempt',async()=>{
  const page=await setup({}, {customerEmailRetries:[{ok:true,delivery:{actorUserId:'other-actor',recipientEmail:'secret@example.test',status:'accepted',transport:'configured'}}]});try{await review(page);await page.getByRole('checkbox',{name:ack}).check();await page.getByRole('button',{name:'Försök skicka mejlet igen',exact:true}).click();await expect(page.getByRole('alert')).toContainText('kunde inte verifieras');await expect(page.getByText('secret@example.test',{exact:false})).toHaveCount(0);await expect(page.getByRole('checkbox')).toHaveCount(0);assert.equal((await retryCalls(page)).length,1);}finally{await page.close();}
@@ -55,9 +55,9 @@ for(const width of [320,390,1440])test(`retry review fits ${width}px without sen
 test('a late retry result from a previous actor cannot replace the current read-only scope',async()=>{
  const page=await setup({}, {customerEmailRetries:[{hold:true}]});try{
   await review(page);await page.getByRole('checkbox',{name:ack}).check();await page.getByRole('button',{name:'Försök skicka mejlet igen',exact:true}).click();await page.waitForFunction(()=>typeof window.fixture.releaseCustomerEmailRetry==='function');
-  await page.evaluate(props=>window.mountCustomerEmail({...props,userId:'finance-actor',role:'finance'}),props);await expect(page.getByText('Mejlinbjudan väntar på utskick',{exact:true})).toBeVisible();
+  await page.evaluate(props=>window.mountCustomerEmail({...props,userId:'finance-actor',role:'finance'}),props);await expect(page.getByText('Väntar på utskick',{exact:true})).toBeVisible();
   await page.evaluate(props=>window.fixture.releaseCustomerEmailRetry({ok:true,delivery:{...props,actorUserId:props.userId,actorRole:props.role,recipientEmail:'old-secret@example.test',status:'accepted',transport:'configured'}}),props);
-  await expect(page.getByText('old-secret@example.test',{exact:false})).toHaveCount(0);await expect(page.getByText('Mejltjänsten har tagit emot inbjudan',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Granska nytt utskicksförsök'})).toHaveCount(0);assert.equal((await retryCalls(page)).length,1);
+  await expect(page.getByText('old-secret@example.test',{exact:false})).toHaveCount(0);await expect(page.getByText('Skickat',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Granska nytt utskicksförsök'})).toHaveCount(0);assert.equal((await retryCalls(page)).length,1);
  }finally{await page.close();}
 });
 
@@ -66,14 +66,14 @@ const completionReview='Granska nytt försök för färdigsignerat avtal';
 test('completed PDF email retry has its own focused recipient review and exact completion kind at mobile and desktop widths',async()=>{
  const page=await setup({kind:'contract_completed'});try{
   const panel=page.getByRole('region',{name:'Kundens mejl med färdigsignerat avtal',exact:true});
-  await expect(panel.getByText('Mejlet med färdigsignerat avtal väntar på utskick',{exact:true})).toBeVisible();
+  await expect(panel.getByText('Väntar på utskick',{exact:true})).toBeVisible();
   await panel.getByRole('button',{name:completionReview,exact:true}).click();
   await expect(panel.getByRole('heading',{name:'Kontrollera mottagaren av det färdigsignerade avtalet'})).toBeFocused();
   for(const width of [320,390,1440]){await page.setViewportSize({width,height:1000});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));}
   await expect(panel.getByRole('button',{name:'Försök skicka mejlet igen',exact:true})).toBeDisabled();assert.deepEqual(await retryCalls(page),[]);
   await panel.getByRole('checkbox',{name:completionAck}).check();await panel.getByRole('button',{name:'Försök skicka mejlet igen',exact:true}).click();
-  await expect(panel.getByText('Mejltjänsten har tagit emot mejlet med färdigsignerat avtal',{exact:true})).toBeVisible();
-  await expect(panel.getByText('Leverans till kundens inkorg är ännu inte bekräftad.',{exact:false})).toBeVisible();
+  await expect(panel.getByText('Skickat',{exact:true})).toBeVisible();
+  await panel.getByText('Leverans och dokumentlänk',{exact:true}).click();await expect(panel.getByText('Leverans till inkorgen är inte bekräftad.',{exact:false})).toBeVisible();
   assert.deepEqual((await retryCalls(page))[0].input,{companyId:props.companyId,dealId:props.dealId,referenceId:props.referenceId,kind:'contract_completed',acknowledged:true});
   await expect(panel.getByRole('button',{name:completionReview,exact:true})).toHaveCount(0);
  }finally{await page.close();}
@@ -94,7 +94,9 @@ test('ambiguous completion retry erases pending state and requires a fresh read;
   await page.getByRole('button',{name:completionReview,exact:true}).click();await page.getByRole('checkbox',{name:completionAck}).check();await page.getByRole('button',{name:'Försök skicka mejlet igen',exact:true}).click();
   await expect(page.getByRole('alert')).toContainText('Uppdatera mejlstatus');await expect(page.getByRole('checkbox')).toHaveCount(0);await expect(page.getByRole('button',{name:completionReview,exact:true})).toHaveCount(0);
   await page.evaluate(()=>window.fixture.deliveryResponse={ok:true,delivery:{status:'unknown',transport:'configured'}});
-  await page.getByRole('button',{name:'Uppdatera färdigmejlets status',exact:true}).click();await expect(page.getByText('Utskickets utfall behöver kontrolleras',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Uppdatera färdigmejlets status',exact:true}).click();await expect(page.getByText('Kontroll krävs',{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:completionReview,exact:true})).toHaveCount(0);assert.equal((await retryCalls(page)).length,1);
  }finally{await page.close();}
 });
+
+for(const width of[320,1440])test(`accepted delivery has one compact status and hides technical link controls until requested at ${width}px`,async()=>{const page=await setup({}, {deliveryResponse:{ok:true,delivery:{status:'accepted',transport:'configured'}}});try{await page.setViewportSize({width,height:1000});const panel=page.getByRole('region',{name:'Kundens mejlinbjudan'});await expect(panel.getByText('Skickat',{exact:true})).toBeVisible();await expect(panel.getByText('anna@example.com',{exact:false})).toBeVisible();await expect(panel.getByRole('button',{name:'Visa dokumentlänkens status',exact:true})).not.toBeVisible();await expect(panel.getByText('Mejltjänsten har accepterat utskicket.',{exact:false})).not.toBeVisible();assert.ok((await panel.boundingBox()).height<250);await panel.getByText('Leverans och dokumentlänk',{exact:true}).click();await expect(panel.getByRole('button',{name:'Visa dokumentlänkens status',exact:true})).toBeVisible();await expect(panel.getByText('Mejltjänsten har accepterat utskicket.',{exact:false})).toBeVisible();assert.equal((await retryCalls(page)).length,0);}finally{await page.close();}});

@@ -53,14 +53,22 @@ test('actual live register SSR never presents sampled rows or sample counts as a
   assert.deepEqual(reads, []); assert.deepEqual(costReads, []);
 });
 
-test('actual demo register tables page at 50 and count all 551 fictional rows without external reads', async () => {
+test('actual demo registers page at 50 and count all 551 fictional rows without external reads', async () => {
   const { DealerWorkspace, reads, costReads } = await harness();
   for (const [section, noun] of [['inventory', 'bilar'], ['customers', 'kunder'], ['deals', 'affärer']]) {
     const html = renderToStaticMarkup(createElement(DealerWorkspace, { snapshot, section, demo: true }));
     assert.ok(html.includes(`Visar 50 av 551 träffar · 551 ${noun} totalt`));
-    assert.equal((html.match(/<tbody>/g) ?? []).length, 1);
-    const tableRows = html.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1] ?? '';
-    assert.equal((tableRows.match(/<tr>/g) ?? []).length, 50);
+    if (section === 'deals') {
+      assert.equal((html.match(/aria-label="Affärslista"/g) ?? []).length, 1);
+      assert.equal((html.match(/<article class="compact-deal"/g) ?? []).length, 50);
+      assert.equal(html.includes('compact-deal-detail'), false);
+      assert.equal(html.includes('Fiktiv kund 49'), true);
+      assert.equal(html.includes('Fiktiv kund 50<'), false);
+    } else {
+      assert.equal((html.match(/<tbody>/g) ?? []).length, 1);
+      const tableRows = html.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1] ?? '';
+      assert.equal((tableRows.match(/<tr>/g) ?? []).length, 50);
+    }
     assert.ok(html.includes('Sida 1'));
     assert.ok(html.includes('endast fiktiva exempeldata'));
     assert.equal(html.includes('FIKTIV550'), false);

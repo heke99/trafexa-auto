@@ -1,0 +1,59 @@
+{
+  "source": "local main b0446c9 plus current reviewed changes",
+  "cases": {
+    "sqlActionsRoutesArtifacts": {
+      "tests": 15,
+      "pass": 15
+    },
+    "browserController": {
+      "tests": 2,
+      "pass": 2,
+      "widths": [
+        320,
+        1440
+      ]
+    },
+    "migrationBucketGuard": {
+      "tests": 3,
+      "pass": 3,
+      "incompatibleConfigurations": 6
+    },
+    "nativePostgresConcurrency": {
+      "tests": 2,
+      "pass": 2,
+      "independentSessions": true,
+      "lockWaitObserved": true
+    }
+  },
+  "boundaries": {
+    "actual": [
+      "React UI",
+      "upload/invitation/download routes",
+      "server actions",
+      "migrated local SQL and role checks",
+      "PDF parser/rendering",
+      "SHA-256 bindings and private archive readback"
+    ],
+    "adapted": [
+      "Auth context",
+      "Storage HTTP IO",
+      "Resend HTTP IO",
+      "Next RSC action transport via local HTTP"
+    ]
+  },
+  "productionMutations": 0,
+  "externalEmails": 0,
+  "originalSourceRetained": true,
+  "sellerExplicitApproval": true,
+  "guestAccountRequired": false,
+  "bankIdOrCertificateSignature": false,
+  "standaloneSourceNotNativeFulfilment": true,
+  "typecheck": "PASS",
+  "diffCheck": "PASS",
+  "rotationRecovery": [
+    "Original capability preserved after service-key rotation",
+    "Optional stable link secret supports identical retry",
+    "Changed saved-token derivation fails closed without replacing token",
+    "Committed signature survives archive failure; read repairs files, seller explicitly retries completion"
+  ]
+}

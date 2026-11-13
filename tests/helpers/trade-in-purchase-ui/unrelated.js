@@ -10,3 +10,5 @@ export const CompanyBranches=()=>null;
 export const CompanyPublicStore=()=>null;
 
 export const DealerDocumentHub=()=>null,DealerNetwork=()=>null,DealFulfilment=()=>null;
+
+export const DirectDealForm=()=>null,UploadedPdfSigning=()=>null;

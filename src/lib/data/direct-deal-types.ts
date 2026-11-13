@@ -1,0 +1,10 @@
+import type { ContractDraft, ContractResult, ContractTemplateVersion } from '../contracts/types';
+import type { ContractSigning, ContractSigningDelivery } from '../contracts/signing-types';
+export type DirectDealCustomerInput = { name: string; kind: 'person'|'business'; email: string; phone: string; address: string; identityNumber: string };
+export type DirectDealCustomerContext = Omit<DirectDealCustomerInput,'identityNumber'> & { id: string; version: number; identityPresent: boolean };
+export type DirectDealReview = { companyId: string; dealId: string; draft: ContractDraft; reviewHash: string; requestId: string; customerVersion: number; renderedTerms:string;templateApprovalRequired:boolean };
+export type DirectDealOptions = { agreementExists:boolean;templates: ContractTemplateVersion[]; actorName: string|null; customer: DirectDealCustomerContext|null; deal: { id:string; stockItemId:string; customerId:string; agreedPriceOre:string; customer:DirectDealCustomerContext }|null; pendingReview:DirectDealReview|null; signing:ContractSigning|null };
+export type PrepareDirectDealInput = { companyId:string;requestId:string;dealId:string|null;stockItemId:string;customerId:string|null;customer:DirectDealCustomerInput|null;expectedCustomerVersion:number|null;agreedPrice:string;templateVersionId:string|null;expectedTemplateApprovalVersion:number };
+export type ApproveDirectDealInput = { companyId:string;dealId:string;draftId:string;reviewHash:string;sellerName:string;acknowledged:true;requestId:string };
+export type DirectDealPrepareResult = ContractResult<{review:DirectDealReview}>;
+export type DirectDealSendResult = ContractResult<{signing:ContractSigning;delivery:Pick<ContractSigningDelivery,'status'|'transport'>}>;

@@ -1,4 +1,5 @@
 import 'server-only';
+import {contractDraftContent} from './types';
 import { createHash } from 'node:crypto';
 import { draft, id, integer, record, input, text } from './validation';
 import { renderContractTemplate } from '@/lib/documents/contract-pdf';
@@ -11,10 +12,11 @@ export function signatureStrokes(v: unknown): SignatureStroke[] {
   if (!isValidSignatureCanvas(v)) throw Error('Invalid signature');
   return (v as SignatureStroke[]).map(stroke => ({ points: stroke.points.map(point => ({ x: point.x, y: point.y })) }));
 }
-function signature(v: unknown, party: 'company' | 'customer', documentHash: string): ContractSignature | null {
+function signature(v: unknown, party: 'company' | 'customer', documentHash: string, direct=false): ContractSignature | null {
   if (v === null) return null;
   const r = record(v);
   if (r.party !== party || hash(r.documentHash) !== documentHash || r.consentVersion !== CONTRACT_SIGNING_CONSENT_VERSION) throw Error('Invalid signature receipt');
+  if(r.authenticationMethod==='account'){if(!direct||party!=='company'||r.approvalMethod!=='typed_name'||!Array.isArray(r.strokes)||r.strokes.length!==0||r.guestInvitationId!==undefined||r.recipientEmail!==undefined)throw Error('Invalid company approval');return{party,fullName:text(r.fullName,2,160),signedAt:timestamp(r.signedAt),documentHash,consentVersion:CONTRACT_SIGNING_CONSENT_VERSION,strokes:[],authenticationMethod:'account',approvalMethod:'typed_name'};}
   const guest=r.authenticationMethod==='email_link';
   if(guest&&(party!=='customer'||r.approvalMethod!=='typed_name'||!Array.isArray(r.strokes)||r.strokes.length!==0)||!guest&&['authenticationMethod','approvalMethod','guestInvitationId','recipientEmail'].some(key=>r[key]!==undefined))throw Error('Invalid signature provenance');
   const provenance=guest?{authenticationMethod:'email_link' as const,approvalMethod:'typed_name' as const,guestInvitationId:id(r.guestInvitationId),recipientEmail:email(r.recipientEmail)}:{};
@@ -33,9 +35,9 @@ export function signing(v: unknown, userId: string, scope: { companyId?: string;
   const canonicalContent = r.canonicalContent;
   if (typeof canonicalContent !== 'string' || canonicalContent.length > 100000 || createHash('sha256').update(canonicalContent, 'utf8').digest('hex') !== documentHash) throw Error('Invalid canonical hash');
   const canonical = input(JSON.parse(canonicalContent), ['draftId', 'companyId', 'dealId', 'draftVersion', 'content']);
-  const expected = { draftId: d.id, companyId, dealId, draftVersion: d.version, content: { offerVersion: d.offerVersion, template: d.template, sourceOffer: d.sourceOffer } };
+  const expected = { draftId: d.id, companyId, dealId, draftVersion: d.version, content: contractDraftContent(d) };
   if (stable(canonical) !== stable(expected) || id(r.draftId) !== d.id || integer(r.draftVersion) !== d.version) throw Error('Invalid canonical source');
-  const customerSignature = signature(r.customerSignature, 'customer', documentHash), companySignature = signature(r.companySignature, 'company', documentHash), n = Number(customerSignature !== null) + Number(companySignature !== null);
+  const customerSignature = signature(r.customerSignature, 'customer', documentHash), companySignature = signature(r.companySignature, 'company', documentHash,d.sourceKind==='direct_deal'), n = Number(customerSignature !== null) + Number(companySignature !== null);
   if(customerSignature?.authenticationMethod==='email_link'&&customerSignature.recipientEmail!==customerEmail)throw Error('Invalid guest recipient');
   const completedAt = r.completedAt === null ? null : timestamp(r.completedAt), revision = integer(r.revision, 1, 3), status = r.status as ContractSigning['status'];
   if (!['pending', 'completed', 'unavailable'].includes(status) || revision !== n + 1 || (status === 'completed') !== (n === 2) || (completedAt !== null) !== (n === 2) || completedAt && Date.parse(completedAt) !== Math.max(Date.parse(customerSignature!.signedAt), Date.parse(companySignature!.signedAt))) throw Error('Invalid completion');

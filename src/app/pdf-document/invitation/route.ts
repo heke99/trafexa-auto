@@ -1,0 +1,6 @@
+import {NextRequest,NextResponse} from 'next/server';
+import {uploadedPdfId,uploadedPdfSource} from '@/lib/uploaded-pdf/validation';
+import {uploadedPdfService,pdfRpc,validPdfToken,PDF_COOKIE} from '@/lib/uploaded-pdf/server';
+import {uploadedPdfHash} from '@/lib/uploaded-pdf/pdf';
+export const runtime='nodejs';
+export async function GET(request:NextRequest){try{const id=uploadedPdfId(request.nextUrl.searchParams.get('id')),token=request.nextUrl.searchParams.get('token');if(!validPdfToken(token))throw Error();const source=uploadedPdfSource(await pdfRpc(uploadedPdfService(),'get_uploaded_pdf_guest',{p_source_id:id,p_token_sha256:uploadedPdfHash(token)}),{id});const response=NextResponse.redirect(new URL(`/pdf-document/${id}`,request.url),303);response.cookies.set(PDF_COOKIE,`${id}.${token}`,{httpOnly:true,secure:request.nextUrl.protocol==='https:',sameSite:'lax',path:'/pdf-document',maxAge:Math.max(0,Math.min(7*86400,Math.floor((Date.parse(source.expiresAt)-Date.now())/1000)))});response.headers.set('Cache-Control','no-store');response.headers.set('Referrer-Policy','no-referrer');return response;}catch{return NextResponse.redirect(new URL('/pdf-document/unavailable',request.url),303);}}
