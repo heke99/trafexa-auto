@@ -58,3 +58,9 @@ test('mismatched source bindings, unapproved template version, unsafe amounts an
   for(const mutate of [v=>{v.companyId=id(11);},v=>{v.dealId=id(11);},v=>{v.offerVersion=4;},v=>{v.template.approvalVersion=0;},v=>{v.template.body='{{unknown}}';},v=>{v.template.body='x'.repeat(12001);},v=>{v.sourceOffer.sale_price_ore=19900029;},v=>{v.sourceOffer.vat.amount_ore='3980005';}]){const draft=fixture();mutate(draft);await assert.rejects(generateContractPdf(draft));}
   const draft=fixture();draft.template.title='漢字';await assert.rejects(generateContractPdf(draft),/tecken.*inte stöder/);
 });
+
+
+test('direct contract PDF shows frozen trade-in and customer payout without inventing an accepted offer',async context=>{
+ const draft=fixture();draft.sourceKind='direct_deal';draft.offerId=null;draft.customerIdentity={kind:'person',number:'199001010017'};draft.template.body='Köp av {{vehicle.registration}} till {{offer.price_ore}}. Inbyte {{trade_in.value_ore}}.';draft.sourceOffer.terms='Överenskommet inbyte';const trade=draft.sourceOffer.trade_in;trade.value_ore='25000000';trade.debt_ore='1000000';trade.net_trade_in_ore='24000000';trade.amount_to_pay_ore='-4099971';const bytes=await generateContractPdf(draft),text=(await extract(bytes,context)).replace(/\s+/g,' ');if(!text)return;
+ for(const expected of ['Inbyte enligt avtalsunderlaget','Belopp att reglera enligt avtalet','utbetalning till kunden enligt avtalsunderlaget','250 000,00 SEK','10 000,00 SEK','240 000,00 SEK','-40 999,71 SEK'])assert.ok(text.includes(expected),expected);assert.ok(!text.includes('accepterad offertversion'));assert.ok(!text.includes('Inbyte från offertversionen'));
+});

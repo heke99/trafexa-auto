@@ -1,5 +1,12 @@
 # Implementationsstatus
 
+## Inbyte, direktavtal och manuell slutavräkning — 13 november 2026
+
+Direktavtal kan uttryckligen inkludera ett valt inbytesunderlag utan separat offertaccept. Kunden signerar frysta pris-/inbytesuppgifter. Faktiskt inbytesköp och lagerintag kan därefter registreras, och kundinbetalning, kundutbetalning och skuldlösen stäms av separat. Leverans kräver exakta avstämningar, faktiskt inbytesförvärv, signerat arkiverat avtal och aktiv reservation. Inga banköverföringar genomförs. Se [release- och verifieringsrapport](TRADE_IN_RELEASE_20261113.md) och [avräkningskontrakt](TRADE_IN_SETTLEMENT_20261113.md).
+
+Denna etapp slutför den tidigare blockerade manuella leveransen av inbytesaffärer. Verklig inloggad produktionssignering, bank-/annonspartner och separat extern backupplats har fortfarande externa förutsättningar. Äldre avsnitt nedan är historiska checkpoints och deras testantal ska inte adderas till denna etapps regression. Appen publiceras före utökade RPC-svar; versionssync av migrationsfiler följer faktisk hosted-version.
+
+
 ## Fördjupad kontoresa 18 oktober
 
 [Kontoresans granskning](ACCOUNT_JOURNEY_REVIEW_20261018.md) följer ansökan till aktivering, inloggning, företagsstart och lösenordsåterställning. Rättningar omfattar gamla ansökningsversioner, kontobundna formulär över flera flikar, scannersäker återställning på annan enhet, vänteläge och mobilbredd. Den nya återställningsmallen behöver separat kopieras till hosted Supabase efter apppubliceringen; äldre PKCE-flöde bevaras. Samlad verifiering och publiceringsidentitet följs i releasens PR.

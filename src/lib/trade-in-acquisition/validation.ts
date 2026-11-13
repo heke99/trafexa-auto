@@ -75,14 +75,16 @@ export function parseRecordTradeInAcquisitionInput(value: unknown): RecordTradeI
   };
 }
 export function parseTradeInAcquisitionSource(value: unknown, expected: { companyId: string; dealId: string }): TradeInAcquisitionSource {
-  const row = record(value, sourceKeys), companyId = id(row.companyId), dealId = id(row.dealId);
+  const direct=!!value&&typeof value==='object'&&(value as Record<string,unknown>).sourceKind==='direct_deal';
+  const row = record(value, direct?[...sourceKeys,'sourceKind','draftId']:sourceKeys), companyId = id(row.companyId), dealId = id(row.dealId);
   if (companyId !== expected.companyId || dealId !== expected.dealId || row.signingRevision !== 3) return invalid();
   const snapshot = parseOfferSnapshot(row.offerSnapshot), trade = snapshot.trade_in;
   if (!trade || !sameAcquisitionValue(row.offerSnapshot, snapshot)) return invalid();
   const offerVersion = integer(row.offerVersion), tradeInVersion = integer(row.tradeInVersion), sellerCustomerId = id(row.sellerCustomerId), tradeInId = id(row.tradeInId);
   if (id(snapshot.company.id) !== companyId || id(snapshot.deal_id) !== dealId || snapshot.version !== offerVersion || id(trade.id) !== tradeInId || trade.version !== tradeInVersion || id(snapshot.customer.id) !== sellerCustomerId) return invalid();
   reference(snapshot.customer.name); ore(trade.value_ore, true); ore(trade.debt_ore);
-  return { companyId, dealId, offerId: id(row.offerId), offerVersion, tradeInId, tradeInVersion, sellerCustomerId, signingId: id(row.signingId), signingDocumentSha256: hash(row.signingDocumentSha256), signingRevision: 3, offerSnapshot: { ...snapshot, trade_in: trade }, sourceSha256: hash(row.sourceSha256) };
+  if(direct&&row.offerId!==null)return invalid();
+  return { companyId, dealId, ...(direct?{sourceKind:'direct_deal' as const,draftId:id(row.draftId)}:{}),offerId:direct?null:id(row.offerId), offerVersion, tradeInId, tradeInVersion, sellerCustomerId, signingId: id(row.signingId), signingDocumentSha256: hash(row.signingDocumentSha256), signingRevision: 3, offerSnapshot: { ...snapshot, trade_in: trade }, sourceSha256: hash(row.sourceSha256) };
 }
 export function parseTradeInAcquisition(value: unknown, expected: { companyId: string; dealId: string }, businessDate = stockholmAcquisitionBusinessDate()): TradeInAcquisition {
   const row = record(value, acquisitionKeys), companyId = id(row.companyId), dealId = id(row.dealId);

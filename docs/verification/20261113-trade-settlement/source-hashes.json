@@ -1,0 +1,15 @@
+{
+  "src/components/deal-fulfilment.tsx": "19602de16a00879909d433a54441016d48859895bbdff52bd250d45ad22c0dad",
+  "src/components/deal-trade-in-purchase.tsx": "43838ff89228bb231c5722814fb25916cc75de58a4c98b847b1f1c76f5f14fe8",
+  "src/components/dealer-workspace.tsx": "12b8ec2c77d5558e1f981492c7ae222dde625c68ab40b1fea1283099f955e441",
+  "src/components/direct-deal-form.tsx": "d39acd867c51f5baf65dfa7242f94c447bfd8550d2d5cf727cbc9d54f8f79aaf",
+  "src/lib/data/direct-deal-actions.ts": "28e1f14471757b2c234679c713da68e6e3c556ae7b5e1b49503b871ca98ce2b4",
+  "src/lib/data/direct-deal-types.ts": "97e78307fd2734fdb366daeafee48b9e6d1ee56ffcdef65d45a1e29349bfea52",
+  "src/lib/deal-fulfilment/actions.ts": "025d6915d7961999dcc13d0e52043d9e2b0cc1ebdddfa6cf32d935f677349b8b",
+  "src/lib/deal-fulfilment/types.ts": "2a5843d14767abeb16addc6edae5325c208bf6a9b181874ba3294468066fa97b",
+  "src/lib/documents/contract-pdf.ts": "6d17ba547286dd723b7a31e35a9cd91e6152ef3f06c52b0c1d4283157b9b132d",
+  "src/lib/trade-in-acquisition/types.ts": "7df0934f2f31c41692a957ec55db962d5f1f6b054aacd5e997823c9e7153a579",
+  "src/lib/trade-in-acquisition/validation.ts": "da80d86c812124bd21ea94178013c37e121fd7ea9284ce7b30c73f9fe94f4529",
+  "supabase/migrations/20261113132901_direct_trade_in_acquisition.sql": "04f2ed7c2e45ed9f1a935467fc9d11e7e91590252c80038a0b32c0e709c547b3",
+  "supabase/migrations/20261113133005_trade_in_manual_settlement_final.sql": "435bd6e6624390da3f31640a08935c0bc84d696c8773ffc2a7fa8e4d0a801db8"
+}

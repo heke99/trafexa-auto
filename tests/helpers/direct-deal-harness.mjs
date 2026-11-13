@@ -5,7 +5,7 @@ const U=id(1),C=id(2),S=id(3),V=id(4),OTHER=id(5),OTHER_C=id(6),CU=id(7),D=id(8)
 const checksum=base=>{let sum=0;for(const[i,c]of [...base.slice(-9)].entries()){const n=Number(c)*(i%2===0?2:1);sum+=Math.floor(n/10)+n%10;}return String((10-sum%10)%10);};
 const PN='19900101001'+checksum('900101001');
 const customer={kind:'person',name:'Synthetic Test Buyer',email:'direct-buyer@example.invalid',phone:'0701234567',address:'Testgatan 1',identityNumber:PN};
-async function fixture(){const db=await createDatabase();await db.exec(`create or replace function auth.role() returns text language sql stable as $$select current_setting('role',true)$$;grant execute on function auth.role() to authenticated,anon,service_role;
+async function fixture(options={}){const db=await createDatabase(options);await db.exec(`create or replace function auth.role() returns text language sql stable as $$select current_setting('role',true)$$;grant execute on function auth.role() to authenticated,anon,service_role;
 insert into auth.users(id,email,email_confirmed_at)values('${U}','direct-owner@example.invalid',now()),('${OTHER}','other@example.invalid',now());
 insert into public.companies(id,name,organisation_number,created_by)values('${C}','Direct Test Dealer','5568554884','${U}'),('${OTHER_C}','Other Test Dealer','5568554884','${OTHER}');
 insert into public.memberships(company_id,user_id,role)values('${C}','${U}','owner'),('${OTHER_C}','${OTHER}','owner');

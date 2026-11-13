@@ -103,13 +103,13 @@ export async function renderContractPdf(value: unknown, completion?: ContractPdf
     draw(`Pris exklusive moms: ${formatOfferMoney(offer.vat.net_price_ore!)}`); draw(`Moms: ${formatOfferMoney(offer.vat.amount_ore!)}`);
   } else draw(offer.stock.vat_scheme === 'vmb' ? 'Vinstmarginalbeskattning (VMB). Moms redovisas inte separat.' : 'Momsmodellen är inte klassificerad. Moms redovisas inte separat.');
   if (offer.trade_in) {
-    const trade = offer.trade_in; section('Inbyte från offertversionen');
+    const trade = offer.trade_in; section(draft.sourceKind==='direct_deal'?'Inbyte enligt avtalsunderlaget':'Inbyte från offertversionen');
     draw(`${trade.make} ${trade.model} · ${trade.model_year}`, 12); draw(`Registreringsnummer: ${trade.registration}`);
     draw(`Mätarställning: ${trade.mileage_km.toLocaleString('sv-SE')} km · Inbytesunderlag version ${trade.version}`);
     draw(`Inbytesvärde: ${formatOfferMoney(trade.value_ore)}`); draw(`Bekräftad skuld: ${formatOfferMoney(trade.debt_ore)}`);
     draw(`Inbytets nettovärde efter skuld: ${formatOfferSignedMoney(trade.net_trade_in_ore)}`);
-    draw(`Belopp att betala enligt offertunderlaget: ${formatOfferSignedMoney(trade.amount_to_pay_ore)}`, 13, accent);
-    if (BigInt(trade.amount_to_pay_ore) < BigInt(0)) draw('Det negativa beloppet innebär ett överskott till kunden enligt offertunderlaget.', 9, muted);
+    draw(`${draft.sourceKind==='direct_deal'?'Belopp att reglera enligt avtalet':'Belopp att betala enligt offertunderlaget'}: ${formatOfferSignedMoney(trade.amount_to_pay_ore)}`, 13, accent);
+    if (BigInt(trade.amount_to_pay_ore) < BigInt(0)) draw(draft.sourceKind==='direct_deal'?'Det negativa beloppet innebär en utbetalning till kunden enligt avtalsunderlaget.':'Det negativa beloppet innebär ett överskott till kunden enligt offertunderlaget.', 9, muted);
     draw('Beloppet är en uppgift i underlaget och bekräftar ingen genomförd betalning.', 9, muted);
   }
   section(draft.sourceKind==='direct_deal'?'Överenskomna villkor':'Originalvillkor från offertversionen'); draw(offer.terms || 'Inga ytterligare offertvillkor angivna.');
