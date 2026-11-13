@@ -12,7 +12,7 @@ export function isCustomerOffersPath(path) {
   return path === '/my-offers' || path === '/my-contracts';
 }
 export function isGuestCustomerPath(path) {
-  return path === '/customer-document' || path.startsWith('/customer-document/');
+  return path === '/customer-document' || path.startsWith('/customer-document/') || path === '/pdf-document' || path.startsWith('/pdf-document/');
 }
 export function isAuthPath(path) {
   return ['/login', '/register', '/onboarding', '/forgot-password', '/reset-password', '/auth/callback', '/auth/invitation', '/auth/recovery', '/activate-account', '/account-pending'].includes(path);

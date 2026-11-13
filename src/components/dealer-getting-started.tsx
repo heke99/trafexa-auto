@@ -13,11 +13,11 @@ export function DealerGettingStarted({snapshot,demo=false}:Props){
  const steps=canManageStockIntake(role)?[
   {href:'settings#settings-store',title:'Kontrollera butiksinformationen',text:'Kontaktuppgifter och företagets information inför annonsering.'},
   {href:'inventory',title:'Registrera bilar i lagret',text:'Fordonsuppgifter, inköpsunderlag och försäljningspris.'},
-  {href:'customers',title:'Samla kunder och skapa affärer',text:'Registrera kunden och koppla ihop kund och bil i Affärer.'},
+  {href:'deals',title:'Skapa din första affär',text:'Välj bil, ange pris och lägg till kunden direkt i affären.'},
  ]:role==='sales'?[
   {href:'inventory',title:'Arbeta med lagrets bilar',text:'Kontrollera försäljningspriser, bilder och tillgängliga bilar.'},
   {href:'customers',title:'Registrera dina kunder',text:'Spara kontaktuppgifter inför nästa affär.'},
-  {href:'deals',title:'Skapa och följ affärer',text:'Välj kund och bil, skapa offert och hantera reservationer.'},
+  {href:'deals',title:'Skapa och följ affärer',text:'Ange kund och överenskommet pris och skicka avtalet för signering.'},
  ]:role==='finance'?[
   {href:'deals',title:'Granska affärernas underlag',text:'Kontrollera offerter, avtal och inköpsunderlag.'},
   {href:'inventory',title:'Följ inköpsvärden och kalkyler',text:'Granska lagerbilarnas interna ekonomiska underlag.'},

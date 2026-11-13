@@ -25,3 +25,6 @@ export const CompanyPublicStore=()=>null;
 export const DealFulfilment=()=>null;
 export const DealerNetwork=()=>null;
 export const DealerDocumentHub=()=>null;
+
+export const DirectDealForm=()=>null;
+export const UploadedPdfSigning=()=>null;

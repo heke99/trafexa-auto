@@ -1,0 +1,718 @@
+{
+  "source": "b0446c9 plus frozen direct-deal/PDF changes",
+  "boundary": "Actual local production-built Next; fake Supabase; public and read-only demo; external requests and writes blocked",
+  "results": [
+    {
+      "path": "/",
+      "width": 320,
+      "height": 568,
+      "status": 200,
+      "documentWidth": 320,
+      "h1": [
+        "Ditt lager. Dina kunder.Din n\u00e4sta bilaff\u00e4r."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Trafexa \u2014 bilaff\u00e4ren samlad",
+      "pageErrors": []
+    },
+    {
+      "path": "/#kontakt",
+      "width": 320,
+      "height": 568,
+      "documentWidth": 320,
+      "h1": [
+        "Ditt lager. Dina kunder.Din n\u00e4sta bilaff\u00e4r."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Trafexa \u2014 bilaff\u00e4ren samlad",
+      "pageErrors": []
+    },
+    {
+      "path": "/privacy",
+      "width": 320,
+      "height": 568,
+      "status": 200,
+      "documentWidth": 320,
+      "h1": [
+        "Integritetspolicy."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Integritetspolicy | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/cookies",
+      "width": 320,
+      "height": 568,
+      "status": 200,
+      "documentWidth": 320,
+      "h1": [
+        "Cookiepolicy."
+      ],
+      "overflow": false,
+      "overflowElements": [
+        {
+          "tag": "TABLE",
+          "class": "cookie-table",
+          "right": 572
+        },
+        {
+          "tag": "THEAD",
+          "class": "",
+          "right": 572
+        },
+        {
+          "tag": "TR",
+          "class": "",
+          "right": 572
+        },
+        {
+          "tag": "TH",
+          "class": "",
+          "right": 392
+        }
+      ],
+      "title": "Cookiepolicy | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/terms",
+      "width": 320,
+      "height": 568,
+      "status": 200,
+      "documentWidth": 320,
+      "h1": [
+        "Om tj\u00e4nsten."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Om tj\u00e4nsten | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/login",
+      "width": 320,
+      "height": 568,
+      "status": 200,
+      "documentWidth": 320,
+      "h1": [
+        "V\u00e4lkommen tillbaka."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Logga in | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/forgot-password",
+      "width": 320,
+      "height": 568,
+      "status": 200,
+      "documentWidth": 320,
+      "h1": [
+        "Gl\u00f6mt l\u00f6senordet?"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "\u00c5terst\u00e4ll l\u00f6senord | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=dashboard",
+      "width": 320,
+      "height": 568,
+      "status": 200,
+      "documentWidth": 320,
+      "h1": [
+        "Din arbetsdag, samlad."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=inventory",
+      "width": 320,
+      "height": 568,
+      "status": 200,
+      "documentWidth": 320,
+      "h1": [
+        "Fordonslager"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=customers",
+      "width": 320,
+      "height": 568,
+      "status": 200,
+      "documentWidth": 320,
+      "h1": [
+        "Kunder"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=deals",
+      "width": 320,
+      "height": 568,
+      "status": 200,
+      "documentWidth": 320,
+      "h1": [
+        "Aff\u00e4rer"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=finance",
+      "width": 320,
+      "height": 568,
+      "status": 200,
+      "documentWidth": 320,
+      "h1": [
+        "Finansiering"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=network",
+      "width": 320,
+      "height": 568,
+      "status": 200,
+      "documentWidth": 320,
+      "h1": [
+        "Handlarn\u00e4tverk"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=documents",
+      "width": 320,
+      "height": 568,
+      "status": 200,
+      "documentWidth": 320,
+      "h1": [
+        "Dokument"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=settings",
+      "width": 320,
+      "height": 568,
+      "status": 200,
+      "documentWidth": 320,
+      "h1": [
+        "F\u00f6retag & inst\u00e4llningar"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=advertising",
+      "width": 320,
+      "height": 568,
+      "status": 200,
+      "documentWidth": 320,
+      "h1": [
+        "Annonsering"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "documentWidth": 390,
+      "h1": [
+        "Ditt lager. Dina kunder.Din n\u00e4sta bilaff\u00e4r."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Trafexa \u2014 bilaff\u00e4ren samlad",
+      "pageErrors": []
+    },
+    {
+      "path": "/#kontakt",
+      "width": 390,
+      "height": 844,
+      "documentWidth": 390,
+      "h1": [
+        "Ditt lager. Dina kunder.Din n\u00e4sta bilaff\u00e4r."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Trafexa \u2014 bilaff\u00e4ren samlad",
+      "pageErrors": []
+    },
+    {
+      "path": "/privacy",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "documentWidth": 390,
+      "h1": [
+        "Integritetspolicy."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Integritetspolicy | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/cookies",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "documentWidth": 390,
+      "h1": [
+        "Cookiepolicy."
+      ],
+      "overflow": false,
+      "overflowElements": [
+        {
+          "tag": "TABLE",
+          "class": "cookie-table",
+          "right": 572
+        },
+        {
+          "tag": "THEAD",
+          "class": "",
+          "right": 572
+        },
+        {
+          "tag": "TR",
+          "class": "",
+          "right": 572
+        },
+        {
+          "tag": "TH",
+          "class": "",
+          "right": 392
+        }
+      ],
+      "title": "Cookiepolicy | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/terms",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "documentWidth": 390,
+      "h1": [
+        "Om tj\u00e4nsten."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Om tj\u00e4nsten | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/login",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "documentWidth": 390,
+      "h1": [
+        "V\u00e4lkommen tillbaka."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Logga in | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/forgot-password",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "documentWidth": 390,
+      "h1": [
+        "Gl\u00f6mt l\u00f6senordet?"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "\u00c5terst\u00e4ll l\u00f6senord | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=dashboard",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "documentWidth": 390,
+      "h1": [
+        "Din arbetsdag, samlad."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=inventory",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "documentWidth": 390,
+      "h1": [
+        "Fordonslager"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=customers",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "documentWidth": 390,
+      "h1": [
+        "Kunder"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=deals",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "documentWidth": 390,
+      "h1": [
+        "Aff\u00e4rer"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=finance",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "documentWidth": 390,
+      "h1": [
+        "Finansiering"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=network",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "documentWidth": 390,
+      "h1": [
+        "Handlarn\u00e4tverk"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=documents",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "documentWidth": 390,
+      "h1": [
+        "Dokument"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=settings",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "documentWidth": 390,
+      "h1": [
+        "F\u00f6retag & inst\u00e4llningar"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=advertising",
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "documentWidth": 390,
+      "h1": [
+        "Annonsering"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "documentWidth": 1440,
+      "h1": [
+        "Ditt lager. Dina kunder.Din n\u00e4sta bilaff\u00e4r."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Trafexa \u2014 bilaff\u00e4ren samlad",
+      "pageErrors": []
+    },
+    {
+      "path": "/#kontakt",
+      "width": 1440,
+      "height": 1000,
+      "documentWidth": 1440,
+      "h1": [
+        "Ditt lager. Dina kunder.Din n\u00e4sta bilaff\u00e4r."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Trafexa \u2014 bilaff\u00e4ren samlad",
+      "pageErrors": []
+    },
+    {
+      "path": "/privacy",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "documentWidth": 1440,
+      "h1": [
+        "Integritetspolicy."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Integritetspolicy | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/cookies",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "documentWidth": 1440,
+      "h1": [
+        "Cookiepolicy."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Cookiepolicy | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/terms",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "documentWidth": 1440,
+      "h1": [
+        "Om tj\u00e4nsten."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Om tj\u00e4nsten | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/login",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "documentWidth": 1440,
+      "h1": [
+        "V\u00e4lkommen tillbaka."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Logga in | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/forgot-password",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "documentWidth": 1440,
+      "h1": [
+        "Gl\u00f6mt l\u00f6senordet?"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "\u00c5terst\u00e4ll l\u00f6senord | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=dashboard",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "documentWidth": 1440,
+      "h1": [
+        "Din arbetsdag, samlad."
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=inventory",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "documentWidth": 1440,
+      "h1": [
+        "Fordonslager"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=customers",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "documentWidth": 1440,
+      "h1": [
+        "Kunder"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=deals",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "documentWidth": 1440,
+      "h1": [
+        "Aff\u00e4rer"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=finance",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "documentWidth": 1440,
+      "h1": [
+        "Finansiering"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=network",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "documentWidth": 1440,
+      "h1": [
+        "Handlarn\u00e4tverk"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=documents",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "documentWidth": 1440,
+      "h1": [
+        "Dokument"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=settings",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "documentWidth": 1440,
+      "h1": [
+        "F\u00f6retag & inst\u00e4llningar"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    },
+    {
+      "path": "/demo?section=advertising",
+      "width": 1440,
+      "height": 1000,
+      "status": 200,
+      "documentWidth": 1440,
+      "h1": [
+        "Annonsering"
+      ],
+      "overflow": false,
+      "overflowElements": [],
+      "title": "Demonstration | Trafexa | Trafexa",
+      "pageErrors": []
+    }
+  ],
+  "failures": []
+}

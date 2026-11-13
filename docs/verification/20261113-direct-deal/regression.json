@@ -1,0 +1,2334 @@
+{
+  "mode": "Each canonical flat file executed directly in its own Node process, three concurrent files; actual per-case counts retained; nine UI/test-harness regressions corrected and fully rerun, targeted rerun evidence retained; PDF concurrency/key/recovery fix then rerun 15-case PDF suite, two browser flows and three migration guards; two separate native PostgreSQL race cases also PASS",
+  "files": 231,
+  "seconds": 503.637,
+  "tests": 2101,
+  "pass": 2101,
+  "fail": 0,
+  "skipped": 0,
+  "failedFiles": [],
+  "missingCounts": [],
+  "results": [
+    {
+      "file": "tests/account-access-routing.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.437,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/account-activation-cross-device.test.mjs",
+      "exitCode": 0,
+      "seconds": 6.247,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/account-approval-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.98,
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/account-invitation-email.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.709,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/account-invitation-recovery-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 16.207,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/account-invitation-renew-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.543,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/account-invitation-send-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.268,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/account-invitation-token.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.642,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/account-journey-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 35.406,
+      "tests": 28,
+      "pass": 28,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/account-token-proxy.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.389,
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/admin-deeplink-routing.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.549,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/admin-login-navigation.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.697,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/admin-navigation.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.851,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-billing-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.71,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-billing-csv.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.292,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-billing-download.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.614,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-billing-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 24.444,
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-corrections-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.491,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-corrections-csv.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.267,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-corrections-download.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.489,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-corrections-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 11.691,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-credit-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.727,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-credit-download.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.418,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-credit-pdf.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.69,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-credit-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 9.38,
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-credit-validation.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.593,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-export-media.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.319,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-financial-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.076,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-financial-download.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.166,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-financial-math.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.218,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-financial-pdf.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.358,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-financial-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 14.82,
+      "tests": 13,
+      "pass": 13,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-financial-v2-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.567,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-invoice-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.57,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-invoice-download.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.438,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-invoice-email-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.238,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-invoice-email-delivery.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.282,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-invoice-email-server.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.819,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-invoice-email-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 14.05,
+      "tests": 18,
+      "pass": 18,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-invoice-email-webhook-route.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.216,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-invoice-pdf.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.756,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-invoice-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 10.888,
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-issuance-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.524,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-issuance-font.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.318,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-issuance-format.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.117,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-issuance-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 13.097,
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-issued-download.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.268,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-issued-pdf.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.03,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-navigation.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.116,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-payment-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.172,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-payment-export-review.test.mjs",
+      "exitCode": 0,
+      "seconds": 6.58,
+      "tests": 12,
+      "pass": 12,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-payment-export.test.mjs",
+      "exitCode": 0,
+      "seconds": 3.466,
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-payment-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 40.356,
+      "tests": 46,
+      "pass": 46,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-program-requests.test.mjs",
+      "exitCode": 0,
+      "seconds": 14.384,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-program-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 15.081,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-provider-v5.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.222,
+      "tests": 18,
+      "pass": 18,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-receivables-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.777,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-receivables-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 20.24,
+      "tests": 26,
+      "pass": 26,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-store-fee-types.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.028,
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-store-fees-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 16.145,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 21.219,
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-usage-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.165,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-usage-csv.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.215,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-usage-download.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.322,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-usage-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 3.459,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-vat-allocation.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.226,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-vat-pdf.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.972,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising-worker.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.121,
+      "tests": 24,
+      "pass": 24,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/advertising.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.023,
+      "tests": 23,
+      "pass": 23,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/application-invitation-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.415,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/application-mailbox-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 6.633,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/approved-application-invitation-review.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.188,
+      "tests": 12,
+      "pass": 12,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/auth-email-templates.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.316,
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/auth-production-origin.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.215,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/auth-recovery.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.769,
+      "tests": 12,
+      "pass": 12,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/blocket-provisioning-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 11.498,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/blocket-provisioning.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.215,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/blocket-runtime.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.367,
+      "tests": 12,
+      "pass": 12,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/compact-deals-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 10.551,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/company-branches-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 11.136,
+      "tests": 13,
+      "pass": 13,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/company-branches.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.569,
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/company-context-download-status.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.17,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/company-context.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.82,
+      "tests": 13,
+      "pass": 13,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/company-invitations-navigation.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.769,
+      "tests": 13,
+      "pass": 13,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/company-ownership-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 8.553,
+      "tests": 12,
+      "pass": 12,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/company-ownership.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.544,
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/company-store-profile-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 20.466,
+      "tests": 29,
+      "pass": 29,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/company-store-profile.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.735,
+      "tests": 14,
+      "pass": 14,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/company-team-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 14.529,
+      "tests": 17,
+      "pass": 17,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/company-team.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.521,
+      "tests": 20,
+      "pass": 20,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/contract-archive-package-cli.test.mjs",
+      "exitCode": 0,
+      "seconds": 2.791,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/contract-archive-package.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.797,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/contract-archive-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 49.264,
+      "tests": 89,
+      "pass": 89,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/contract-backup-roundtrip.test.mjs",
+      "exitCode": 0,
+      "seconds": 7.513,
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/contract-completion-email-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 8.147,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/contract-download.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.623,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/contract-pdf-signing-guard.test.mjs",
+      "exitCode": 0,
+      "seconds": 16.646,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/contract-pdf.test.mjs",
+      "exitCode": 0,
+      "seconds": 3.437,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/contract-signing-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.076,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/contract-signing-delivery-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.477,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/contract-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 16.757,
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/contracts-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.83,
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/cookie-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 4.026,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/create-record-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.47,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/crm-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 7.37,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-account-routing.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.303,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-contact-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.267,
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-contract-deeplink-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 3.648,
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-contract-deeplink-routing.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.167,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-contract-deeplink-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 3.777,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-contract-invitation-content.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.166,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-contract-invitation-server.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.266,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-document-completed-legacy-replay-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 2.781,
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-document-renewal-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.919,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-document-renewal-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 32.63,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-document-renewal-dispatch-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 12.081,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-document-renewal-review.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.589,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-document-renewal-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 30.822,
+      "tests": 36,
+      "pass": 36,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "rerunEvidence": "renewal-rerun.log"
+    },
+    {
+      "file": "tests/customer-email-actions-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 2.858,
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-email-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.529,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-email-delivery-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 10.969,
+      "tests": 22,
+      "pass": 22,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-invitation-delivery-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 13.046,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/customer-leads-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 5.379,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/deal-cancellation-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.218,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/deal-cancellation-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 4.339,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/deal-fulfilment-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.268,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/deal-fulfilment-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 6.518,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/dealer-create-request-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 20.922,
+      "tests": 22,
+      "pass": 22,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/dealer-finance-access-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 13.018,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/dealer-guest-complete-journey.test.mjs",
+      "exitCode": 0,
+      "seconds": 13.354,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/dealer-journey-continuity.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.115,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/dealer-network-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 4.868,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/dealer-network-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 7.592,
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/dealer-network-validation.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.167,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/dealer-registers.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.138,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "rerunEvidence": "dealer-registers-fixed.log"
+    },
+    {
+      "file": "tests/dealer-workspace-ux.test.mjs",
+      "exitCode": 0,
+      "seconds": 43.409,
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "rerunEvidence": "dealer-workspace-ux-fixed.log"
+    },
+    {
+      "file": "tests/demo-requests.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.367,
+      "tests": 12,
+      "pass": 12,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/direct-deal-backend.test.mjs",
+      "exitCode": 0,
+      "seconds": 21.685,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/direct-deal-browser-journey.test.mjs",
+      "exitCode": 0,
+      "seconds": 13.186,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/direct-deal-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 19.831,
+      "tests": 16,
+      "pass": 16,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/document-hub-completed-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 5.053,
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/document-hub-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 9.612,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/document-hub-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 4.256,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/docuseal-signature-validation.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.116,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/docuseal-state.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.224,
+      "tests": 14,
+      "pass": 14,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/docuseal.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.525,
+      "tests": 19,
+      "pass": 19,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/email-configuration-status.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.118,
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/email-delivery-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 5.99,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/finance-request-form-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 11.662,
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/guest-contract-fulfilment-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 13.718,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/guest-contract-pdf.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.717,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/guest-customer-actions-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 3.764,
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/guest-customer-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.337,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/guest-customer-context.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.115,
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/guest-customer-download.test.mjs",
+      "exitCode": 0,
+      "seconds": 2.497,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/guest-customer-routing.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.115,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/guest-customer-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 40.414,
+      "tests": 24,
+      "pass": 24,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/guest-document-delivery-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 21.381,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/guest-document-link-cross-device.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.877,
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/guest-document-link-recovery-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 17.613,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/guest-invitation-renewal-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 2.039,
+      "tests": 13,
+      "pass": 13,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/guest-invitation-renewal-backend.test.mjs",
+      "exitCode": 0,
+      "seconds": 20.389,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/guest-invitation-renewal-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 21.476,
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/guest-invitation-renewal-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 14.529,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "rerunEvidence": "guest-renewal-rerun.log"
+    },
+    {
+      "file": "tests/hosted-document-hub-bootstrap-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 9.014,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/internal-financial-visibility.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.975,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/lead-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.22,
+      "tests": 12,
+      "pass": 12,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/legacy-create-company-scope.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.23,
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/money-display.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.572,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "rerunEvidence": "money-fixed.log"
+    },
+    {
+      "file": "tests/native-archive-integration.test.mjs",
+      "exitCode": 0,
+      "seconds": 2.584,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/native-archive-integrity-integration.test.mjs",
+      "exitCode": 0,
+      "seconds": 20.809,
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/native-contract-archive-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.003,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/native-contract-archive-integrity-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.775,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/native-contract-archive-package-route.test.mjs",
+      "exitCode": 0,
+      "seconds": 3.078,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/native-contract-archive-transport.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.211,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/native-contract-archive.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.468,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/oct18-workflow-review.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.515,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/offer-archive-download.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.215,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/offer-archive-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 3.854,
+      "tests": 16,
+      "pass": 16,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "rerunEvidence": "offer-archive-ui-fixed.log"
+    },
+    {
+      "file": "tests/offer-archive.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.572,
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/offer-pdf.test.mjs",
+      "exitCode": 0,
+      "seconds": 4.175,
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/offer-review-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.654,
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/offer-review-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 21.297,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "rerunEvidence": "offer-review-rerun.log"
+    },
+    {
+      "file": "tests/password-recovery-cross-device.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.68,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/password-session-warning.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.169,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/platform-account-identity-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 5.903,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/platform-account-identity-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 8.171,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/platform-account-search-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 6.14,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/platform-admin-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 92.619,
+      "tests": 57,
+      "pass": 57,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/platform-admin.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.766,
+      "tests": 21,
+      "pass": 21,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/platform-membership-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.941,
+      "tests": 12,
+      "pass": 12,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/platform-memberships-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 30.838,
+      "tests": 19,
+      "pass": 19,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/platform-overview-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.542,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/policy-revision.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.169,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/public-dealer-store-media.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.521,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/public-dealer-store-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 18.895,
+      "tests": 16,
+      "pass": 16,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/public-dealer-store.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.366,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/purchase-condition-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.437,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/purchase-condition-download.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.898,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/purchase-condition-pdf.test.mjs",
+      "exitCode": 0,
+      "seconds": 2.548,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/purchase-condition-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 16.729,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/register-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.318,
+      "tests": 12,
+      "pass": 12,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/register-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 64.697,
+      "tests": 55,
+      "pass": 55,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/reviewed-customer-document-dispatch.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.873,
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/routing.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.067,
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/signed-contract-download.test.mjs",
+      "exitCode": 0,
+      "seconds": 1.453,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/signed-contract-pdf.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.727,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/signing-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 30.552,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "rerunEvidence": "signing-rerun.log"
+    },
+    {
+      "file": "tests/stock-import.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.118,
+      "tests": 16,
+      "pass": 16,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/trade-in-acquisition.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.941,
+      "tests": 12,
+      "pass": 12,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/trade-in-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.315,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/trade-in-offer-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.942,
+      "tests": 7,
+      "pass": 7,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/trade-in-purchase-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 5.417,
+      "tests": 31,
+      "pass": 31,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "rerunEvidence": "trade-in-purchase-ui-fixed.log"
+    },
+    {
+      "file": "tests/trade-in-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 9.77,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/transactional-email-dispatch.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.318,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/transactional-email.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.118,
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/uploaded-pdf-migration.test.mjs",
+      "exitCode": 0,
+      "seconds": 8.16,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/uploaded-pdf-signing.test.mjs",
+      "exitCode": 0,
+      "seconds": 27.317,
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "rerunEvidence": "uploaded-pdf-signing-final.log"
+    },
+    {
+      "file": "tests/uploaded-pdf-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 13.129,
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/validation.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.295,
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/vehicle-calculation-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.628,
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/vehicle-calculation-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 6.371,
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/vehicle-calculation-workspace.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.769,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/vehicle-calculation.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.114,
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/vehicle-cost-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.628,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/vehicle-cost-create-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.466,
+      "tests": 6,
+      "pass": 6,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/vehicle-cost-create-db.test.mjs",
+      "exitCode": 0,
+      "seconds": 7.163,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/vehicle-cost-create-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 12.226,
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/vehicle-photos.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.896,
+      "tests": 18,
+      "pass": 18,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/web-application-actions.test.mjs",
+      "exitCode": 0,
+      "seconds": 0.872,
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "file": "tests/web-intake-ui.test.mjs",
+      "exitCode": 0,
+      "seconds": 8.675,
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    }
+  ],
+  "cancelled": 0
+}

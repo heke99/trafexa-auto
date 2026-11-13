@@ -1,0 +1,19 @@
+{
+  "result": "PASS",
+  "engine": "native PostgreSQL, independent psql sessions",
+  "checks": [
+    {
+      "scenario": "same prepare request in two sessions creates one customer, deal and immutable review",
+      "result": "PASS",
+      "lockWaitObserved": true
+    },
+    {
+      "scenario": "concurrent customer correction wins before approval; stale review is rejected without signature or mail",
+      "result": "PASS",
+      "lockWaitObserved": true
+    }
+  ],
+  "externalCalls": 0,
+  "productionMutations": 0,
+  "cleanup": "All owned sessions and dedicated database closed; container lifecycle belongs to invoking task."
+}

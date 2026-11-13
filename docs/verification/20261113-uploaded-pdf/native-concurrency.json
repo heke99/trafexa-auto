@@ -1,0 +1,18 @@
+{
+  "result": "PASS",
+  "engine": "native PostgreSQL independent psql sessions",
+  "checks": [
+    {
+      "scenario": "cancel commits while signature waits; guest rechecks after row lock and is denied",
+      "result": "PASS",
+      "lockWaitObserved": true
+    },
+    {
+      "scenario": "signature commits first; cancellation waits then revokes link and preserves signature",
+      "result": "PASS",
+      "lockWaitObserved": true
+    }
+  ],
+  "externalCalls": 0,
+  "productionMutations": 0
+}

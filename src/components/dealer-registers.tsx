@@ -8,6 +8,7 @@ import type { DealerRegisterDeal, DealerRegisterKind, DealerRegisterPage, Dealer
 
 export type DealerRegistersProps = {
   kind: DealerRegisterKind;
+  blocked?: boolean;
   companyId: string;
   userId: string;
   role: string;
@@ -99,34 +100,34 @@ function RegisterPanel(props: DealerRegistersProps) {
   }, [readKey, retry, snapshot, demo, kind, companyId, userId, role, query, status, sort, currentCursor, onCriteriaChange, onPage]);
 
   function resetPage() { setCursors([null]); setPosition(0); onCriteriaChange?.(); }
-  function search(event: FormEvent<HTMLFormElement>) { event.preventDefault(); resetPage(); setQuery(draftQuery.trim()); setRetry(value => value + 1); }
+  function search(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if(props.blocked)return; resetPage(); setQuery(draftQuery.trim()); setRetry(value => value + 1); }
   function next() {
-    if (!page?.nextCursor || loading) return;
+    if (!page?.nextCursor || loading || props.blocked) return;
     onCriteriaChange?.(); setCursors(current => [...current.slice(0, position + 1), page.nextCursor]); setPosition(value => value + 1);
   }
-  function previous() { if (position > 0 && !loading) { onCriteriaChange?.(); setPosition(value => value - 1); } }
-  function refresh() { onCriteriaChange?.(); setRetry(value => value + 1); }
-  function clearCriteria() { setDraftQuery(''); setQuery(''); setStatus('all'); resetPage(); setRetry(value => value + 1); }
+  function previous() { if (position > 0 && !loading && !props.blocked) { onCriteriaChange?.(); setPosition(value => value - 1); } }
+  function refresh() { if(props.blocked)return; onCriteriaChange?.(); setRetry(value => value + 1); }
+  function clearCriteria() { if(props.blocked)return; setDraftQuery(''); setQuery(''); setStatus('all'); resetPage(); setRetry(value => value + 1); }
   const canCreate = !demo && (kind === 'inventory' ? ['owner', 'admin'] : ['owner', 'admin', 'sales']).includes(role);
   const firstRecordGuidance = canCreate ? {
     inventory: 'Använd ”Lägg till bil” ovan för att registrera företagets första bil.',
     customers: 'Använd ”Lägg till kund” ovan för att registrera företagets första kund.',
-    deals: 'Registrera en kund och en tillgänglig bil. Använd sedan ”Ny affär” ovan.',
+    deals: 'Använd ”Skapa affär” ovan. Välj en bil och lägg till kunden direkt i affären.',
   }[kind] : demo ? 'Demonstrationen är i läsläge och använder endast fiktiva exempeldata.' : 'Registret fylls när en behörig medarbetare registrerar företagets uppgifter.';
 
   return <section className="surface" aria-label={`${kind === 'inventory' ? 'Fordons' : kind === 'customers' ? 'Kund' : 'Affärs'}register`} aria-busy={loading}>
     <div className="table-toolbar" style={{ alignItems: 'flex-end' }}>
       <form onSubmit={search} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 10, minWidth: 0, flex: 1 }}>
-        <label className="search-field" style={{ flex: 1, minWidth: 150 }}><Search size={16}/><span className="sr-only">{placeholders[kind]}</span><input type="search" maxLength={120} value={draftQuery} onChange={event => setDraftQuery(event.target.value)} placeholder={placeholders[kind]}/></label>
-        <button type="submit" className="button button-outline button-small">Sök</button>
+        <label className="search-field" style={{ flex: 1, minWidth: 150 }}><Search size={16}/><span className="sr-only">{placeholders[kind]}</span><input type="search" maxLength={120} value={draftQuery} disabled={props.blocked} onChange={event => setDraftQuery(event.target.value)} placeholder={placeholders[kind]}/></label>
+        <button type="submit" className="button button-outline button-small" disabled={props.blocked}>Sök</button>
       </form>
       <div className="table-controls" style={{ flexWrap: 'wrap', minWidth: 0 }}>
         <label htmlFor={`${prefix}-status`} className="sr-only">{kind === 'inventory' ? 'Lagerstatus' : kind === 'customers' ? 'Kundtyp' : 'Affärsstatus'}</label>
-        <select id={`${prefix}-status`} className="compact-select" value={status} onChange={event => { resetPage(); setStatus(event.target.value); }}>
+        <select id={`${prefix}-status`} className="compact-select" disabled={props.blocked} value={status} onChange={event => { resetPage(); setStatus(event.target.value); }}>
           {filters[kind].map(([value, text]) => <option key={value} value={value}>{text} ({count(page ? page.counts[value] ?? 0 : undefined)})</option>)}
         </select>
         <label htmlFor={`${prefix}-sort`} className="sr-only">Sortera {nouns[kind]}</label>
-        <select id={`${prefix}-sort`} className="compact-select" value={sort} onChange={event => { resetPage(); setSort(event.target.value as DealerRegisterSort); }}>
+        <select id={`${prefix}-sort`} className="compact-select" disabled={props.blocked} value={sort} onChange={event => { resetPage(); setSort(event.target.value as DealerRegisterSort); }}>
           <option value="recent">Senast tillagda</option>
           {kind !== 'customers' ? <><option value="price_asc">Lägsta pris</option><option value="price_desc">Högsta pris</option></> : null}
         </select>
@@ -139,10 +140,10 @@ function RegisterPanel(props: DealerRegistersProps) {
     <div className="table-footer" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
       <span>{page ? `Visar ${count(page.rows.length)} av ${count(page.filteredCount)} träffar · ${count(page.totalCount)} ${nouns[kind]} totalt` : 'Antalet visas när registret har verifierats.'}</span>
       <nav aria-label="Registersidor" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <button type="button" className="button button-outline button-small" disabled={loading || position === 0} onClick={previous}>Tidigare</button>
+        <button type="button" className="button button-outline button-small" disabled={props.blocked || loading || position === 0} onClick={previous}>Tidigare</button>
         <span>Sida {position + 1}</span>
-        <button type="button" className="button button-outline button-small" disabled={loading || !page?.nextCursor} onClick={next}>Nästa</button>
-        <button type="button" className="text-link" disabled={loading} onClick={refresh}>Uppdatera</button>
+        <button type="button" className="button button-outline button-small" disabled={props.blocked || loading || !page?.nextCursor} onClick={next}>Nästa</button>
+        <button type="button" className="text-link" disabled={props.blocked||loading} onClick={refresh}>Uppdatera</button>
       </nav>
     </div>
   </section>;

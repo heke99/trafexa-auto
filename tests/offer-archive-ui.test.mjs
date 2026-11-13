@@ -55,6 +55,9 @@ before(async () => {
       [resolve(repo, 'src/components/purchase-condition')]: unrelated,
       [resolve(repo, 'src/components/contract-template-workspace')]: unrelated,
       [resolve(repo, 'src/components/deal-contracts')]: unrelated,
+      // These independently verified signing forms are outside the offer archive boundary.
+      [resolve(repo, 'src/components/direct-deal-form')]: unrelated,
+      [resolve(repo, 'src/components/uploaded-pdf-signing')]: unrelated,
       [resolve(repo, 'src/components/vehicle-photo-gallery')]: unrelated,
       [resolve(repo, 'src/components/advertising-workspace')]: unrelated,
     } },
@@ -99,12 +102,14 @@ test('actual contract panels bind company user role deal and demo independently 
       await expect(page.locator('[data-contract-templates]')).toHaveAttribute('data-user',snapshot.user.id);
       await expect(page.locator('[data-contract-templates]')).toHaveAttribute('data-role',role);
       await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot,section:'deals'}),snapshot);
+      await page.getByRole('button',{name:'Öppna affär',exact:true}).click();
       await expect(page.locator('[data-contract-deal]')).toHaveAttribute('data-contract-deal',deal);
       await expect(page.locator('[data-contract-deal]')).toHaveAttribute('data-company',company);
       await expect(page.locator('[data-contract-deal]')).toHaveAttribute('data-user',snapshot.user.id);
       await expect(page.locator('[data-contract-deal]')).toHaveAttribute('data-role',role);
     }
     await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot,section:'deals',demo:true}),workspace('owner',otherCompany));
+    await page.getByRole('button',{name:'Öppna affär',exact:true}).click();
     await expect(page.locator('[data-contract-deal]')).toHaveAttribute('data-company',otherCompany);
     await expect(page.locator('[data-contract-deal]')).toHaveAttribute('data-demo','true');
   } finally { await page.close(); }
@@ -155,8 +160,13 @@ async function setup(props = {}, responses = []) {
   }, { offers, responses, document });
   await page.addScriptTag({ path: bundle });
   await page.evaluate((props) => window.mountArchiveFixture(props), { dealId: deal, companyId: company, canCreate: false, canArchive: true, ...props });
+  if (props.workspace) {
+    await page.getByRole('button',{name:'Öppna affär',exact:true}).click();
+    await page.getByRole('button',{name:'Fler alternativ',exact:true}).click();
+    await page.locator('summary').filter({hasText:'Offert före avtal'}).click();
+  }
   await expect(page.getByRole('region',{name:'Offertversioner',exact:true})).toHaveCount(0);
-  await page.locator('summary').first().click();
+  await page.locator('summary').filter({hasText:'Offertversioner'}).click();
   await expect(page.getByRole('region',{name:'Offertversioner',exact:true})).toBeVisible();
   if (!props.demo) await expect(page.getByText('Version 1', { exact: true })).toBeVisible();
   return page;
@@ -186,11 +196,11 @@ test('actual dealer trade-in panels load only when opened and scope company role
    const snapshot=workspace(role);snapshot.user.id=`user-${role}`;
    await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot}),snapshot);
    await expect(page.locator('[data-trade-in]')).toHaveCount(0);
-   await page.getByText('Inbytesunderlag',{exact:true}).click();
+   await page.getByRole('button',{name:'Inbytesunderlag',exact:true}).first().click();
    await expect(page.locator('[data-trade-in]')).toHaveAttribute('data-edit',String(['owner','admin','sales'].includes(role)));
   }
   await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot,demo:true}),workspace('owner',otherCompany));
-  await expect(page.locator('[data-trade-in]')).toHaveCount(0);await page.getByText('Inbytesunderlag',{exact:true}).click();
+  await expect(page.locator('[data-trade-in]')).toHaveCount(0);await page.getByRole('button',{name:'Inbytesunderlag',exact:true}).first().click();
   await expect(page.locator('[data-trade-in]')).toHaveAttribute('data-company',otherCompany);await expect(page.locator('[data-trade-in]')).toHaveAttribute('data-edit','false');await expect(page.locator('[data-trade-in]')).toHaveAttribute('data-demo','true');
  }finally{await page.close();}
 });
@@ -201,12 +211,16 @@ test('actual dealer cancellation scopes roles, company and supported deal status
   await page.route('**/*',route=>route.abort());await page.setContent('<div id="root"></div>');await page.evaluate(()=>{window.fixture={offers:[],listCalls:[],archiveCalls:[]};});await page.addScriptTag({path:bundle});
   for(const role of ['owner','admin','sales','finance','viewer']){
    await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot}),workspace(role));
+   await page.getByRole('button',{name:'Öppna affär',exact:true}).click();
+   await page.getByRole('button',{name:'Fler alternativ',exact:true}).click();
    await expect(page.locator('[data-cancellation]')).toHaveAttribute('data-edit',String(['owner','admin','sales'].includes(role)));
   }
   await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot,demo:true}),workspace('owner',otherCompany));
+  await page.getByRole('button',{name:'Öppna affär',exact:true}).click();
+  await page.getByRole('button',{name:'Fler alternativ',exact:true}).click();
   await expect(page.locator('[data-cancellation]')).toHaveAttribute('data-company',otherCompany);await expect(page.locator('[data-cancellation]')).toHaveAttribute('data-edit','false');
   for(const status of ['offered','contracted','sold','delivered','closed']){
-   const snapshot=workspace('owner');snapshot.deals[0].status=status;await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot}),snapshot);await expect(page.locator('[data-cancellation]')).toHaveCount(0);
+   const snapshot=workspace('owner');snapshot.deals[0].status=status;await page.evaluate(snapshot=>window.mountArchiveFixture({workspace:true,snapshot}),snapshot);if(await page.getByRole('button',{name:'Öppna affär',exact:true}).count())await page.getByRole('button',{name:'Öppna affär',exact:true}).click();await page.getByRole('button',{name:'Fler alternativ',exact:true}).click();await expect(page.locator('[data-cancellation]')).toHaveCount(0);
   }
  }finally{await page.close();}
 });
@@ -290,7 +304,10 @@ for (const outcome of ['resolve', 'reject']) test(`late archive ${outcome} from 
     }, outcome);
     await expect(page.getByRole('status')).toHaveCount(0);
     await expect(page.getByRole('alert')).toHaveCount(0);
-    await page.locator('summary').first().click();
+    await page.getByRole('button',{name:'Öppna affär',exact:true}).click();
+    await page.getByRole('button',{name:'Fler alternativ',exact:true}).click();
+    await page.locator('summary').filter({hasText:'Offert före avtal'}).click();
+    await page.locator('summary').filter({hasText:'Offertversioner'}).click();
     await expect.poll(() => page.evaluate(() => window.fixture.listCalls.at(-1)?.companyId)).toBe(otherCompany);
     await expect(page.getByRole('button', { name: archiveLabel }).first()).toBeEnabled();
     await expect(page.getByRole('link', { name: 'Hämta arkiverad PDF' })).toHaveCount(0);
@@ -308,5 +325,5 @@ async function enableTrade(page,rows=[tradeRow]){await page.evaluate(rows=>{wind
 test('new offer attachment shows public immutable fields only, explicit review, penny payout and stable nonce/CAS retries',async()=>{const page=await setup({canCreate:true});try{await enableTrade(page);await page.getByLabel('Inbyte i den nya offerten').selectOption(tradeRow.id);await expect(page.getByText('0,01 kr',{exact:false})).toBeVisible();await expect(page.getByText(/HEMLIG/)).toHaveCount(0);await page.getByLabel('Jag bekräftar att affärspriset').check();await expect(page.getByRole('button',{name:'Skapa ny offertversion'})).toBeDisabled();await page.getByLabel('Jag har granskat inbytet').check();await page.evaluate(()=>window.fixture.createResponses.push({throw:true}));await page.getByRole('button',{name:'Skapa ny offertversion'}).click();await expect(page.getByRole('alert')).toContainText('kunde inte bekräftas');await page.getByRole('button',{name:'Skapa ny offertversion'}).click();await expect(page.getByText('Offertversionen har sparats.',{exact:true})).toBeVisible();const writes=await page.evaluate(()=>window.fixture.createCalls);assert.deepEqual(writes[0],writes[1]);assert.equal(writes[0].trade_in_id,tradeRow.id);assert.equal(writes[0].expected_trade_in_version,'2');assert.equal(writes[0].expected_offer_version,'1');assert.equal(writes[0].expected_sale_price_ore,'25000000');assert.equal(writes[0].trade_in_confirmed,'true');assert.equal(writes[0].conditionNotes,undefined);}finally{await page.close();}});
 test('unknown and older trade-ins cannot attach, plain offers remain possible, accepted state and denied scope suppress creation',async()=>{const page=await setup({canCreate:true});try{await enableTrade(page,[{...tradeRow,debtKnown:false,debtOre:null,netTradeInOre:null,amountToPayOre:null}]);await expect(page.getByRole('option',{name:/Skulden behöver kontrolleras/})).toHaveAttribute('disabled','');await page.getByLabel('Jag bekräftar att affärspriset').check();await page.getByRole('button',{name:'Skapa ny offertversion'}).click();await expect(page.getByText('Offertversionen har sparats.',{exact:true})).toBeVisible();assert.equal((await page.evaluate(()=>window.fixture.createCalls))[0].trade_in_id,'');await page.evaluate(()=>window.fixture.tradeCanCreate=false);await page.getByRole('button',{name:'Uppdatera versioner',exact:true}).click();await expect(page.getByRole('button',{name:'Skapa ny offertversion'})).toBeDisabled();await page.evaluate(()=>window.fixture.tradeResponses=[{ok:false,code:'access_denied',message:'Ingen åtkomst.'}]);await page.getByRole('button',{name:'Uppdatera versioner',exact:true}).click();await expect(page.getByLabel('Inbyte i den nya offerten')).toHaveCount(0);}finally{await page.close();}});
 test('offer trade-in conflict refreshes current scope and requires unchecked review of updated immutable version',async()=>{const page=await setup({canCreate:true});try{await enableTrade(page);await page.getByLabel('Inbyte i den nya offerten').selectOption(tradeRow.id);await page.getByLabel('Jag har granskat inbytet').check();await page.getByLabel('Jag bekräftar att affärspriset').check();await page.evaluate(()=>{window.fixture.createResponses.push({ok:false,code:'conflict',message:'Underlaget ändrades.'});window.fixture.tradeRows=[{...window.fixture.tradeRows[0],version:3}];});await page.getByRole('button',{name:'Skapa ny offertversion'}).click();await expect(page.getByLabel('Inbyte i den nya offerten')).toHaveValue('');await expect(page.getByLabel('Jag bekräftar att affärspriset')).not.toBeChecked();await expect(page.getByRole('button',{name:'Skapa ny offertversion'})).toBeDisabled();}finally{await page.close();}});
-test('offer attachment review remains usable on mobile and desktop and ignores previous company state',async()=>{const styles=await readFile(resolve(repo,'src/app/globals.css'),'utf8');for(const width of [320,375,1280]){const page=await setup({canCreate:true});try{await page.setViewportSize({width,height:900});await page.addStyleTag({content:styles});await enableTrade(page);await page.getByLabel('Inbyte i den nya offerten').selectOption(tradeRow.id);await expect(page.getByRole('region',{name:'Inbyte som kunden får se'})).toBeVisible();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`attachmentoverflow${width}`);await page.evaluate(p=>window.mountArchiveFixture(p),{dealId:deal,companyId:otherCompany,canCreate:true,canArchive:false});await expect(page.getByRole('region',{name:'Inbyte som kunden får se'})).toHaveCount(0);await page.locator('summary').first().click();await expect(page.getByLabel('Inbyte i den nya offerten')).toHaveValue('');await expect(page.getByLabel('Jag har granskat inbytet')).toHaveCount(0);}finally{await page.close();}}});
-test('revoked trade-in access during offer refresh clears previously readable offers; late old-scope trade page cannot restore them',async()=>{const page=await setup({canCreate:true});try{await enableTrade(page);await page.evaluate(()=>window.fixture.tradeResponses=[{ok:false,code:'access_denied',message:'Åtkomsten har upphört.'}]);await page.getByRole('button',{name:'Uppdatera versioner',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Åtkomsten har upphört');await expect(page.getByText('Version 1',{exact:true})).toHaveCount(0);await expect(page.getByLabel('Inbyte i den nya offerten')).toHaveCount(0);await page.evaluate(()=>window.fixture.tradeResponses=[{defer:true,result:{ok:true,companyId:'10000000-0000-4000-8000-000000000001',dealId:'20000000-0000-4000-8000-000000000001',salePriceOre:'25000000',customerName:'Tidigare kund',latestVersion:2,canCreate:true,versions:[],nextBeforeVersion:null}}]);await page.getByRole('button',{name:'Uppdatera versioner',exact:true}).click();await expect.poll(()=>page.evaluate(()=>typeof window.fixture.resolveTrade)).toBe('function');await page.evaluate(p=>window.mountArchiveFixture(p),{dealId:deal,companyId:otherCompany,canCreate:false,canArchive:false});await page.evaluate(()=>window.fixture.resolveTrade());await expect(page.getByRole('region',{name:'Offertversioner',exact:true})).toHaveCount(0);await page.locator('summary').first().click();await expect(page.getByLabel('Inbyte i den nya offerten')).toHaveCount(0);await expect(page.getByText('Tidigare kund',{exact:false})).toHaveCount(0);}finally{await page.close();}});
+test('offer attachment review remains usable on mobile and desktop and ignores previous company state',async()=>{const styles=await readFile(resolve(repo,'src/app/globals.css'),'utf8');for(const width of [320,375,1280]){const page=await setup({canCreate:true});try{await page.setViewportSize({width,height:900});await page.addStyleTag({content:styles});await enableTrade(page);await page.getByLabel('Inbyte i den nya offerten').selectOption(tradeRow.id);await expect(page.getByRole('region',{name:'Inbyte som kunden får se'})).toBeVisible();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`attachmentoverflow${width}`);await page.evaluate(p=>window.mountArchiveFixture(p),{dealId:deal,companyId:otherCompany,canCreate:true,canArchive:false});await expect(page.getByRole('region',{name:'Inbyte som kunden får se'})).toHaveCount(0);await page.locator('summary').filter({hasText:'Offertversioner'}).click();await expect(page.getByLabel('Inbyte i den nya offerten')).toHaveValue('');await expect(page.getByLabel('Jag har granskat inbytet')).toHaveCount(0);}finally{await page.close();}}});
+test('revoked trade-in access during offer refresh clears previously readable offers; late old-scope trade page cannot restore them',async()=>{const page=await setup({canCreate:true});try{await enableTrade(page);await page.evaluate(()=>window.fixture.tradeResponses=[{ok:false,code:'access_denied',message:'Åtkomsten har upphört.'}]);await page.getByRole('button',{name:'Uppdatera versioner',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Åtkomsten har upphört');await expect(page.getByText('Version 1',{exact:true})).toHaveCount(0);await expect(page.getByLabel('Inbyte i den nya offerten')).toHaveCount(0);await page.evaluate(()=>window.fixture.tradeResponses=[{defer:true,result:{ok:true,companyId:'10000000-0000-4000-8000-000000000001',dealId:'20000000-0000-4000-8000-000000000001',salePriceOre:'25000000',customerName:'Tidigare kund',latestVersion:2,canCreate:true,versions:[],nextBeforeVersion:null}}]);await page.getByRole('button',{name:'Uppdatera versioner',exact:true}).click();await expect.poll(()=>page.evaluate(()=>typeof window.fixture.resolveTrade)).toBe('function');await page.evaluate(p=>window.mountArchiveFixture(p),{dealId:deal,companyId:otherCompany,canCreate:false,canArchive:false});await page.evaluate(()=>window.fixture.resolveTrade());await expect(page.getByRole('region',{name:'Offertversioner',exact:true})).toHaveCount(0);await page.locator('summary').filter({hasText:'Offertversioner'}).click();await expect(page.getByLabel('Inbyte i den nya offerten')).toHaveCount(0);await expect(page.getByText('Tidigare kund',{exact:false})).toHaveCount(0);}finally{await page.close();}});

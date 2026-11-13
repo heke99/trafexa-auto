@@ -36,10 +36,11 @@ export function renderContractTemplate(body: string, source: OfferSnapshot): str
 }
 
 const schema = z.object({
-  id: uuid, companyId: uuid, dealId: uuid, version: positive, offerId: uuid, offerVersion: positive,
+  id: uuid, companyId: uuid, dealId: uuid, version: positive, offerId: uuid.nullable(), offerVersion: positive, sourceKind:z.literal('direct_deal').optional(),customerIdentity:z.discriminatedUnion('kind',[z.object({kind:z.literal('person'),number:z.string().regex(/^\d{12}$/)}),z.object({kind:z.literal('business'),number:z.string().regex(/^\d{10}$/)})]).optional(),
   template: z.object({ id: uuid, templateId: uuid, version: positive, approvalVersion: positive, title: text(2, 160), body: text(2, 12000, true) }),
   sourceOffer: z.unknown().transform(parseOfferSnapshot), createdAt: z.string().datetime({ offset: true }), actorLabel: z.enum(['Du', 'Kollega']),
 }).superRefine((draft, context) => {
+  if(draft.sourceKind==='direct_deal'?(draft.offerId!==null||!draft.customerIdentity):(draft.offerId===null||draft.customerIdentity!==undefined))context.addIssue({code:'custom',message:'Invalid direct contract source'});
   if (draft.sourceOffer.company.id.toLowerCase() !== draft.companyId.toLowerCase() || draft.sourceOffer.deal_id.toLowerCase() !== draft.dealId.toLowerCase() || draft.sourceOffer.version !== draft.offerVersion) context.addIssue({ code: 'custom', message: 'Contract source binding mismatch' });
   try { renderContractTemplate(draft.template.body, draft.sourceOffer); } catch { context.addIssue({ code: 'custom', message: 'Invalid contract template' }); }
 });
@@ -48,7 +49,7 @@ const schema = z.object({
 export function parseContractDraft(value: unknown): ContractDraft { return schema.parse(value); }
 
 /** The source offer and approved template version are frozen; this renders no signature or payment state. */
-export type ContractPdfSignature = { authenticationMethod?: 'email_link'; party: 'customer' | 'company'; fullName: string; signedAt: string; strokes: { points: { x: number; y: number }[] }[] };
+export type ContractPdfSignature = { authenticationMethod?: 'email_link'|'account'; party: 'customer' | 'company'; fullName: string; signedAt: string; strokes: { points: { x: number; y: number }[] }[] };
 export type ContractPdfCompletion = { documentHash: string; completedAt: string; signatures: ContractPdfSignature[] };
 
 export async function generateContractPdf(value: unknown): Promise<Uint8Array> { return renderContractPdf(value); }
@@ -80,13 +81,14 @@ export async function renderContractPdf(value: unknown, completion?: ContractPdf
   draw(completion ? 'SIGNERAT AVTAL' : 'AVTALSUTKAST', 26, accent, 10); draw(completion ? 'ELEKTRONISKT UNDERTECKNAT' : 'OSIGNERAT', 16, accent, 10);
   draw(`Utkastversion ${draft.version} · Sparad ${dateTime.format(created)}`, 10, muted);
   draw(`Godkänd mallversion: ${draft.template.title} · Version ${draft.template.version}`, 10, muted);
-  draw(`Underlag: accepterad offertversion ${draft.offerVersion}`, 10, muted);
+  draw(draft.sourceKind==='direct_deal'?`Underlag: överenskommet köp · version ${draft.offerVersion}`:`Underlag: accepterad offertversion ${draft.offerVersion}`, 10, muted);
   draw(completion ? (completion.signatures.some(signature=>signature.authenticationMethod==='email_link')?'Kunden har godkänt avtalet via en personlig mejllänk och bolaget med sitt Trafexa-konto. Godkännandet bekräftar ingen genomförd betalning, leverans eller finansiering.':'Kunden och bolaget har undertecknat samma avtalsinnehåll med inloggade, verifierade konton. Underskriften bekräftar ingen genomförd betalning, leverans eller finansiering.') : 'Detta är ett osignerat utkast. Dokumentet bekräftar ingen genomförd signering, betalning, leverans eller finansiering.', 10, muted);
   section('Säljare och kund');
   draw(`${offer.company.name} · Organisationsnummer ${offer.company.organisation_number}`, 11);
   draw(`${offer.customer.name} · ${offer.customer.kind === 'business' ? 'Företag' : 'Privatperson'}`);
   if (offer.customer.email) draw(`E-post: ${offer.customer.email}`);
   if (offer.customer.phone) draw(`Telefon: ${offer.customer.phone}`);
+  if(draft.customerIdentity)draw(`${draft.customerIdentity.kind==='person'?'Person-/samordningsnummer':'Organisationsnummer'}: ${draft.customerIdentity.number}`);
   if (offer.customer.address) draw(`Adress: ${offer.customer.address}`);
   section('Fordon');
   draw(`${offer.vehicle.make} ${offer.vehicle.model} · ${offer.vehicle.model_year}`, 12);
@@ -94,7 +96,7 @@ export async function renderContractPdf(value: unknown, completion?: ContractPdf
   if (offer.vehicle.vin) draw(`Chassinummer: ${offer.vehicle.vin}`);
   const fuel = { petrol: 'Bensin', diesel: 'Diesel', electric: 'El', hybrid: 'Hybrid', other: 'Övrigt' };
   draw(`Mätarställning: ${offer.vehicle.mileage_km.toLocaleString('sv-SE')} km · ${fuel[offer.vehicle.fuel]} · ${offer.vehicle.gearbox === 'automatic' ? 'Automat' : 'Manuell'}`);
-  section('Pris och moms från offertversionen');
+  section(draft.sourceKind==='direct_deal'?'Överenskommet pris och moms':'Pris och moms från offertversionen');
   draw(`Totalpris inklusive eventuell moms: ${formatOfferMoney(offer.sale_price_ore)}`, 13, accent);
   if (offer.stock.vat_scheme === 'standard') {
     draw('Standardmoms 25 %. Försäljningspriset inkluderar moms.');
@@ -110,10 +112,10 @@ export async function renderContractPdf(value: unknown, completion?: ContractPdf
     if (BigInt(trade.amount_to_pay_ore) < BigInt(0)) draw('Det negativa beloppet innebär ett överskott till kunden enligt offertunderlaget.', 9, muted);
     draw('Beloppet är en uppgift i underlaget och bekräftar ingen genomförd betalning.', 9, muted);
   }
-  section('Originalvillkor från offertversionen'); draw(offer.terms || 'Inga ytterligare offertvillkor angivna.');
+  section(draft.sourceKind==='direct_deal'?'Överenskomna villkor':'Originalvillkor från offertversionen'); draw(offer.terms || 'Inga ytterligare offertvillkor angivna.');
   section('Villkor från den godkända mallversionen'); draw(renderContractTemplate(draft.template.body, offer));
   section('Om utkastet');
-  draw('Offertuppgifter, originalvillkor och malltext sparades när denna utkastversion skapades. Senare ändringar påverkar inte versionen.', 9, muted);
+  draw(draft.sourceKind==='direct_deal'?'Kunduppgifter, överenskommet pris och avtalsvillkor sparades när denna utkastversion skapades. Ingen separat offertaccept har registrerats. Senare ändringar påverkar inte versionen.':'Offertuppgifter, originalvillkor och malltext sparades när denna utkastversion skapades. Senare ändringar påverkar inte versionen.', 9, muted);
   if (completion) {
     section('Underskrifter och signeringsbevis');
     draw('Enkel elektronisk underskrift via Trafexa. Ingen BankID-identifikation eller certifikatbaserad PDF-signatur.', 9, muted);
@@ -122,6 +124,7 @@ export async function renderContractPdf(value: unknown, completion?: ContractPdf
       if (y < margin + 180) newPage();
       draw(`${signature.party === 'customer' ? 'Kund' : 'Bolag'}: ${signature.fullName}`, 12, accent);
       draw(`Undertecknat ${dateTime.format(new Date(signature.signedAt))}`, 9, muted);
+      if(signature.authenticationMethod==='account'){draw('Avtalsvillkoren godkända med angivet namn genom behörigt företagskonto.',9,muted);y-=16;continue;}
       if(signature.authenticationMethod==='email_link'){draw('Godkänt med angivet namn och bekräftelse via personlig mejllänk.',9,muted);y-=16;continue;}
       const points = signature.strokes.flatMap(stroke => stroke.points);
       const minX = Math.min(...points.map(p => p.x)), maxX = Math.max(...points.map(p => p.x));

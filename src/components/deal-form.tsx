@@ -12,7 +12,7 @@ import type { DealOptionsKind, DealOptionsPage } from '@/lib/registers/types';
 type Option = Customer | InventoryItem;
 type PickerProps = {
   kind: DealOptionsKind; companyId: string; actorId: string; role: string; demo: boolean;
-  demoRows: Option[]; selected: Option | null;
+  demoRows: Option[]; selected: Option | null; compact?: boolean;
   onSelect: (row: Option | null) => void; onReadyChange: (ready: boolean) => void;
 };
 const isCustomer = (row: Option): row is Customer => 'name' in row;
@@ -28,7 +28,7 @@ function optionLabel(row: Option): string {
   return `${row.vehicles.make} ${row.vehicles.model} · ${row.vehicles.registration_number} · ${price}`;
 }
 
-function DealOptionPicker({ kind, companyId, actorId, role, demo, demoRows, selected, onSelect, onReadyChange }: PickerProps) {
+export function DealOptionPicker({ kind, companyId, actorId, role, demo, demoRows, selected, onSelect, onReadyChange, compact = false }: PickerProps) {
   const fieldId = useId();
   const { pending } = useFormStatus();
   const [query, setQuery] = useState('');
@@ -111,13 +111,13 @@ function DealOptionPicker({ kind, companyId, actorId, role, demo, demoRows, sele
       </select>
     </label>
     <p id={`${fieldId}-status`} className="form-privacy" aria-live="polite" style={{ marginTop: 8 }}>
-      {loading ? 'Hämtar val…' : error ? 'Valen kunde inte verifieras.' : page ? `${page.filteredCount} ${customer ? 'kunder' : 'tillgängliga bilar'} matchar · ${page.totalCount} ${customer ? 'i kundregistret' : 'tillgängliga bilar i företaget'}. Visar högst 50 per sida.` : ''}
+      {loading ? 'Hämtar val…' : error ? 'Valen kunde inte verifieras.' : page ? compact ? query ? `${page.filteredCount} träffar` : '' : `${page.filteredCount} ${customer ? 'kunder' : 'tillgängliga bilar'} matchar · ${page.totalCount} ${customer ? 'i kundregistret' : 'tillgängliga bilar i företaget'}. Visar högst 50 per sida.` : ''}
     </p>
-    {!!page?.filteredCount && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+    {!!page?.filteredCount && (!compact || history.length > 0 || page.nextCursor !== null) && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
       <button className="button button-outline button-small" type="button" disabled={pending || loading || !history.length} onClick={() => changePage(history.at(-1) ?? null, true)}>Föregående {customer ? 'kunder' : 'bilar'}</button>
       <button className="button button-outline button-small" type="button" disabled={pending || loading || !page.nextCursor} onClick={() => changePage(page.nextCursor)}>Nästa {customer ? 'kunder' : 'bilar'}</button>
     </div>}
-    {!loading && !error && page?.filteredCount === 0 && <p className="form-privacy">{query ? 'Inga val matchar sökningen.' : customer ? 'Lägg till en kund innan du skapar affären.' : 'Det finns inga tillgängliga bilar att välja.'}</p>}
+    {!loading && !error && page?.filteredCount === 0 && <p className="form-privacy">{query ? 'Inga val matchar sökningen.' : customer ? compact ? 'Inga sparade kunder. Välj Ny kund för att lägga till kunden direkt här.' : 'Lägg till en kund innan du skapar affären.' : 'Det finns inga tillgängliga bilar att välja.'}</p>}
     {selectionNotice && <p role="alert">{selectionNotice}</p>}
     {error && <div style={{ marginTop: 8 }}><p role="alert">{error}</p><button type="button" className="button button-outline button-small" disabled={pending || loading} onClick={() => setRefresh((current) => current + 1)}>Försök igen med {customer ? 'kunder' : 'bilar'}</button></div>}
   </fieldset>;

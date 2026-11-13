@@ -43,6 +43,8 @@ test('actual inventory table preserves stored öre and keeps whole-krona prices 
   assert.deepEqual(displayedPrices(await render('inventory')), ['199 000,29 kr', '199 000,20 kr', '199 000 kr']);
 });
 
-test('actual deal table uses exact stored sale prices rather than rounding them to kronor', async () => {
-  assert.deepEqual(displayedPrices(await render('deals')), ['199 000,29 kr', '199 000,20 kr', '199 000 kr']);
+test('actual compact deal rows use exact stored sale prices rather than rounding them to kronor', async () => {
+  const html = await render('deals');
+  const prices = [...html.matchAll(/<strong class="compact-deal-price">([^<]+)<\/strong>/g)].map(match => match[1]);
+  assert.deepEqual(prices, ['199 000,29 kr', '199 000,20 kr', '199 000 kr']);
 });

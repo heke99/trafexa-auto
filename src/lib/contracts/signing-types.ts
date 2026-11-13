@@ -3,7 +3,7 @@ import type { SignatureStroke } from '@/lib/signing/docuseal-ported/signature-va
 export const CONTRACT_SIGNING_CONSENT_VERSION = '2026-10-14' as const;
 export type ContractSignature = {
   party: 'customer' | 'company'; fullName: string; signedAt: string;
-  authenticationMethod?: 'email_link'; approvalMethod?: 'typed_name'; guestInvitationId?: string; recipientEmail?: string;
+  authenticationMethod?: 'email_link'|'account'; approvalMethod?: 'typed_name'; guestInvitationId?: string; recipientEmail?: string;
   documentHash: string; consentVersion: string; strokes: SignatureStroke[];
 };
 export type ContractSigning = {
