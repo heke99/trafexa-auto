@@ -60,3 +60,9 @@ Säker publiceringsordning: den nya bakåtkompatibla appen publiceras först, d�
 Inga riktiga avtal, underskrifter, fakturor, banköverföringar eller externa mejl skapas av proverna. Egen PostgreSQL-container körs med nätverk none och städas efter samtidighetsproven; övriga tester stänger sina databaser/HTTP-servrar/browserkontexter. Blocket/Wayke, vald bankpartner och extern backupplats har fortfarande externa förutsättningar och är inte aktiverade här. Full verklig produktionssignering återstår tills en autentiserad användarresa finns att verifiera.
 
 Slutlig lokal regression: 2 158/2 158 fall i 235 testfiler och ett separat rollout-kompatibilitetsfall, totalt 2 159/2 159 utan fel eller överhoppade fall. Två separata PostgreSQL-samtidighetsfall PASS. Typkontroll och produktionsbygge PASS. Testresultaten räknas en gång; riktade delmängder adderas inte.
+
+## Publicerad app och aktiverat databasschema
+
+PR #66 är sammanslagen som `d7862a2d7634446ac7d88caddd1946a0a32ab863`. Produktion `dpl_AotJ1uKVADsQgznJzQx5WYdQSg5f` var READY och domänens deploymentmarkör verifierad före SQL-aktivering. Hosted migrationer är `20261113135352_direct_trade_in_acquisition` och `20261113135403_trade_in_manual_settlement_final`. Lokala filnamn matchar dessa tilldelade versioner; SQL-bytes är oförändrade. Ingen hosted migrationshistorik skrivs om.
+
+Efterkontroll: samma tre befintliga affärer och noll signeringar, inbytesunderlag, förvärv, betalningar och leveranser. Privata tabellers RLS/grants, anonym RPC-spärr och validerad source-kind-constraint är kontrollerade. Inga nya advisor-kategorier eller antal tillkom. Befintliga [SECURITY DEFINER-notiser](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) är oförändrade och den tidigare [leaked-password protection-varningen](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) kvarstår.

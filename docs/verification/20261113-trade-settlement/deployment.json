@@ -1,0 +1,41 @@
+{
+  "appCommit": "d7862a2d7634446ac7d88caddd1946a0a32ab863",
+  "deployment": "dpl_AotJ1uKVADsQgznJzQx5WYdQSg5f",
+  "state": "READY",
+  "aliases": [
+    "app.trafexa.com",
+    "trafexa.com",
+    "www.trafexa.com"
+  ],
+  "sequence": [
+    "compatible app READY and alias marker verified",
+    "direct trade acquisition migration applied",
+    "manual settlement migration applied"
+  ],
+  "migrations": [
+    {
+      "file": "supabase/migrations/20261113135352_direct_trade_in_acquisition.sql",
+      "sha256": "04f2ed7c2e45ed9f1a935467fc9d11e7e91590252c80038a0b32c0e709c547b3"
+    },
+    {
+      "file": "supabase/migrations/20261113135403_trade_in_manual_settlement_final.sql",
+      "sha256": "435bd6e6624390da3f31640a08935c0bc84d696c8773ffc2a7fa8e4d0a801db8"
+    }
+  ],
+  "postRead": {
+    "deals": 3,
+    "signings": 0,
+    "tradeIns": 0,
+    "payments": 0,
+    "acquisitions": 0,
+    "deliveries": 0,
+    "anonCanPrepareTrade": false,
+    "internalSettlementCallableByAuthenticated": false,
+    "privateTableDirectGrants": 0,
+    "RLS": true,
+    "constraintValidated": true
+  },
+  "securityAdvisors": "same categories and counts as baseline; no new notices",
+  "productionSignJourney": "BLOCKED_NO_AUTHENTICATED_APP_SESSION",
+  "realBankTransfers": 0
+}
