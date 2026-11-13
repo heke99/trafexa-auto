@@ -10,6 +10,6 @@
   "src/lib/documents/contract-pdf.ts": "6d17ba547286dd723b7a31e35a9cd91e6152ef3f06c52b0c1d4283157b9b132d",
   "src/lib/trade-in-acquisition/types.ts": "7df0934f2f31c41692a957ec55db962d5f1f6b054aacd5e997823c9e7153a579",
   "src/lib/trade-in-acquisition/validation.ts": "da80d86c812124bd21ea94178013c37e121fd7ea9284ce7b30c73f9fe94f4529",
-  "supabase/migrations/20261113132901_direct_trade_in_acquisition.sql": "04f2ed7c2e45ed9f1a935467fc9d11e7e91590252c80038a0b32c0e709c547b3",
-  "supabase/migrations/20261113133005_trade_in_manual_settlement_final.sql": "435bd6e6624390da3f31640a08935c0bc84d696c8773ffc2a7fa8e4d0a801db8"
+  "supabase/migrations/20261113135352_direct_trade_in_acquisition.sql": "04f2ed7c2e45ed9f1a935467fc9d11e7e91590252c80038a0b32c0e709c547b3",
+  "supabase/migrations/20261113135403_trade_in_manual_settlement_final.sql": "435bd6e6624390da3f31640a08935c0bc84d696c8773ffc2a7fa8e4d0a801db8"
 }
