@@ -1,0 +1,156 @@
+{
+  "baseCommit": "93a3189e00cba0e4b2e5242a29da4a7d5d2cdfe1",
+  "environment": "local isolated migrated SQL, actual server actions/routes/rendering and Chromium; Auth/SMTP/Storage boundary adapters",
+  "tests": 120,
+  "pass": 120,
+  "fail": 0,
+  "skipped": 0,
+  "cancelled": 0,
+  "suites": [
+    {
+      "evidence": "direct-backend.log",
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "pdf-backend.log",
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "legacy-journey.log",
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "direct-deal-ui-review.log",
+      "tests": 19,
+      "pass": 19,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "direct-deal-journey-review.log",
+      "tests": 2,
+      "pass": 2,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "guest-customer-ui-review.log",
+      "tests": 24,
+      "pass": 24,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "pdf-ui-final.log",
+      "tests": 10,
+      "pass": 10,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "compact.log",
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "delivery.log",
+      "tests": 22,
+      "pass": 22,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    {
+      "evidence": "signing.log",
+      "tests": 9,
+      "pass": 9,
+      "fail": 0,
+      "skipped": 0,
+      "cancelled": 0
+    }
+  ],
+  "actualBuiltNext": {
+    "boundary": "Actual production-built Next, no cookies, isolated fake Supabase config; no external writes",
+    "checks": [
+      {
+        "path": "/pdf-document/10000000-0000-4000-8000-000000000001",
+        "status": 200,
+        "headers": {
+          "x-frame-options": "DENY",
+          "referrer-policy": "no-referrer",
+          "cache-control": "private, no-store, max-age=0",
+          "x-robots-tag": "noindex, nofollow, noarchive",
+          "content-type": "text/html; charset=utf-8"
+        }
+      },
+      {
+        "path": "/pdf-document/invitation",
+        "status": 303,
+        "headers": {
+          "x-frame-options": "DENY",
+          "referrer-policy": "no-referrer",
+          "cache-control": "private, no-store, max-age=0",
+          "x-robots-tag": "noindex, nofollow, noarchive",
+          "content-type": null
+        }
+      },
+      {
+        "path": "/customer-document",
+        "status": 200,
+        "headers": {
+          "x-frame-options": "DENY",
+          "referrer-policy": "no-referrer",
+          "cache-control": "private, no-store, max-age=0",
+          "x-robots-tag": "noindex, nofollow, noarchive",
+          "content-type": "text/html; charset=utf-8"
+        }
+      },
+      {
+        "path": "/login",
+        "status": 200,
+        "headers": {
+          "x-frame-options": "DENY",
+          "referrer-policy": "strict-origin-when-cross-origin",
+          "cache-control": "private, no-store",
+          "x-robots-tag": null,
+          "content-type": "text/html; charset=utf-8"
+        }
+      }
+    ]
+  },
+  "typecheck": "PASS",
+  "productionBuild": "PASS",
+  "externalEmails": 0,
+  "productionMutations": 0,
+  "liveSigning": "BLOCKED_NO_AUTHENTICATED_APP_SESSION",
+  "sourceSha256": {
+    "next.config.ts": "719e0e5e0b2429d827200c7f7b7db943c200ac2d6d43f313331f7d5e17b8cb23",
+    "src/components/direct-deal-form.tsx": "4f534dd5acaa2a87f8b9aac1d6a310a75e34d291f942b6c6bb7c54fcf1457c82",
+    "src/components/guest-customer-document.tsx": "f98cd013eb857a55afcdeb64a10ed2a11edab1aa1ccdad3a571cafe6b3876978",
+    "src/components/uploaded-pdf-guest.tsx": "072648ec1669b021a54ad91b515604d199046623fdecea55752aa391893703a3",
+    "tests/direct-deal-browser-journey.test.mjs": "f9e47778f587806c5f2e5cc4ee27f15a0bb0561491e0cb86599533d0cae14b21",
+    "tests/direct-deal-ui.test.mjs": "728da0e2ef78fa64450e8589a6254a59f194a42074823367be723dc148b95cc3",
+    "tests/guest-customer-ui.test.mjs": "798589c09e32add94d7ba0afceb4d373814893bc5cc4e605c601eade4e90cdee",
+    "tests/helpers/uploaded-pdf-ui/entry.js": "e45fc1572296209cb318f1a37e8948c93c90987eeafaf0d4b3131dd4203f6148",
+    "tests/uploaded-pdf-ui.test.mjs": "cb6991d8ffe1dffe9bdf5fd01cc4c7aa62e9284f7d71e10f0c81cace8c11fb32"
+  }
+}
