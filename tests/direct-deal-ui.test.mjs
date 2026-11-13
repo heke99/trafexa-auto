@@ -31,10 +31,10 @@ async function pageFixture({width=1440,settings={},dealId}={}){
  await page.evaluate(({options,customer,template,C,U,S,D,DRAFT,SIGN,T,settings,snapshot})=>{
   const f=window.fixture={options,customer,template,C,U,S,D,DRAFT,SIGN,T,settings,calls:[],busy:[],prepared:[],completed:[],denied:[],receipts:{},pending:[],writes:0,sends:0};
   f.registryInventory=structuredClone(snapshot.inventory);f.registryCustomers=structuredClone(snapshot.customers);if(settings.beyondSnapshot){f.registryInventory.push({...f.registryInventory[0],id:'a1910000-0000-4000-8000-000000000010',vehicles:{...f.registryInventory[0].vehicles,id:'a1910000-0000-4000-8000-000000000011',registration_number:'BBB222',make:'Beyond',model:'Snapshot'}});f.registryCustomers.push({...f.registryCustomers[0],id:'a1910000-0000-4000-8000-000000000009',name:'Beyond Customer',email:'beyond@example.invalid'});}if(settings.approvedTemplate)f.options.templates=[structuredClone(template)];
-  f.reviewFor=input=>{const c=input.customer??f.customer,stock=f.registryInventory.find(row=>row.id===input.stockItemId)??f.registryInventory[0],source={schema_version:3,company:{id:C,name:'Testhandlare AB',organisation_number:'5568554884'},customer:{...c,id:input.customerId??f.customer.id},vehicle:{registration_number:stock.vehicles.registration_number,make:stock.vehicles.make,model:stock.vehicles.model},stock:{id:input.stockItemId,vat_scheme:'standard'},deal_id:input.dealId??D,sale_price_ore:'15900000',version:1};return{companyId:C,dealId:input.dealId??D,requestId:input.requestId,reviewHash:'a'.repeat(64),customerVersion:8,renderedTerms:'Det överenskomna priset är 159 000 kr. Kunden får signera detta avtal.',templateApprovalRequired:input.templateVersionId===null,draft:{id:DRAFT,companyId:C,dealId:input.dealId??D,version:1,offerId:D,offerVersion:1,sourceOffer:source,template:{...template,id:input.templateVersionId??T,title:input.templateVersionId===null?'Trafexa-grundavtal':'Godkänd köpmall'},createdAt:'2026-11-13T00:00:00Z',actorLabel:'Du'}};};
+  f.reviewFor=input=>{const c=input.customer??f.customer,stock=f.registryInventory.find(row=>row.id===input.stockItemId)??f.registryInventory[0],source={schema_version:3,company:{id:C,name:'Testhandlare AB',organisation_number:'5568554884'},customer:{...c,id:input.customerId??f.customer.id},vehicle:{registration_number:stock.vehicles.registration_number,make:stock.vehicles.make,model:stock.vehicles.model},stock:{id:input.stockItemId,vat_scheme:'standard'},deal_id:input.dealId??D,sale_price_ore:'15900000',version:1};return{companyId:C,dealId:input.dealId??D,requestId:input.requestId,reviewHash:'a'.repeat(64),customerVersion:8,renderedTerms:'Det överenskomna priset är 159 000 kr. Kunden får signera detta avtal.',templateApprovalRequired:input.templateVersionId===null,draft:{...(input.customer?.identityNumber?{customerIdentity:{kind:input.customer.kind,number:input.customer.identityNumber}}:{}),id:DRAFT,companyId:C,dealId:input.dealId??D,version:1,offerId:D,offerVersion:1,sourceOffer:source,template:{...template,id:input.templateVersionId??T,title:input.templateVersionId===null?'Trafexa-grundavtal':'Godkänd köpmall'},createdAt:'2026-11-13T00:00:00Z',actorLabel:'Du'}};};
   f.call=async(kind,input)=>{f.calls.push({kind,input:structuredClone(input)});
    if(kind==='search'){const all=input.kind==='inventory'?f.registryInventory:f.registryCustomers,term=input.query.toLowerCase(),rows=all.filter(row=>JSON.stringify(row).toLowerCase().includes(term));return{ok:true,page:{companyId:C,actorId:U,role:f.settings.role??'owner',kind:input.kind,totalCount:all.length,filteredCount:rows.length,nextCursor:null,rows:structuredClone(rows.slice(0,50)),selected:structuredClone(all.find(row=>row.id===input.selectedId)??null)}};}
-   if(kind==='options'){if(f.settings.readDenied)return{ok:false,code:'access_denied',message:'Åtkomsten har återkallats.'};return{ok:true,...structuredClone(f.options),...(input.customerId?{customer:{...structuredClone(f.registryCustomers.find(row=>row.id===input.customerId)??f.customer),identityPresent:true,version:8}}:{})};}
+   if(kind==='options'){if(f.settings.readDenied)return{ok:false,code:'access_denied',message:'Åtkomsten har återkallats.'};return{ok:true,...structuredClone(f.options),...(input.customerId?{customer:{...structuredClone(f.registryCustomers.find(row=>row.id===input.customerId)??f.customer),identityPresent:!f.settings.identityMissing,version:8}}:{})};}
    if(kind==='prepare'){
     if(f.settings.prepareDenied)return{ok:false,code:'access_denied',message:'Åtkomsten har återkallats.'};
     if(f.settings.invalidInput)return{ok:false,code:'invalid_input',message:'Kontrollera kundens personnummer.'};
@@ -74,3 +74,60 @@ test('status refresh shows customer completion and the actual signed PDF and evi
 test('a sales actor can prepare the deal but receives no seller approval or sending controls',async()=>{const{page,context}=await pageFixture({settings:{role:'sales'}});try{await fillNew(page);await page.getByRole('button',{name:'Skapa affär'}).click();await expect(page.getByRole('heading',{name:'Affären är sparad'})).toBeVisible();await expect(page.getByText('Företagets ägare eller administratör kan godkänna och skicka avtalet.')).toBeVisible();await expect(page.getByRole('button',{name:'Godkänn och skicka avtal'})).toHaveCount(0);await expect(page.getByLabel('Ditt fullständiga namn')).toHaveCount(0);assert.equal((await calls(page)).filter(c=>c.kind==='prepare').length,1);assert.equal((await calls(page)).filter(c=>c.kind==='send').length,0);}finally{await context.close();}});
 
 test('a signing that becomes unavailable is never displayed as waiting for a customer signature',async()=>{const{page,context}=await pageFixture();try{await fillNew(page);await page.getByRole('button',{name:'Skapa affär'}).click();await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Godkänn och skicka avtal'}).click();await expect(page.getByRole('heading',{name:'Avtalet är skickat'})).toBeVisible();await page.evaluate(()=>window.fixture.options.signing.status='unavailable');await page.getByRole('button',{name:'Uppdatera status',exact:true}).click();await expect(page.getByRole('heading',{name:'Avtalet kan inte signeras'})).toBeVisible();await expect(page.getByRole('heading',{name:'Avtalet väntar på kundens underskrift'})).toHaveCount(0);await expect(page.getByRole('link',{name:'Hämta signerat avtal'})).toHaveCount(0);assert.equal((await calls(page)).filter(c=>c.kind==='send').length,1);}finally{await context.close();}});
+
+for(const width of [320,1440])test(`return from review retains staged customer details, identity and usable basic template at ${width}px`,async()=>{
+ const {page,context}=await pageFixture({width});
+ try{
+  await page.getByRole('button',{name:'Befintlig kund',exact:true}).click();
+  await page.getByRole('combobox',{name:'Kund',exact:true}).selectOption(CUSTOMER);
+  await expect(page.getByLabel('Fullständigt namn',{exact:true})).toHaveValue('Sparad kund');
+  await page.getByRole('combobox',{name:'Bil',exact:true}).selectOption(S);
+  await page.getByLabel('Fullständigt namn',{exact:true}).fill('Uppdaterad kund');
+  await page.getByLabel('Mejladress',{exact:true}).fill('changed@example.invalid');
+  await page.getByLabel('Telefonnummer',{exact:true}).fill('0709999999');
+  await page.getByLabel(/Personnummer/).fill('19900101-0017');
+  await page.getByRole('button',{name:'Skapa affär',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Granska och skicka avtalet'})).toBeVisible();
+  const reads=(await calls(page)).filter(row=>row.kind==='options').length;
+  await page.getByRole('button',{name:'Tillbaka och ändra',exact:true}).click();
+  await expect(page.getByLabel('Fullständigt namn',{exact:true})).toHaveValue('Uppdaterad kund');
+  await expect(page.getByLabel('Mejladress',{exact:true})).toHaveValue('changed@example.invalid');
+  await expect(page.getByLabel('Telefonnummer',{exact:true})).toHaveValue('0709999999');
+  await expect(page.getByLabel(/Personnummer/)).toHaveValue('19900101-0017');
+  await expect(page.getByRole('combobox',{name:'Avtalsmall',exact:true})).toHaveValue('__trafexa_base__');
+  await page.getByLabel('Överenskommet pris, kr',{exact:true}).fill('158000,29');
+  await page.getByRole('button',{name:'Granska avtalet',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Granska och skicka avtalet'})).toBeFocused();
+  const attempts=(await calls(page)).filter(row=>row.kind==='prepare');
+  assert.equal(attempts.length,2);assert.equal(attempts[1].input.dealId,D);
+  assert.equal(attempts[1].input.expectedCustomerVersion,8);
+  assert.deepEqual(attempts[1].input.customer,attempts[0].input.customer);
+  assert.equal(attempts[1].input.agreedPrice,'158000,29');
+  assert.equal(attempts[1].input.templateVersionId,null);
+  assert.notEqual(attempts[1].input.requestId,attempts[0].input.requestId);
+  assert.equal((await calls(page)).filter(row=>row.kind==='options').length,reads);
+  assert.equal((await calls(page)).filter(row=>row.kind==='send').length,0);
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ }finally{await context.close();}
+});
+
+test('a staged identity is still required after returning from review when it has not been saved on the customer',async()=>{
+ const {page,context}=await pageFixture({settings:{identityMissing:true}});
+ try{
+  await page.getByRole('button',{name:'Befintlig kund',exact:true}).click();
+  await page.getByRole('combobox',{name:'Kund',exact:true}).selectOption(CUSTOMER);
+  await expect(page.getByLabel('Fullständigt namn',{exact:true})).toHaveValue('Sparad kund');
+  await page.getByRole('combobox',{name:'Bil',exact:true}).selectOption(S);
+  await page.getByLabel('Personnummer',{exact:true}).fill('19900101-0017');
+  await page.getByRole('button',{name:'Skapa affär',exact:true}).click();
+  await page.getByRole('button',{name:'Tillbaka och ändra',exact:true}).click();
+  const identity=page.getByLabel('Personnummer',{exact:true});
+  await expect(identity).toHaveValue('19900101-0017');
+  await expect(identity).toHaveAttribute('required','');
+  await identity.fill('');
+  await page.getByRole('button',{name:'Granska avtalet',exact:true}).click();
+  assert.equal((await calls(page)).filter(row=>row.kind==='prepare').length,1);
+  assert.equal(await identity.evaluate(input=>input.validity.valueMissing),true);
+  await expect(page.getByText('Redan registrerat',{exact:false})).toHaveCount(0);
+ }finally{await context.close();}
+});

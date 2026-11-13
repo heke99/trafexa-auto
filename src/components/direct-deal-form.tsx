@@ -103,7 +103,16 @@ function ScopedDirectDealForm({snapshot,companyId,dealId,demo=false,onBusyChange
   }catch{if(alive.current){setUnknown('send');setError('Utskickets resultat kunde inte bekräftas. Kontrollera samma begäran; skapa inte ett nytt avtal.');}}
   finally{busy.report(false);}
  }
- function back(){if(!review||busy.busyRef.current||unknown)return;const source=review.draft.sourceOffer;setFields(current=>({...current,stockItemId:source.stock.id,customerMode:'existing',customerId:source.customer.id,name:source.customer.name,kind:source.customer.kind,email:source.customer.email??'',phone:source.customer.phone??'',address:source.customer.address??'',identityNumber:review.draft.customerIdentity?.number??current.identityNumber,agreedPrice:kronor(source.sale_price_ore),templateVersionId:review.draft.template.id}));setReview(null);setAck(false);setError('');prepareAttempt.current=null;void load(source.customer.id);}
+ function back(){
+  if(!review||busy.busyRef.current||unknown)return;
+  const source=review.draft.sourceOffer;
+  // Keep the exact reviewed customer/version. A fresh register read would overwrite
+  // staged contact edits and erase the identity before the seller can amend them.
+  // prepare still verifies customerVersion on the server before another review.
+  setCustomer({id:source.customer.id,version:review.customerVersion,identityPresent:customer?.id===source.customer.id&&customer.kind===source.customer.kind?customer.identityPresent:options?.deal?.customer.id===source.customer.id&&options.deal.customer.kind===source.customer.kind?options.deal.customer.identityPresent:false,name:source.customer.name,kind:source.customer.kind,email:source.customer.email??'',phone:source.customer.phone??'',address:source.customer.address??''});
+  setFields(current=>({...current,stockItemId:source.stock.id,customerMode:'existing',customerId:source.customer.id,name:source.customer.name,kind:source.customer.kind,email:source.customer.email??'',phone:source.customer.phone??'',address:source.customer.address??'',identityNumber:review.draft.customerIdentity?.number??current.identityNumber,agreedPrice:kronor(source.sale_price_ore),templateVersionId:options?.templates.some(row=>row.id===review.draft.template.id)?review.draft.template.id:BASE_TEMPLATE}));
+  setReview(null);setAck(false);setError('');prepareAttempt.current=null;
+ }
  const disabled=demo||busy.busy||loading||denied||unknown!==null||needsRefresh;
  const identityRequired=fields.customerMode==='new'||customer?.identityPresent===false||!!customer&&customer.kind!==fields.kind;
  const vehicle=pickedStock??snapshot.inventory.find(row=>row.id===fields.stockItemId);
