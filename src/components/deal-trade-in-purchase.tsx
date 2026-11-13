@@ -3,9 +3,10 @@
 import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from 'react';
 import { getTradeInAcquisitionAction, recordTradeInAcquisitionAction } from '@/lib/data/trade-in-acquisition-actions';
 import { TRADE_IN_ACQUISITION_ATTESTATION_VERSION, type RecordTradeInAcquisitionInput, type TradeInAcquisition, type TradeInAcquisitionPage, type TradeInAcquisitionReceipt, type TradeInAcquisitionReason, type TradeInAcquisitionSource } from '@/lib/trade-in-acquisition/types';
+import {useDescendantBusy} from './use-descendant-busy';
 import { formatOre, kronorToOre } from '@/lib/calculations/vehicle-calculation';
 
-export type DealTradeInPurchaseProps = { companyId: string; dealId: string; userId: string; role: string; demo?: boolean };
+export type DealTradeInPurchaseProps = { companyId: string; dealId: string; userId: string; role: string; demo?: boolean;onBusyChange?:(busy:boolean)=>void;onAccessDenied?:(message:string)=>void };
 type Draft = {
   acquiredOn: string; purchaseAgreementReference: string; debtAmount: string; debtConfirmedOn: string; debtEvidenceReference: string;
   fuel: '' | TradeInAcquisition['fuel']; gearbox: '' | TradeInAcquisition['gearbox']; askingPrice: string;
@@ -18,8 +19,8 @@ const sameId = (left: string, right: string) => left.toLowerCase() === right.toL
 const fuelLabels = { petrol: 'Bensin', diesel: 'Diesel', electric: 'El', hybrid: 'Hybrid', other: 'Annat' };
 const gearboxLabels = { automatic: 'Automat', manual: 'Manuell' };
 const reasonLabels: Record<TradeInAcquisitionReason, string> = {
-  no_accepted_trade_in: 'Affären behöver en accepterad offertversion med ett fryst inbytesunderlag.',
-  contract_incomplete: 'Försäljningsavtalet för exakt den accepterade offerten måste vara färdigsignerat av båda parter.',
+  no_accepted_trade_in: 'Affären behöver ett fryst inbytesunderlag i försäljningsavtalet.',
+  contract_incomplete: 'Försäljningsavtalet med exakt det frysta inbytesunderlaget måste vara färdigsignerat av båda parter.',
   deal_unavailable: 'Affärens aktuella status tillåter inte ett nytt inbytesköp.',
   vehicle_exists: 'Registreringsnumret finns redan i företagets fordonsregister, även om bilen är historisk. Ett nytt lagerintag kan inte registreras här.',
   already_acquired: 'Inbytesköpet och lagerintaget har redan registrerats.',
@@ -30,8 +31,8 @@ export function DealTradeInPurchase(props: DealTradeInPurchaseProps) {
   return <PurchasePanel key={`${props.companyId}:${props.userId}:${props.role}:${props.dealId}:${!!props.demo}`} {...props} />;
 }
 
-function PurchasePanel({ companyId, dealId, userId, role, demo = false }: DealTradeInPurchaseProps) {
-  const field = useId();
+function PurchasePanel({ companyId, dealId, userId, role, demo = false,onBusyChange,onAccessDenied }: DealTradeInPurchaseProps) {
+  const field = useId(),parentBusy=useDescendantBusy(onBusyChange);
   const [phase, setPhase] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [page, setPage] = useState<TradeInAcquisitionPage | null>(null);
   const [draft, setDraft] = useState<Draft>(blank);
@@ -62,12 +63,13 @@ function PurchasePanel({ companyId, dealId, userId, role, demo = false }: DealTr
   function matchesSource(value: TradeInAcquisitionSource) {
     return sameId(value.companyId, companyId) && sameId(value.dealId, dealId) && sameId(value.offerSnapshot.company.id, companyId) && sameId(value.offerSnapshot.deal_id, dealId) && value.offerVersion === value.offerSnapshot.version && sameId(value.tradeInId, value.offerSnapshot.trade_in.id) && value.tradeInVersion === value.offerSnapshot.trade_in.version && sameId(value.sellerCustomerId, value.offerSnapshot.customer.id) && value.signingRevision === 3;
   }
-  function clearPrivate() {
+  function clearPrivate(message='Inbytesköpets behörighet eller underlag kunde inte verifieras.') {
+    onAccessDenied?.(message);
     setPage(null); setReceipt(null); setDraft(blank()); setReview(null); setAcknowledged(false); previousSource.current = null; retries.current.clear(); setPhase('error');
   }
   function refresh() {
     if (demo || locked.current) return;
-    locked.current = true;
+    locked.current = true;parentBusy.report(true);
     const token = ++sequence.current;
     setPhase('loading'); setReadError('');
     startAction(async () => {
@@ -75,7 +77,7 @@ function PurchasePanel({ companyId, dealId, userId, role, demo = false }: DealTr
         const result = await getTradeInAcquisitionAction({ companyId, dealId });
         if (!alive.current || token !== sequence.current) return;
         if (!result.ok) {
-          if (['access_denied', 'unauthenticated'].includes(result.code)) clearPrivate();
+          if (['access_denied', 'unauthenticated'].includes(result.code)) clearPrivate(result.error);
           else { setPhase('error'); setPage(null); setReceipt(null); }
           setReadError(result.error); return;
         }
@@ -92,7 +94,7 @@ function PurchasePanel({ companyId, dealId, userId, role, demo = false }: DealTr
         if (result.acquisition) { setReview(null); setAcknowledged(false); retries.current.clear(); setWriteError(''); }
       } catch {
         if (alive.current && token === sequence.current) { setPage(null); setReceipt(null); setPhase('error'); setReadError('Inbytesköpets underlag kunde inte hämtas. Dina inmatade uppgifter finns kvar. Försök igen.'); }
-      } finally { locked.current = false; }
+      } finally { locked.current = false;parentBusy.report(false); }
     });
   }
 
@@ -113,7 +115,7 @@ function PurchasePanel({ companyId, dealId, userId, role, demo = false }: DealTr
 
   function matchesReceipt(result: TradeInAcquisitionReceipt, confirmed: Review, requestId: string) {
     const value = result.acquisition, input = confirmed.input;
-    return matchesScope(result) && sameId(result.requestId, requestId) && sameId(value.companyId, companyId) && sameId(value.dealId, dealId) && matchesSource(value.source) && value.source.sourceSha256 === input.expectedSourceSha256 && value.source.signingDocumentSha256 === confirmed.source.signingDocumentSha256 && sameId(value.source.signingId, confirmed.source.signingId) && sameId(value.source.offerId, confirmed.source.offerId) && value.purchasePriceOre === confirmed.source.offerSnapshot.trade_in.value_ore && value.vatScheme === 'unknown' && value.actorLabel === 'Du' && value.attestationVersion === input.attestationVersion && (['acquiredOn', 'purchaseAgreementReference', 'debtConfirmedOre', 'debtConfirmedOn', 'debtEvidenceReference', 'fuel', 'gearbox', 'askingPriceOre'] as const).every(key => value[key] === input[key]);
+    return matchesScope(result) && sameId(result.requestId, requestId) && sameId(value.companyId, companyId) && sameId(value.dealId, dealId) && matchesSource(value.source) && value.source.sourceSha256 === input.expectedSourceSha256 && value.source.signingDocumentSha256 === confirmed.source.signingDocumentSha256 && sameId(value.source.signingId, confirmed.source.signingId) && (value.source.sourceKind==='direct_deal'&&confirmed.source.sourceKind==='direct_deal'?sameId(value.source.draftId??'',confirmed.source.draftId??''):sameId(value.source.offerId??'', confirmed.source.offerId??'')) && value.purchasePriceOre === confirmed.source.offerSnapshot.trade_in.value_ore && value.vatScheme === 'unknown' && value.actorLabel === 'Du' && value.attestationVersion === input.attestationVersion && (['acquiredOn', 'purchaseAgreementReference', 'debtConfirmedOre', 'debtConfirmedOn', 'debtEvidenceReference', 'fuel', 'gearbox', 'askingPriceOre'] as const).every(key => value[key] === input[key]);
   }
   function confirm() {
     if (!review || !acknowledged || !canWrite || locked.current || acquisition) return;
@@ -126,7 +128,7 @@ function PurchasePanel({ companyId, dealId, userId, role, demo = false }: DealTr
       retries.current.set(fingerprint, requestId);
     }
     const nonce = requestId;
-    locked.current = true;
+    locked.current = true;parentBusy.report(true);
     const token = ++sequence.current;
     setWriting(true); setWriteError('');
     startAction(async () => {
@@ -134,7 +136,7 @@ function PurchasePanel({ companyId, dealId, userId, role, demo = false }: DealTr
         const result = await recordTradeInAcquisitionAction({ ...values, requestId: nonce });
         if (!alive.current || token !== sequence.current) return;
         if (!result.ok) {
-          if (['access_denied', 'unauthenticated'].includes(result.code)) clearPrivate();
+          if (['access_denied', 'unauthenticated'].includes(result.code)) clearPrivate(result.error);
           else if (result.code === 'conflict') { setReview(null); setAcknowledged(false); setPage(null); setPhase('error'); setReadError('Kontrollera aktuell inköpsstatus innan du granskar uppgifterna igen.'); setDraft(current => ({ ...current, purchaseConfirmed: false, receivedConfirmed: false, debtConfirmed: false })); }
           setWriteError(result.error); return;
         }
@@ -142,7 +144,7 @@ function PurchasePanel({ companyId, dealId, userId, role, demo = false }: DealTr
         retries.current.delete(fingerprint); setReceipt(result.acquisition); setReview(null); setAcknowledged(false);
       } catch {
         if (alive.current && token === sequence.current) setWriteError('Inköpet och lagerintaget kunde inte bekräftas. Försök igen med samma granskade uppgifter och begäran, eller kontrollera aktuell status.');
-      } finally { locked.current = false; if (alive.current && token === sequence.current) setWriting(false); }
+      } finally { locked.current = false;parentBusy.report(false); if (alive.current && token === sequence.current) setWriting(false); }
     });
   }
 
@@ -150,7 +152,7 @@ function PurchasePanel({ companyId, dealId, userId, role, demo = false }: DealTr
     <summary>Inbytesköp &amp; lagerintag</summary>
     <section aria-labelledby={`${field}-title`} style={{ paddingTop: 16, minWidth: 0, overflowWrap: 'anywhere' }}>
       <h3 id={`${field}-title`}>Registrera faktiskt inbytesköp</h3>
-      <p className="muted">Inköp och lagerintag är ett separat steg efter accepterad offert och färdigsignerat försäljningsavtal. Referera ett separat, verifierat inköpsavtal. Ingen betalning, skuldlösen eller extern ägarregistrering genomförs här.</p>
+      <p className="muted">Inköp och lagerintag är ett separat steg efter färdigsignerat försäljningsavtal med inbyte. Referera ett separat, verifierat inköpsavtal. Ingen betalning, skuldlösen eller extern ägarregistrering genomförs här.</p>
       {demo ? <p className="inline-note">Demonstration i läsläge. Inga inköpsuppgifter hämtas och inget lagerintag registreras.</p> : null}
       {phase === 'loading' ? <p role="status">Hämtar verifierat underlag för inbytesköpet…</p> : null}
       {writing ? <p role="status">Registrerar inbytesköp och lagerintag…</p> : null}
@@ -172,7 +174,7 @@ function PurchasePanel({ companyId, dealId, userId, role, demo = false }: DealTr
         <Attestation checked={draft.debtConfirmed} disabled={busy} onChange={value => change('debtConfirmed', value)}>Jag har stämt av skuldbeloppet mot underlaget för angivet datum, även om beloppet är 0 kr.</Attestation>
         <button type="submit" className="button button-green" disabled={busy || !draft.purchaseConfirmed || !draft.receivedConfirmed || !draft.debtConfirmed}>Granska inbytesköp och lagerintag</button>
       </form> : null}
-      {review && !acquisition ? <section aria-labelledby={`${field}-review`} className="workspace-form surface" style={{ padding: 18, marginTop: 18, minWidth: 0 }}><h4 id={`${field}-review`} ref={heading} tabIndex={-1}>Granska faktiskt inbytesköp och lagerintag</h4><FrozenSource source={review.source}/><p>Inköpsdatum: {review.input.acquiredOn}<br/>Verifierad extern inköpsavtalsreferens: {review.input.purchaseAgreementReference}<br/>Avstämd skuld: {formatOre(review.input.debtConfirmedOre)}<br/>Skuldavstämning: {review.input.debtConfirmedOn} · {review.input.debtEvidenceReference}<br/>Drivmedel: {fuelLabels[review.input.fuel]} · Växellåda: {gearboxLabels[review.input.gearbox]}<br/>Utpris inklusive eventuell moms: {formatOre(review.input.askingPriceOre)}</p><p>Du har intygat genomfört köp och kontrollerad rätt att sälja, mottagen bil samt avstämd skuld. Lagerstatus blir Tillgänglig och momsmodellen Ej klassificerad. Skulden minskar inte det registrerade inköpspriset.</p><Attestation checked={acknowledged} disabled={busy} onChange={setAcknowledged}>Jag har granskat exakt offert, signerat försäljningsavtal, externt inköpsavtal, intyg, skuld och lageruppgifter. Jag vill registrera det faktiska inbytesköpet och lagerintaget.</Attestation><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><button type="button" className="button button-green" disabled={busy || !acknowledged} onClick={confirm}>Bekräfta faktiskt inbytesköp och lagerintag</button><button type="button" className="button button-outline" disabled={busy} onClick={() => { setReview(null); setAcknowledged(false); }}>Tillbaka och ändra</button></div></section> : null}
+      {review && !acquisition ? <section aria-labelledby={`${field}-review`} className="workspace-form surface" style={{ padding: 18, marginTop: 18, minWidth: 0 }}><h4 id={`${field}-review`} ref={heading} tabIndex={-1}>Granska faktiskt inbytesköp och lagerintag</h4><FrozenSource source={review.source}/><p>Inköpsdatum: {review.input.acquiredOn}<br/>Verifierad extern inköpsavtalsreferens: {review.input.purchaseAgreementReference}<br/>Avstämd skuld: {formatOre(review.input.debtConfirmedOre)}<br/>Skuldavstämning: {review.input.debtConfirmedOn} · {review.input.debtEvidenceReference}<br/>Drivmedel: {fuelLabels[review.input.fuel]} · Växellåda: {gearboxLabels[review.input.gearbox]}<br/>Utpris inklusive eventuell moms: {formatOre(review.input.askingPriceOre)}</p><p>Du har intygat genomfört köp och kontrollerad rätt att sälja, mottagen bil samt avstämd skuld. Lagerstatus blir Tillgänglig och momsmodellen Ej klassificerad. Skulden minskar inte det registrerade inköpspriset.</p><Attestation checked={acknowledged} disabled={busy} onChange={setAcknowledged}>{review.source.sourceKind==='direct_deal'?'Jag har granskat exakt avtalsunderlag, signerat försäljningsavtal, inköpsavtal, intyg, skuld och lageruppgifter. Jag vill registrera det faktiska inbytesköpet och lagerintaget.':'Jag har granskat exakt offert, signerat försäljningsavtal, externt inköpsavtal, intyg, skuld och lageruppgifter. Jag vill registrera det faktiska inbytesköpet och lagerintaget.'}</Attestation><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><button type="button" className="button button-green" disabled={busy || !acknowledged} onClick={confirm}>Bekräfta faktiskt inbytesköp och lagerintag</button><button type="button" className="button button-outline" disabled={busy} onClick={() => { setReview(null); setAcknowledged(false); }}>Tillbaka och ändra</button></div></section> : null}
       {!demo && phase !== 'idle' ? <button type="button" className="button button-outline" style={{ marginTop: 16 }} disabled={busy} onClick={refresh}>Kontrollera inköpsstatus</button> : null}
     </section>
   </details>;
@@ -183,7 +185,7 @@ function Attestation({ checked, disabled, onChange, children }: { checked: boole
 }
 function FrozenSource({ source }: { source: TradeInAcquisitionSource }) {
   const offer = source.offerSnapshot, trade = offer.trade_in;
-  return <div style={{ minWidth: 0, marginBlock: 16 }}><p><strong>{trade.registration} · {trade.make} {trade.model}</strong><br/>Modellår {trade.model_year} · {trade.mileage_km.toLocaleString('sv-SE')} km<br/>Säljare enligt den frysta offerten: {offer.customer.name}<br/>Accepterad offertversion {source.offerVersion} · Inbytesversion {source.tradeInVersion}<br/>Färdigsignerat försäljningsavtal · Revision {source.signingRevision}</p><p>Inköpspris för lagerintaget, hela inbytesvärdet: <strong>{formatOre(trade.value_ore)}</strong><br/>Skuld i det frysta underlaget: {formatOre(trade.debt_ore)}</p><p className="form-note">Signerat dokuments SHA-256: <span style={{ wordBreak: 'break-all' }}>{source.signingDocumentSha256}</span></p></div>;
+  return <div style={{ minWidth: 0, marginBlock: 16 }}><p><strong>{trade.registration} · {trade.make} {trade.model}</strong><br/>Modellår {trade.model_year} · {trade.mileage_km.toLocaleString('sv-SE')} km<br/>Säljare enligt det signerade underlaget: {offer.customer.name}<br/>{source.sourceKind==='direct_deal'?`Direktavtal, version ${source.offerVersion}`:`Accepterad offertversion ${source.offerVersion}`} · Inbytesversion {source.tradeInVersion}<br/>Färdigsignerat försäljningsavtal · Revision {source.signingRevision}</p><p>Inköpspris för lagerintaget, hela inbytesvärdet: <strong>{formatOre(trade.value_ore)}</strong><br/>Skuld i det frysta underlaget: {formatOre(trade.debt_ore)}</p><p className="form-note">Signerat dokuments SHA-256: <span style={{ wordBreak: 'break-all' }}>{source.signingDocumentSha256}</span></p></div>;
 }
 function ReceiptFields({ acquisition }: { acquisition: TradeInAcquisition }) {
   return <p>Inköpsdatum: {acquisition.acquiredOn}<br/>Inköpsavtalsreferens: {acquisition.purchaseAgreementReference}<br/>Avstämd skuld: {formatOre(acquisition.debtConfirmedOre)} · {acquisition.debtConfirmedOn}<br/>Skuldunderlag: {acquisition.debtEvidenceReference}<br/>Inköpspris vid intag: {formatOre(acquisition.purchasePriceOre)}<br/>Utpris vid intag inklusive eventuell moms: {formatOre(acquisition.askingPriceOre)}<br/>Drivmedel: {fuelLabels[acquisition.fuel]} · Växellåda: {gearboxLabels[acquisition.gearbox]}<br/>Registrerat {new Date(acquisition.createdAt).toLocaleString('sv-SE', { timeZone: 'Europe/Stockholm' })} · {acquisition.actorLabel}</p>;

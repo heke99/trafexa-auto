@@ -1,0 +1,14 @@
+{
+  "result": "PASS",
+  "tests": 2,
+  "engine": "PostgreSQL 17.12 (Debian 17.12-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+  "network": "none",
+  "realLockWaits": true,
+  "syntheticOnly": true,
+  "bankTransfers": false,
+  "storage": "local catalog adapter",
+  "cases": [
+    "concurrent category payments serialize and stale CAS rejects second",
+    "concurrent delivery after exact payout+physical acquisition records one delivery"
+  ]
+}

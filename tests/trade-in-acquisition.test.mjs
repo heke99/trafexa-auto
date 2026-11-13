@@ -154,3 +154,4 @@ test('read action returns the full verified scope envelope and refuses stale rol
     assert.equal((await actions.getTradeInAcquisitionAction({ companyId, dealId })).ok, false);
   }
 });
+test('direct acquisition explicitly binds a real draft and no offer, while legacy source remains unchanged',()=>{const legacy=source(),direct={...legacy,sourceKind:'direct_deal',draftId:id(20),offerId:null};assert.deepEqual(validation.parseTradeInAcquisitionSource(direct,scope),direct);assert.deepEqual(validation.parseTradeInAcquisitionSource(legacy,scope),legacy);for(const patch of[{offerId:id(5)},{sourceKind:'accepted_offer'},{draftId:null}])assert.throws(()=>validation.parseTradeInAcquisitionSource({...direct,...patch},scope));for(const key of['sourceKind','draftId']){const bad={...direct};delete bad[key];assert.throws(()=>validation.parseTradeInAcquisitionSource(bad,scope));}});

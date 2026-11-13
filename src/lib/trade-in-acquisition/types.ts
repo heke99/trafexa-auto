@@ -4,7 +4,7 @@ export const TRADE_IN_ACQUISITION_ATTESTATION_VERSION = '2026-10-15' as const;
 export type TradeInAcquisitionRole = 'owner' | 'admin' | 'finance';
 export type TradeInAcquisitionReason = 'no_accepted_trade_in' | 'contract_incomplete' | 'deal_unavailable' | 'vehicle_exists' | 'already_acquired';
 export type TradeInAcquisitionSource = {
-  companyId: string; dealId: string; offerId: string; offerVersion: number; tradeInId: string; tradeInVersion: number;
+  companyId: string; dealId: string; offerId: string|null; sourceKind?:'direct_deal'; draftId?:string; offerVersion: number; tradeInId: string; tradeInVersion: number;
   sellerCustomerId: string; signingId: string; signingDocumentSha256: string; signingRevision: 3;
   offerSnapshot: OfferSnapshot & { trade_in: NonNullable<OfferSnapshot['trade_in']> };
   sourceSha256: string;
