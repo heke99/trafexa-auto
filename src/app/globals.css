@@ -312,3 +312,8 @@
 .contract-delivery-compact{padding:14px 16px}.contract-delivery-compact .contract-delivery-heading{align-items:center;margin-bottom:0}.contract-delivery-compact .contract-delivery-heading h5{font-size:12px;font-weight:500;color:#61735c}.contract-delivery-compact .contract-delivery-status{font-size:14px;margin-top:4px}.contract-delivery-compact .contract-delivery-recipient{font-size:13px;color:#61735c;overflow-wrap:anywhere}.contract-delivery-details{margin-top:12px;font-size:12px;line-height:1.65}.contract-delivery-details>summary{min-height:36px;cursor:pointer;color:#46623b}.contract-delivery-details>.button{margin-top:12px;min-height:44px}.contract-delivery-compact .contract-delivery-heading button{font-size:12px;min-height:44px}
 .compact-deal-actions .button{font-size:13px}
 @media(max-width:600px){.compact-deal-price{max-width:140px;white-space:normal;overflow-wrap:anywhere;text-align:right}}
+
+/* Administration header: navigation stays reachable on narrow screens. */
+.admin-header{height:auto;min-height:108px;flex-wrap:wrap;gap:12px 24px;padding-block:16px}
+.admin-header .nav-login{flex-wrap:wrap;gap:8px 14px;max-width:100%}
+.admin-header .nav-login .text-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;white-space:normal}

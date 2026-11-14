@@ -14,7 +14,9 @@ const failureMessages: Record<string, string> = {
   unavailable: 'Godkännandet kunde inte slutföras. Försök igen med samma granskning.',
 };
 
-export function PlatformApplicationInvitation({ application, actorUserId, disabled = false, onAccessDenied, onComplete, onBusyChange }: {
+export function PlatformApplicationInvitation(props:Parameters<typeof ApplicationInvitationPanel>[0]){return <ApplicationInvitationPanel key={`${props.actorUserId}:${props.application.id}:${props.application.version}`} {...props}/>;}
+
+function ApplicationInvitationPanel({ application, actorUserId, disabled = false, onAccessDenied, onComplete, onBusyChange }: {
   application: PlatformContact;
   actorUserId: string;
   disabled?: boolean;
@@ -39,7 +41,10 @@ export function PlatformApplicationInvitation({ application, actorUserId, disabl
   useEffect(() => { if (renewReview) renewHeading.current?.focus(); }, [renewReview]);
   const loadedDeliveryId = useRef<string | null>(null);
   const renewIntent = useRef<{ fingerprint: string; requestId: string } | null>(null);
-  const busy = useRef(false);
+  const busy = useRef(false),running=useRef(false),uncertainRef=useRef(false),retryMutation=useRef<null|(()=>void)>(null);
+  const [uncertain,setUncertain]=useState(false),[denied,setDenied]=useState(false);
+  const alert=useRef<HTMLParagraphElement>(null),reviewHeading=useRef<HTMLHeadingElement>(null);
+  useEffect(()=>{if(error)alert.current?.focus();},[error]);useEffect(()=>{if(reviewing)reviewHeading.current?.focus();},[reviewing]);
   const callbacks = useRef({ onAccessDenied, onBusyChange });
   callbacks.current = { onAccessDenied, onBusyChange };
   const [pending, startTransition] = useTransition();
@@ -54,14 +59,16 @@ export function PlatformApplicationInvitation({ application, actorUserId, disabl
   const correctReview = applicationEligible && applicationCurrent && (!invitation || invitation.actorUserId === actorUserId && (invitation.applicationVersion === application.version || !!invitation.userId || lifecycle.delivery.canRetry));
   const canRenew = correctReview && lifecycle?.applicationVersion === application.version && lifecycle.canRenew;
   const deliveryBlocksSend = !correctReview || !!invitation && !lifecycle?.delivery.canRetry;
+  function deny(){uncertainRef.current=false;setUncertain(false);setDenied(true);setSnapshot(null);setReady(false);setReason('');setRenewReason('');setReviewing(false);setRenewReview(false);setAcknowledged(false);setRenewAcknowledged(false);intent.current=null;renewIntent.current=null;retryMutation.current=null;callbacks.current.onAccessDenied();}
   function applySnapshot(result: Awaited<ReturnType<typeof getPlatformApplicationInvitationAction>>) {
     setSnapshot(result);
     if (!result.ok) {
       setReady(false); setFinished(true);
       setError(result.code === 'access_denied' ? failureMessages.forbidden : 'Kontoinbjudans status kunde inte läsas in. Kontrollera status innan du går vidare.');
-      if (result.code === 'access_denied') callbacks.current.onAccessDenied();
+      if (result.code === 'access_denied') deny();
       return;
     }
+    if(result.invitation&&result.invitation.applicationId!==application.id){deny();setError(failureMessages.forbidden);return;}
     setReady(true);
     if (!applicationEligible || result.lifecycle.applicationVersion !== application.version) {
       setFinished(true); setReviewing(false); setAcknowledged(false); setRenewReview(false); setRenewAcknowledged(false);
@@ -107,55 +114,33 @@ export function PlatformApplicationInvitation({ application, actorUserId, disabl
     }
   }
   function setBusy(value: boolean) { busy.current = value; callbacks.current.onBusyChange?.(value); }
+  function perform(work:()=>Promise<boolean>){
+    if(running.current||disabled||denied)return;running.current=true;setBusy(true);setError(null);setMessage(null);
+    retryMutation.current=()=>perform(work);
+    startTransition(async()=>{let known=false;try{known=await work();}catch{if(active.current)setError('Resultatet kunde inte verifieras. Kontrollera samma begäran innan du ändrar underlaget.');}finally{if(active.current){uncertainRef.current=!known;setUncertain(!known);await refreshAfterMutation();if(active.current)setBusy(uncertainRef.current);}running.current=false;}});
+  }
   function renewInvitation() {
     if (!ready || disabled || busy.current || !invitation || !canRenew || !lifecycle?.delivery.id || !renewReview || !renewAcknowledged || renewReason.trim().length < 2) return;
     const payload = { applicationId: application.id, invitationId: invitation.id, expectedDeliveryId: lifecycle.delivery.id, expectedVersion: application.version, reason: renewReason.trim(), acknowledged: true as const, invalidatesPreviousLink: true as const };
     const fingerprint = JSON.stringify(payload);
     if (renewIntent.current?.fingerprint !== fingerprint) renewIntent.current = { fingerprint, requestId: crypto.randomUUID() };
     const requestId = renewIntent.current.requestId;
-    setBusy(true); setError(null); setMessage(null);
-    startTransition(async () => {
-      try {
-        const result = await renewPlatformApplicationInvitationAction({ ...payload, requestId });
-        if (!active.current) return;
-        if (!result.ok) { setError(failureMessages[result.code] || failureMessages.unavailable); if (result.code === 'forbidden') callbacks.current.onAccessDenied(); }
-        else { setRenewReview(false); setRenewAcknowledged(false); setMessage(result.status === 'unknown' ? 'Förnyelsens utskicksresultat är okänt. Kontrollera status innan någon ytterligare åtgärd.' : result.status === 'not_configured' ? 'Utskicket är inte konfigurerat. Ingen ny inbjudan har skickats.' : 'Den förnyade kontoinbjudan har lämnats till mejltjänsten. Leverans till inkorgen är ännu inte bekräftad.'); }
-      } catch { if (active.current) setError('Förnyelsens resultat kunde inte verifieras. Kontrollera aktuell status innan du fortsätter.'); }
-      finally { if (active.current) await refreshAfterMutation(); setBusy(false); }
-    });
+    perform(async()=>{const result=await renewPlatformApplicationInvitationAction({...payload,requestId});if(!active.current)return true;
+      if(!result.ok){setError(failureMessages[result.code]||failureMessages.unavailable);if(result.code==='forbidden')deny();return result.code!=='unavailable';}
+      setRenewReview(false);setRenewAcknowledged(false);setMessage(result.status==='unknown'?'Förnyelsens utskicksresultat är okänt. Kontrollera status innan någon ytterligare åtgärd.':result.status==='not_configured'?'Utskicket är inte konfigurerat. Ingen ny inbjudan har skickats.':'Den förnyade kontoinbjudan har lämnats till mejltjänsten. Leverans till inkorgen är ännu inte bekräftad.');return true;});
   }
-
   function sendInvitation() {
     if (!ready || busy.current || pending || disabled || finished || deliveryBlocksSend || !reviewing || !acknowledged || !reason.trim()) return;
-    const payload = { applicationId: application.id, expectedVersion: application.version, reason: reason.trim(), acknowledged: true as const };
-    const fingerprint = JSON.stringify(payload);
-    if (intent.current?.fingerprint !== fingerprint) intent.current = { fingerprint, requestId: crypto.randomUUID() };
-    const requestId = intent.current.requestId;
-    setBusy(true); setError(null); setMessage(null);
-    startTransition(async () => {
-      try {
-        const result = await inviteApprovedApplicationAction({ ...payload, requestId });
-        if (!active.current) return;
-        if (!result.ok) {
-          setError(failureMessages[result.code] || failureMessages.unavailable);
-          if (result.code === 'forbidden') onAccessDenied();
-          return;
-        }
-        if (result.status === 'not_configured') {
-          setMessage('Utskicket är inte konfigurerat. Ingen kontoinbjudan har skickats från denna åtgärd. Kontrollera aktuell kontostatus och mejlinställningarna innan du försöker igen.');
-        } else if (result.status === 'unknown') {
-          setFinished(true);
-          setMessage('Det gick inte att bekräfta om mejlet skickades. Skicka inte en ny inbjudan innan utskicksstatus har kontrollerats.');
-        } else {
-          setFinished(true);
-          setMessage(result.status === 'already_sent' ? `Mejltjänsten har redan tagit emot välkomstmejlet till ${result.email}. Ingen ny inbjudan har skickats.` : `Välkomstmejlet med godkännandebekräftelse och kontoinbjudan har lämnats till mejltjänsten för ${result.email}. Leverans till inkorgen är ännu inte bekräftad.`);
-        }
-      } catch {
-        if (active.current) setError('Resultatet kunde inte läsas in. Försök igen med samma granskning för att kontrollera utskicket.');
-      } finally { if (active.current) await refreshAfterMutation(); setBusy(false); }
-    });
+    const payload={applicationId:application.id,expectedVersion:application.version,reason:reason.trim(),acknowledged:true as const},fingerprint=JSON.stringify(payload);
+    if(intent.current?.fingerprint!==fingerprint)intent.current={fingerprint,requestId:crypto.randomUUID()};const requestId=intent.current.requestId;
+    perform(async()=>{const result=await inviteApprovedApplicationAction({...payload,requestId});if(!active.current)return true;
+      if(!result.ok){setError(failureMessages[result.code]||failureMessages.unavailable);if(result.code==='forbidden')deny();return result.code!=='unavailable';}
+      if(result.status==='not_configured')setMessage('Utskicket är inte konfigurerat. Ingen kontoinbjudan har skickats från denna åtgärd. Kontrollera aktuell kontostatus och mejlinställningarna innan du försöker igen.');
+      else if(result.status==='unknown'){setFinished(true);setMessage('Det gick inte att bekräfta om mejlet skickades. Skicka inte en ny inbjudan innan utskicksstatus har kontrollerats.');}
+      else{setFinished(true);setMessage(result.status==='already_sent'?`Mejltjänsten har redan tagit emot välkomstmejlet till ${result.email}. Ingen ny inbjudan har skickats.`:`Välkomstmejlet med godkännandebekräftelse och kontoinbjudan har lämnats till mejltjänsten för ${result.email}. Leverans till inkorgen är ännu inte bekräftad.`);}return true;});
   }
 
+  if(denied)return <p role="alert">{failureMessages.forbidden}</p>;
   return <section className="admin-application-approval-content" aria-labelledby="application-invitation-heading">
     <h3 id="application-invitation-heading">Godkänn ansökan och bjud in</h3>
     <p>Godkänn kontot och skicka ett välkomstmejl till ansökans e-postadress. Mejlet bekräftar godkännandet och innehåller en personlig länk för att aktivera kontot och välja lösenord. Företags- och produktbehörigheter samt finansiering hanteras separat.</p>
@@ -171,31 +156,32 @@ export function PlatformApplicationInvitation({ application, actorUserId, disabl
       {requiresNewApprovalReview && correctReview && <p>Handläggningen har ändrats sedan det tidigare godkännandet. Ange en ny motivering och granska den aktuella ansökan innan kontoinbjudan förbereds.</p>}
       {!correctReview && <p>Den tidigare granskningen kan inte användas för ett nytt utskick här. Läs in aktuell ansökan eller låt ansvarig administratör granska ärendet.</p>}
     </div>}
+    {uncertain?<button type="button" className="button button-outline" disabled={disabled||pending} onClick={()=>retryMutation.current?.()}>Kontrollera samma begäran</button>:null}
     <form className="workspace-form" onSubmit={event => {
       event.preventDefault();
       if (reviewing) sendInvitation();
-      else if (ready && !disabled && !pending && !finished && !deliveryBlocksSend && reason.trim()) { setReason(reason.trim()); setReviewing(true); setAcknowledged(false); setError(null); setMessage(null); }
+      else if (ready && !disabled && !pending&&!uncertain && !finished && !deliveryBlocksSend && reason.trim()) { setReason(reason.trim()); setReviewing(true); setAcknowledged(false); setError(null); setMessage(null); }
     }}>
-      {reviewing && <div className="admin-application-approval-review"><h4>Kontrollera före godkännande</h4><dl className="admin-application-fields"><div><dt>Sökande</dt><dd>{application.name}</dd></div><div><dt>Företag</dt><dd>{application.company} · {application.organisationNumber || 'Organisationsnummer saknas'}</dd></div><div><dt>Välkomstmejl skickas till</dt><dd style={{ overflowWrap: 'anywhere' }}>{application.email}</dd></div><div><dt>Mejlets ämne</dt><dd>Välkommen till Trafexa – din ansökan är godkänd</dd></div></dl><p>Godkännandet och välkomsthälsningen skickas tillsammans med aktiveringslänken i ett mejl.</p></div>}
-      <label>Motivering för kontogodkännande<input required minLength={2} maxLength={500} value={reason} disabled={!ready || disabled || pending || reviewing || finished || existing} onChange={event => setReason(event.target.value)}/></label>
-      {reviewing && <label className="auth-checkbox"><input type="checkbox" required checked={acknowledged} disabled={disabled || pending || finished} onChange={event => setAcknowledged(event.target.checked)}/><span>Jag har granskat ansökan och godkänner kontot för {application.email}.</span></label>}
-      {error && <p role="alert" className="notice error">{error}</p>}
+      {reviewing && <div className="admin-application-approval-review"><h4 ref={reviewHeading} tabIndex={-1}>Kontrollera före godkännande</h4><dl className="admin-application-fields"><div><dt>Sökande</dt><dd>{application.name}</dd></div><div><dt>Företag</dt><dd>{application.company} · {application.organisationNumber || 'Organisationsnummer saknas'}</dd></div><div><dt>Välkomstmejl skickas till</dt><dd style={{ overflowWrap: 'anywhere' }}>{application.email}</dd></div><div><dt>Mejlets ämne</dt><dd>Välkommen till Trafexa – din ansökan är godkänd</dd></div></dl><p>Godkännandet och välkomsthälsningen skickas tillsammans med aktiveringslänken i ett mejl.</p></div>}
+      <label>Motivering för kontogodkännande<input required minLength={2} maxLength={500} value={reason} disabled={!ready || disabled || pending||uncertain || reviewing || finished || existing} onChange={event => setReason(event.target.value)}/></label>
+      {reviewing && <label className="auth-checkbox"><input type="checkbox" required checked={acknowledged} disabled={disabled || pending||uncertain || finished} onChange={event => setAcknowledged(event.target.checked)}/><span>Jag har granskat ansökan och godkänner kontot för {application.email}.</span></label>}
+      {error && <p ref={alert} tabIndex={-1} role="alert" className="notice error">{error}</p>}
       {message && <p role="status" className="notice">{message}</p>}
       {!ready && !error && <p role="status">Kontrollerar tidigare kontoinbjudan…</p>}
       <div className="table-controls">
-        <button type="submit" className="button button-green" disabled={!ready || disabled || pending || finished || deliveryBlocksSend || reason.trim().length < 2 || reviewing && !acknowledged}>{pending ? 'Behandlar kontoinbjudan…' : reviewing ? 'Godkänn och skicka kontoinbjudan' : 'Granska godkännande'}</button>
-        {!ready && error && <button type="button" className="button button-outline" disabled={disabled || pending} onClick={() => setReadAttempt(attempt => attempt + 1)}>Kontrollera kontoinbjudan igen</button>}
-        {reviewing && !finished && <button type="button" className="button button-outline" disabled={disabled || pending} onClick={() => { setReviewing(false); setAcknowledged(false); }}>Ändra granskning</button>}
-        {finished && <button type="button" className="button button-outline" disabled={disabled || pending} onClick={onComplete}>Läs in aktuell ansökan</button>}
+        <button type="submit" className="button button-green" disabled={!ready || disabled || pending||uncertain || finished || deliveryBlocksSend || reason.trim().length < 2 || reviewing && !acknowledged}>{pending ? 'Behandlar kontoinbjudan…' : reviewing ? 'Godkänn och skicka kontoinbjudan' : 'Granska godkännande'}</button>
+        {!ready && error && <button type="button" className="button button-outline" disabled={disabled || pending||uncertain} onClick={() => setReadAttempt(attempt => attempt + 1)}>Kontrollera kontoinbjudan igen</button>}
+        {reviewing && !finished && <button type="button" className="button button-outline" disabled={disabled || pending||uncertain} onClick={() => { setReviewing(false); setAcknowledged(false); }}>Ändra granskning</button>}
+        {finished && <button type="button" className="button button-outline" disabled={disabled || pending||uncertain} onClick={onComplete}>Läs in aktuell ansökan</button>}
       </div>
     </form>
-    {ready && <button type="button" className="text-link" disabled={disabled || pending} onClick={() => setReadAttempt(attempt => attempt + 1)}>Uppdatera kontoinbjudans status</button>}
-    {ready && canRenew && <form className="workspace-form" aria-label="Förnya kontoinbjudan" onSubmit={event => { event.preventDefault(); if (renewReview) renewInvitation(); else if (!disabled && !pending && renewReason.trim().length >= 2) { setRenewReview(true); setRenewAcknowledged(false); } }}>
+    {ready && <button type="button" className="text-link" disabled={disabled || pending||uncertain} onClick={() => setReadAttempt(attempt => attempt + 1)}>Uppdatera kontoinbjudans status</button>}
+    {ready && canRenew && <form className="workspace-form" aria-label="Förnya kontoinbjudan" onSubmit={event => { event.preventDefault(); if (renewReview) renewInvitation(); else if (!disabled && !pending&&!uncertain && renewReason.trim().length >= 2) { setRenewReview(true); setRenewAcknowledged(false); } }}>
       <h4 ref={renewHeading} tabIndex={-1}>Förnya kontoinbjudan</h4><p>En ny personlig aktiveringslänk ersätter den tidigare länken. Den tidigare länken blir ogiltig. Detta ändrar inte kontots behörigheter.</p>
-      <label>Motivering för förnyelse<input required minLength={2} maxLength={500} disabled={disabled || pending || renewReview} value={renewReason} onChange={event => setRenewReason(event.target.value)}/></label>
-      {renewReview && <><p>Kontrollera mottagaren: <strong style={{ overflowWrap: 'anywhere' }}>{application.email}</strong></p><label className="auth-checkbox"><input type="checkbox" required checked={renewAcknowledged} disabled={disabled || pending} onChange={event => setRenewAcknowledged(event.target.checked)}/><span>Jag bekräftar att den tidigare aktiveringslänken blir ogiltig och att en ny kontoinbjudan skickas till {application.email}.</span></label></>}
-      <button type="submit" className="button button-green" disabled={disabled || pending || renewReason.trim().length < 2 || renewReview && !renewAcknowledged}>{renewReview ? 'Bekräfta och skicka ny kontoinbjudan' : 'Granska förnyelse'}</button>
-      {renewReview && <button type="button" className="text-link" disabled={disabled || pending} onClick={() => { setRenewReview(false); setRenewAcknowledged(false); }}>Ändra förnyelse</button>}
+      <label>Motivering för förnyelse<input required minLength={2} maxLength={500} disabled={disabled || pending||uncertain || renewReview} value={renewReason} onChange={event => setRenewReason(event.target.value)}/></label>
+      {renewReview && <><p>Kontrollera mottagaren: <strong style={{ overflowWrap: 'anywhere' }}>{application.email}</strong></p><label className="auth-checkbox"><input type="checkbox" required checked={renewAcknowledged} disabled={disabled || pending||uncertain} onChange={event => setRenewAcknowledged(event.target.checked)}/><span>Jag bekräftar att den tidigare aktiveringslänken blir ogiltig och att en ny kontoinbjudan skickas till {application.email}.</span></label></>}
+      <button type="submit" className="button button-green" disabled={disabled || pending||uncertain || renewReason.trim().length < 2 || renewReview && !renewAcknowledged}>{renewReview ? 'Bekräfta och skicka ny kontoinbjudan' : 'Granska förnyelse'}</button>
+      {renewReview && <button type="button" className="text-link" disabled={disabled || pending||uncertain} onClick={() => { setRenewReview(false); setRenewAcknowledged(false); }}>Ändra förnyelse</button>}
     </form>}
   </section>;
 }

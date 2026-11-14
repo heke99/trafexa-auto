@@ -37,6 +37,7 @@ function applicationContact(value:unknown):PlatformContact {
  if(!result.legacy&&(!result.phone||!result.message||!result.seeking.length||!result.organisationNumber||normalizeApplicationOrganisationNumber(result.organisationNumber)!==result.organisationNumber||!result.privacyVersion||!result.privacyAcknowledgedAt))throw new AdminActionError('unavailable');
  return result;
 }
+async function fresh(actor:string){const current=await requirePlatformAdminContext();if(current.userId!==actor)throw new AdminActionError('access_denied');}
 function pagination(obj: Record<string, unknown>) {
   const pageKey = obj.pageKey == null ? null : uuid(obj.pageKey);
   const limit = obj.limit === undefined ? 50 : obj.limit;
@@ -55,7 +56,7 @@ function failure(error: unknown): AdminResult<never> {
 
 export async function listPlatformCompaniesAction(value: unknown = {}): Promise<AdminResult<CompanyPage>> {
   try {
-    const { db } = await requirePlatformAdminContext();
+    const { db, userId } = await requirePlatformAdminContext();
     const obj = input(value, ['search', 'pageKey', 'limit']);
     const { pageKey, limit } = pagination(obj);
     const search = singleLine(text(obj.search ?? '', 160, true)).trim();
@@ -73,14 +74,14 @@ export async function listPlatformCompaniesAction(value: unknown = {}): Promise<
       if (companies.some((company, index) => company.id <= (index ? companies[index - 1].id : pageKey ?? ''))) throw new Error();
       const nextPageKey = row.next_page_key === null ? null : uuid(row.next_page_key);
       if (nextPageKey && nextPageKey !== companies.at(-1)?.id) throw new Error();
-      return { ok: true, companies, nextPageKey };
-    } catch { throw new AdminActionError('unavailable'); }
+      await fresh(userId);return { ok: true, companies, nextPageKey };
+    } catch(error) { if(error instanceof PlatformAdminError||error instanceof AdminActionError&&error.code==='access_denied')throw error;throw new AdminActionError('unavailable'); }
   } catch (error) { return failure(error); }
 }
 
 export async function listPlatformContactRequestsAction(value: unknown = {}): Promise<AdminResult<ContactPage>> {
   try {
-    const { db } = await requirePlatformAdminContext();
+    const { db, userId } = await requirePlatformAdminContext();
     const { pageKey, limit } = pagination(input(value, ['pageKey', 'limit']));
     const result = await db.rpc('list_platform_contact_requests', { p_page_key: pageKey, p_limit: limit });
     rpcError(result.error);
@@ -91,19 +92,19 @@ export async function listPlatformContactRequestsAction(value: unknown = {}): Pr
       if (new Set(requests.map(item => item.id)).size !== requests.length || requests.some((item, index) => index > 0 && (Date.parse(item.createdAt) > Date.parse(requests[index - 1].createdAt) || Date.parse(item.createdAt) === Date.parse(requests[index - 1].createdAt) && item.id >= requests[index - 1].id))) throw new Error();
       const nextPageKey = row.next_page_key === null ? null : uuid(row.next_page_key);
       if (nextPageKey && nextPageKey !== requests.at(-1)?.id) throw new Error();
-      return { ok: true, requests, nextPageKey };
-    } catch { throw new AdminActionError('unavailable'); }
+      await fresh(userId);return { ok: true, requests, nextPageKey };
+    } catch(error) { if(error instanceof PlatformAdminError||error instanceof AdminActionError&&error.code==='access_denied')throw error;throw new AdminActionError('unavailable'); }
   } catch (error) { return failure(error); }
 }
 
 export async function getPlatformWebApplicationAction(value:unknown):Promise<AdminResult<{application:PlatformContact;audit:WebApplicationAudit[]}>> {
  try {
-  const {db}=await requirePlatformAdminContext();const obj=input(value,['applicationId']);const applicationId=uuid(obj.applicationId);
+  const {db,userId}=await requirePlatformAdminContext();const obj=input(value,['applicationId']);const applicationId=uuid(obj.applicationId);
   const result=await (db as unknown as SupabaseClient<WebApplicationDatabase>).rpc('get_platform_web_application',{p_application_id:applicationId});rpcError(result.error);
   const row=record(result.data);const application=applicationContact(row.application);
   if(application.id!==applicationId||!Array.isArray(row.audit)||row.audit.length>1000)throw new AdminActionError('unavailable');
   const audit:WebApplicationAudit[]=row.audit.map(value=>{const item=record(value);return {status:applicationStatus(item.status),reason:text(item.reason,500),createdAt:timestamp(item.created_at)};});
-  return {ok:true,application,audit};
+  await fresh(userId);return {ok:true,application,audit};
  }catch(error){return failure(error);}
 }
 
@@ -116,7 +117,7 @@ export async function setPlatformWebApplicationStatusAction(value:unknown):Promi
   const row=record(result.data);const previousStatus=applicationStatus(row.previous_status),version=count(row.version);
   if(row.application_id!==applicationId||row.request_id!==requestId||row.actor_user_id!==userId||row.status!==target||row.reason!==reason||row.changed!==(previousStatus!==target)||version!==expectedVersion+(row.changed===true?1:0))throw new AdminActionError('unavailable');
   const receipt={applicationId,requestId,status:target,previousStatus,version,reason,createdAt:timestamp(row.created_at)};
-  try{revalidatePath('/admin');}catch{}
+  await fresh(userId);try{revalidatePath('/admin');}catch{}
   return {ok:true,receipt};
  }catch(error){return failure(error);}
 }
@@ -130,7 +131,7 @@ export async function erasePlatformWebApplicationAction(value:unknown):Promise<A
   const row=record(result.data);
   if(row.application_id!==applicationId||row.request_id!==requestId||row.actor_user_id!==userId||row.expected_version!==expectedVersion||row.reason!==obj.reason||row.erased!==true)throw new AdminActionError('unavailable');
   const receipt={applicationId,requestId,erased:true as const,createdAt:timestamp(row.created_at)};
-  try{revalidatePath('/admin');}catch{}
+  await fresh(userId);try{revalidatePath('/admin');}catch{}
   return {ok:true,receipt};
  }catch(error){return failure(error);}
 }
@@ -149,9 +150,9 @@ export async function setPlatformCompanyStatusAction(value: unknown): Promise<Ad
       if (uuid(row.company_id) !== companyId || uuid(row.request_id) !== requestId || row.actor_user_id !== userId || row.status !== targetStatus || row.previous_status !== expectedStatus || row.reason !== reason || row.changed !== (expectedStatus !== targetStatus)) throw new Error();
       const receipt: StatusReceipt = { companyId, requestId, status: targetStatus, previousStatus: expectedStatus, changed: row.changed as boolean, reason, createdAt: timestamp(row.created_at) };
       // Receipt is an immutable retry result; the UI reloads current state separately.
-      try { revalidatePath('/admin'); } catch { /* Persisted receipt remains valid. */ }
+      await fresh(userId);try { revalidatePath('/admin'); } catch { /* Persisted receipt remains valid. */ }
       return { ok: true, receipt };
-    } catch { throw new AdminActionError('unavailable'); }
+    } catch(error) { if(error instanceof PlatformAdminError||error instanceof AdminActionError&&error.code==='access_denied')throw error;throw new AdminActionError('unavailable'); }
   } catch (error) { return failure(error); }
 }
 
@@ -165,8 +166,8 @@ export async function activatePlatformAdminAction(value: unknown = {}): Promise<
     try {
       const row = record(result.data);
       if (row.is_platform_admin !== true || row.user_id !== userId || typeof row.claimed !== 'boolean') throw new Error();
-    } catch { throw new AdminActionError('unavailable'); }
-    await requirePlatformAdminContext();
+    } catch(error) { if(error instanceof PlatformAdminError||error instanceof AdminActionError&&error.code==='access_denied')throw error;throw new AdminActionError('unavailable'); }
+    await fresh(userId);
     try { revalidatePath('/admin'); } catch { /* Successful activation is independently verified. */ }
     return { ok: true, activated: true };
   } catch (error) { return failure(error); }

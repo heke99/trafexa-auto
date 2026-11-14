@@ -47,17 +47,17 @@ test('unavailable approval fails closed with retry access and anonymous waiting 
 
 test('direct admin denies pending, rejected and suspended accounts; approved verified reservation may reach activation',async()=>{
  class PlatformAdminError extends Error{constructor(code){super(code);this.code=code;}}
- for(const status of ['pending','rejected','suspended','approved']){
+ for(const [status,reserved] of [['pending',true],['rejected',true],['suspended',true],['approved',false],['approved',true]]){
   let activated=0;
   const loader=await createSourceLoader({
    'next/navigation':{redirect,notFound(){throw new Error('404');}},
-   '@/lib/platform-admin/context':{PlatformAdminError,requirePlatformAdminPageContext:async()=>{throw new PlatformAdminError('forbidden');},requirePlatformAuthenticatedContext:async()=>({userId:'actor'})},
+   '@/lib/platform-admin/context':{PlatformAdminError,requirePlatformAdminPageContext:async()=>{throw new PlatformAdminError('forbidden');},getPlatformAdminActivationContext:async()=>status==='approved'&&reserved?{userId:'actor'}:null},
    '@/lib/account-access/context':{getAccountAccessContext:async()=>({emailVerified:true,status})},
    '@/lib/platform-admin/actions':{listPlatformCompaniesAction:()=>assert.fail('No global data')},
    '@/components/platform-admin-workspace':{PlatformAdminActivation:()=>{activated++;return createElement('p',{},'Aktivering');},PlatformAdminWorkspace:()=>assert.fail('No global workspace')},
   });
-  if(status==='approved'){const html=renderToStaticMarkup(await loader.load('src/app/admin/page.tsx').default());assert.match(html,/Aktivering/);assert.equal(activated,1);}
-  else {await assert.rejects(()=>loader.load('src/app/admin/page.tsx').default(),error=>error.url==='/account-pending?next=%2Fadmin');assert.equal(activated,0);}
+  if(status==='approved'&&reserved){const html=renderToStaticMarkup(await loader.load('src/app/admin/page.tsx').default());assert.match(html,/Aktivering/);assert.equal(activated,1);}
+  else {await assert.rejects(()=>loader.load('src/app/admin/page.tsx').default(),error=>error.message==='404');assert.equal(activated,0);}
  }
 });
 
