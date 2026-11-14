@@ -11,6 +11,7 @@ export type DealerRegisterCriteria = { query: string; status: string; cursor: st
 export type DealerRegistersProps = {
   kind: DealerRegisterKind;
   blocked?: boolean;
+  refreshToken?: number;
   companyId: string;
   userId: string;
   role: string;
@@ -24,7 +25,7 @@ export type DealerRegistersProps = {
 const filters: Record<DealerRegisterKind, [string, string][]> = {
   inventory: [['all', 'Alla bilar'], ['available', 'Tillgängliga'], ['reserved', 'Reserverade'], ['sold', 'Sålda'], ['archived', 'Arkiverade']],
   customers: [['all', 'Alla kunder'], ['person', 'Privatpersoner'], ['business', 'Företag']],
-  deals: [['all', 'Alla affärer'], ['draft', 'Utkast'], ['reserved', 'Reservationer'], ['cancelled', 'Avbrutna'], ['completed', 'Levererade'], ['archived', 'Arkiverade']],
+  deals: [['all', 'Alla affärer'], ['draft', 'Öppna utan reservation'], ['reserved', 'Reservationer'], ['cancelled', 'Avbrutna'], ['completed', 'Avslutade'], ['archived', 'Arkiverade']],
 };
 const nouns = { inventory: 'bilar', customers: 'kunder', deals: 'affärer' };
 const placeholders = { inventory: 'Sök bil eller reg.nr', customers: 'Sök namn, mejl eller telefon', deals: 'Sök kund, bil eller reg.nr' };
@@ -70,7 +71,8 @@ function RegisterPanel(props: DealerRegistersProps) {
   const [retry, setRetry] = useState(0);
   const [state, setState] = useState<{ key: string; page: DealerRegisterPage | null; error: string; loading: boolean } | null>(null);
   const [, startRead] = useTransition();
-  const sequence = useRef(0);
+  const blockedRef=useRef(Boolean(props.blocked));blockedRef.current=Boolean(props.blocked);
+  const sequence = useRef(0),pollScheduled=useRef(false),lastPollAt=useRef(0);
   const currentCursor = cursors[position] ?? null;
   const readKey = JSON.stringify([kind, companyId, userId, role, query, status, sort, currentCursor]);
   const localPage = demo ? demoPage(props, query, status, sort, currentCursor) : null;
@@ -81,6 +83,7 @@ function RegisterPanel(props: DealerRegistersProps) {
 
   useEffect(() => {
     if (demo) return;
+    if(props.blocked){pollScheduled.current=false;setState(previous=>previous?.key===readKey?{...previous,loading:false}:previous);return;}
     const token = ++sequence.current;
     let cancelled = false;
     // Same-scope refreshes keep row modules mounted so unsaved offer/retry state survives RSC updates.
@@ -88,7 +91,7 @@ function RegisterPanel(props: DealerRegistersProps) {
     startRead(async () => {
       try {
         const result = await loadDealerRegisterPage({ kind, expectedCompanyId: companyId, query, status, sort, cursor: currentCursor });
-        if (cancelled || token !== sequence.current) return;
+        if (cancelled || token !== sequence.current || blockedRef.current) return;
         if (!result.ok) { onCriteriaChange?.(); setState({ key: readKey, page: null, error: result.error, loading: false }); return; }
         if (result.page.kind !== kind || result.page.companyId.toLowerCase() !== companyId.toLowerCase() || result.page.actorId.toLowerCase() !== userId.toLowerCase() || result.page.role !== role) {
           onCriteriaChange?.(); setState({ key: readKey, page: null, error: 'Företaget eller behörigheten har ändrats. Läs in sidan igen för att fortsätta.', loading: false }); return;
@@ -96,11 +99,21 @@ function RegisterPanel(props: DealerRegistersProps) {
         onPage?.(result.page, { query, status, cursor: currentCursor });
         setState({ key: readKey, page: result.page, error: '', loading: false });
       } catch {
-        if (!cancelled && token === sequence.current) { onCriteriaChange?.(); setState({ key: readKey, page: null, error: 'Registret kunde inte hämtas. Försök igen.', loading: false }); }
-      }
+        if (!cancelled && token === sequence.current && !blockedRef.current) { onCriteriaChange?.(); setState({ key: readKey, page: null, error: 'Registret kunde inte hämtas. Försök igen.', loading: false }); }
+      }finally{if(token===sequence.current)pollScheduled.current=false;}
     });
     return () => { cancelled = true; sequence.current++; };
-  }, [readKey, retry, snapshot, demo, kind, companyId, userId, role, query, status, sort, currentCursor, onCriteriaChange, onPage]);
+  }, [readKey, retry, props.refreshToken, props.blocked, snapshot, demo, kind, companyId, userId, role, query, status, sort, currentCursor, onCriteriaChange, onPage]);
+
+  const hasPendingSigning=page?.kind==='deals'&&page.rows.some(row=>!row.archived&&['draft','reserved'].includes(row.status)&&row.contractProgress?.status==='pending');
+  useEffect(()=>{
+    if(demo||kind!=='deals'||!hasPendingSigning||props.blocked||loading)return;
+    let active=true;
+    const refresh=()=>{if(!active||document.visibilityState==='hidden'||pollScheduled.current||Date.now()-lastPollAt.current<1000)return;lastPollAt.current=Date.now();pollScheduled.current=true;setRetry(value=>value+1);};
+    const timer=window.setInterval(refresh,15000);
+    window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);
+    return()=>{active=false;window.clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};
+  },[demo,kind,hasPendingSigning,props.blocked,loading,readKey]);
 
   function resetPage() { setCursors([null]); setPosition(0); onCriteriaChange?.(); }
   function search(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if(props.blocked)return; resetPage(); setQuery(draftQuery.trim()); setRetry(value => value + 1); }

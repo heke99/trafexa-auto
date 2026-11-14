@@ -11,7 +11,8 @@ import {useDescendantBusy} from './use-descendant-busy';
 import {DealOptionPicker} from './deal-form';
 import styles from './direct-deal-form.module.css';
 
-export type DirectDealFormProps={snapshot:WorkspaceSnapshot;companyId:string;dealId?:string;demo?:boolean;onBusyChange?:(busy:boolean)=>void;onPrepared?:(dealId:string)=>void;onCompleted?:(signingId:string)=>void;onAccessDenied?:(message:string)=>void};
+export type DealSigningObservation={dealId:string;signingId:string;status:'draft'|'pending'|'completed'|'unavailable';kind:'native'|'uploaded_pdf'};
+export type DirectDealFormProps={snapshot:WorkspaceSnapshot;companyId:string;dealId?:string;demo?:boolean;onBusyChange?:(busy:boolean)=>void;onPrepared?:(dealId:string)=>void;onSigningStatusChange?:(status:DealSigningObservation)=>void;onCompleted?:(signingId:string)=>void;onAccessDenied?:(message:string)=>void};
 type Fields={tradeInId:string;stockItemId:string;customerMode:'existing'|'new';customerId:string;kind:'person'|'business';name:string;email:string;phone:string;address:string;identityNumber:string;agreedPrice:string;templateVersionId:string};
 type Sent={ok:true;signing:ContractSigning;delivery:Pick<ContractSigningDelivery,'status'|'transport'>|null};
 const BASE_TEMPLATE='__trafexa_base__';
@@ -26,8 +27,9 @@ export function DirectDealForm(props:DirectDealFormProps){
  return <ScopedDirectDealForm key={`${props.companyId}:${props.snapshot.user.id}:${role}:${props.dealId??'new'}:${!!props.demo}`} {...props}/>;
 }
 
-function ScopedDirectDealForm({snapshot,companyId,dealId,demo=false,onBusyChange,onPrepared,onCompleted,onAccessDenied}:DirectDealFormProps){
+function ScopedDirectDealForm({snapshot,companyId,dealId,demo=false,onBusyChange,onPrepared,onCompleted,onSigningStatusChange,onAccessDenied}:DirectDealFormProps){
  const canApprove=['owner','admin'].includes(snapshot.membership?.role??'');
+ const statusCallback=useRef(onSigningStatusChange),observedStatus=useRef('');statusCallback.current=onSigningStatusChange;
  const field=useId(),busy=useDescendantBusy(onBusyChange),alive=useRef(false),reads=useRef(0),errorFocus=useRef<HTMLParagraphElement>(null),reviewFocus=useRef<HTMLHeadingElement>(null),completionFocus=useRef<HTMLHeadingElement>(null);
  const [fields,setFields]=useState<Fields>(blankFields),[options,setOptions]=useState<DirectDealOptions|null>(null),[customer,setCustomer]=useState<DirectDealCustomerContext|null>(null),[activeDealId,setActiveDealId]=useState(dealId??null),[review,setReview]=useState<DirectDealReview|null>(null),[sent,setSent]=useState<Sent|null>(null);
  const [loading,setLoading]=useState(!demo),[error,setError]=useState(''),[denied,setDenied]=useState(false),[unknown,setUnknown]=useState<'prepare'|'send'|null>(null),[sellerName,setSellerName]=useState(''),[ack,setAck]=useState(false),[needsRefresh,setNeedsRefresh]=useState(false);
@@ -74,6 +76,7 @@ function ScopedDirectDealForm({snapshot,companyId,dealId,demo=false,onBusyChange
  useEffect(()=>{if(error)errorFocus.current?.focus();},[error]);
  useEffect(()=>{if(review)reviewFocus.current?.focus();},[review]);
  useEffect(()=>{if(sent)completionFocus.current?.focus();},[sent?.signing.id,sent?.signing.status]);
+ useEffect(()=>{if(!sent||denied)return;const s=sent.signing,key=`${s.id}:${s.status}`;if(observedStatus.current===key)return;observedStatus.current=key;statusCallback.current?.({dealId:s.dealId,signingId:s.id,status:s.status,kind:'native'});},[sent?.signing.id,sent?.signing.status,denied]);
  const refreshSigning=useRef<()=>Promise<void>>(async()=>{}),refreshingSigning=useRef(false);
  refreshSigning.current=async()=>{
   if(!alive.current||demo||denied||unknown||loading||busy.busyRef.current||refreshingSigning.current||!sent||sent.signing.status==='completed'||sent.signing.status==='unavailable'||document.visibilityState==='hidden')return;

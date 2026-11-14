@@ -5,3 +5,5 @@ export const cancelUploadedPdfAction=value=>call('cancelUploadedPdfAction',value
 export const retryUploadedPdfMailAction=value=>call('retryUploadedPdfMailAction',value);
 export const refreshUploadedPdfGuestAction=value=>call('refreshUploadedPdfGuestAction',value);
 export const signUploadedPdfGuestAction=value=>call('signUploadedPdfGuestAction',value);
+
+export const prepareUploadedPdfArchiveAction=value=>call('prepareUploadedPdfArchiveAction',value);
