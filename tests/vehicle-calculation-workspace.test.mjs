@@ -14,6 +14,7 @@ async function harness({data=totals,error=null}={}) {
  const loader=await createSourceLoader({'./company-context':{getCompanySession:async()=>({db,user:{id:USER,email:'fixture@example.test'},membership,memberships:[membership]})},
   '@/lib/crm/context':{requireCrmContext:async()=>({db,companyId:COMPANY,userId:USER,role:'owner'})},'@/lib/account-access/context':{requireApprovedAccountAccess:async()=>({userId:USER})},
   'next/dynamic':loader=>function DynamicSlot(props){return loader.toString().includes('advertising-workspace')?createElement('section',{'data-advertising-company':props.companyId,'data-advertising-role':props.role,'data-demo':String(props.demo)}):null;},
+  'next/navigation':{useRouter:()=>({refresh(){},push(){}})},
   'next/link':props=>createElement('a',props,props.children), '@/lib/data/actions':{}, './stock-import':{StockImport:()=>null}, './deal-offers':{DealOffers:()=>null}, './customer-leads':{CustomerLeads:()=>null},
  });
  return {calls,loader,workspace:loader.load('./src/lib/data/workspace.ts'),DealerWorkspace:loader.load('./src/components/dealer-workspace.tsx').DealerWorkspace};
