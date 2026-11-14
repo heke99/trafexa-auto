@@ -10,7 +10,7 @@ async function setup(options={}){
  'server-only':{},
  '@/lib/account-access/context':{async getAccountAccessContext(){accounts++;return options.noAuth?null:{...account,...(accounts===1?options.firstAccount:options.lastAccount)};}},
  '@/lib/data/company-context':{async getActiveCompanyContext(){companies++;return {company,user,role:'finance',...(companies===1?options.firstCompany:options.lastCompany)};}},
- '@/lib/data/contract-signing-actions':{async getContractSigningAction(input){reads++;assert.equal(input.signingId,id);if(options.denial===reads)return{ok:false,code:'access_denied'};return{ok:true,signing:{...signing,...(reads===1?options.firstSigning:options.lastSigning)}};}},
+ '@/lib/data/contract-signing-actions':{async getContractSigningAction(input){reads++;assert.equal(input.signingId,id);if(options.dealerOnly&&!input.companyId)return{ok:false,code:'access_denied'};if(options.denial===reads)return{ok:false,code:'access_denied'};return{ok:true,signing:{...signing,...(reads===1?options.firstSigning:options.lastSigning)}};}},
  '@/lib/data/contract-archive-actions':{async getContractArchiveAction(input){return {ok:true,archive:null,actorId:user,companyId:company,signingId:id,role:input.companyId?'finance':'customer'};}},
  './signed-contract-pdf':{parseCompletedContract(v){if(v.status!=='completed'||options.malformed)throw Error('SECRET_DTO');return v;},async generateSignedContractPdf(){renders++;return new Uint8Array(Buffer.from('%PDF-private'));},async generateSigningEvidence(){renders++;return{checksum:'fixture'};}},
  });
@@ -29,3 +29,6 @@ test('pending signatures and wrong immutable binding never produce signed downlo
 test('revocation, switched actor/email/tenant/role or changed source during rendering withholds bytes',async()=>{
  for(const [config,query]of [[{lastAccount:{status:'suspended'}},''],[{lastAccount:{userId:company}},''],[{lastAccount:{email:'other@example.invalid'}},''],[{lastSigning:{content:'changed'}},''],[{denial:2},''],[{lastCompany:{company:id}},`?companyId=${company}`],[{lastCompany:{role:'sales'}},`?companyId=${company}`]]){const h=await setup(config),r=await h.get(query);assert.ok([403,503].includes(r.status));privateResponse(r);assert.ok(!(await r.text()).includes('%PDF'));assert.equal(h.counts().renders,1);}
 });
+
+
+test('a dealer who is not the customer needs the explicit company-scoped download URL',async()=>{const config={dealerOnly:true,firstAccount:{email:'dealer@example.invalid'},lastAccount:{email:'dealer@example.invalid'}};const unscoped=await setup(config),denied=await unscoped.get();assert.equal(denied.status,403);assert.equal(unscoped.counts().renders,0);const scoped=await setup(config),file=await scoped.get(`?companyId=${company}`);assert.equal(file.status,200);privateResponse(file);assert.equal(scoped.counts().companies,2);assert.equal(scoped.counts().renders,1);});
