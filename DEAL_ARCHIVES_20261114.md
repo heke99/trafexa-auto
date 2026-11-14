@@ -1,6 +1,6 @@
 # Deal list archives
 
-Migration: `20261114090130_deal_list_archives.sql` (created with the Supabase CLI).
+Migration: `20261114092957_deal_list_archives.sql` (created with the Supabase CLI).
 
 - Owner/admin explicitly reviews and archives unsigned inactive drafts, cancelled deals, or completed deals. Active reservations, live contracts/offers and unresolved draft/cancelled payment totals block archival.
 - This changes list visibility only. Deals, customer documents, signatures, SHA-256 evidence, bank attestations, paid history and vehicle statuses remain intact. Restore changes list visibility only.
