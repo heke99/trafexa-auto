@@ -1,5 +1,9 @@
 # Planläge 14 november 2026
 
+## Rättning av affärernas signeringsstatus — 14 november 2026
+
+Ett signerat avtal kunde visas som Utkast på affärskortet eftersom grundstatusen fortfarande var draft. Den separata verifierade avtalsstatusen används nu i listan och översikten, med läsuppdatering när kunden signerar. Även livscykelfilter, arkiverad översikt och osignerade historikrubriker granskas. Ingen försäljning, betalning eller leverans fabriceras för att ändra etiketten. Se [statusgranskningen](DEAL_STATUS_REVIEW_20261114.md) för verifiering och utrullning.
+
 ## Affärskort, signerade avtal, pappersaffärer och PDF-mallar — 14 november 2026
 
 Affärskort visar ursprungligt skapelsedatum och klockslag i svensk tid innan de öppnas. Öppnad affär visar namnet på den faktiska skaparen/säljaren; beständig aktörskoppling bevaras för framtida statistik och ersätts aldrig med den som tittar. Gamla affärer kan tas bort från den aktiva listan genom återställbar arkivering, medan signerade dokument och historik finns kvar.

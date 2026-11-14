@@ -1,5 +1,6 @@
 'use server';
 
+import {parseDealContractProgress}from'@/lib/contracts/deal-progress';
 import { requireCrmContext, type CrmContext } from '@/lib/crm/context';
 import { canReadInternalFinance } from '@/lib/access/dealer-capabilities';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -91,7 +92,7 @@ function deal(value: unknown, ctx: CrmContext): DealerRegisterDeal {
   const createdBy = creator ? {id:id(creator.id),name:creator.name === null ? null : text(creator.name,160,1)} : undefined;
   if(createdBy?.name && /[\u0000-\u001f\u007f]/.test(createdBy.name))throw new Error('invalid creator');
   const price = integer(row.sale_price_ore); if (price < 1) throw new Error('invalid deal price');
-  return { id: id(row.id), status: row.status as string, sale_price_ore: price, customer_id: relatedCustomer.id, stock_item_id: stockItem.id, created_at: timestamp(row.created_at), customer: relatedCustomer, stockItem, archived: row.archived === true, ...(createdBy ? {createdBy} : {}) };
+  return { id: id(row.id), status: row.status as string, sale_price_ore: price, customer_id: relatedCustomer.id, stock_item_id: stockItem.id, created_at: timestamp(row.created_at), customer: relatedCustomer, stockItem, archived: row.archived === true, ...(row.contractProgress===undefined?{}:{contractProgress:parseDealContractProgress(row.contractProgress)}), ...(createdBy ? {createdBy} : {}) };
 }
 async function load(req: Request): Promise<DealerRegisterPage & { selected?: Customer | InventoryItem | null }> {
   const ctx = await requireCrmContext(req.companyId);
