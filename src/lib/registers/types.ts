@@ -3,7 +3,7 @@ import type { Customer, Deal, InventoryItem } from '@/lib/data/workspace';
 export type DealerRegisterKind = 'inventory' | 'customers' | 'deals';
 export type DealerRegisterSort = 'recent' | 'price_asc' | 'price_desc';
 export type DealerRegisterRole = 'owner' | 'admin' | 'sales' | 'finance' | 'viewer';
-export type DealerRegisterDeal = Deal & { customer: Customer; stockItem: InventoryItem };
+export type DealerRegisterDeal = Deal & { customer: Customer; stockItem: InventoryItem; archived?: boolean; createdBy?: {id:string;name:string|null} };
 export type DealerRegisterRows = { inventory: InventoryItem; customers: Customer; deals: DealerRegisterDeal };
 export type DealerRegisterInput = {
   kind: DealerRegisterKind;

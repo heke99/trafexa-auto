@@ -1,5 +1,13 @@
 # Implementationsstatus
 
+## Affärskort, signerade avtal, pappersaffärer och PDF-mallar — 14 november 2026
+
+Affärskort visar ursprungligt skapelsedatum och klockslag i svensk tid innan de öppnas. Öppnad affär visar namnet på den faktiska skaparen/säljaren; beständig aktörskoppling bevaras för framtida statistik och ersätts aldrig med den som tittar. Gamla affärer kan tas bort från den aktiva listan genom återställbar arkivering, medan signerade dokument och historik finns kvar.
+
+En verklig kundsignering och båda färdigmejlens leverans har bekräftats i produktion. Handlarens felaktigt oskopade nedladdningslänkar är rättade och publicerade i [PR #68](https://github.com/heke99/trafexa-auto/pull/68). Väntande direktavtal får automatisk läsuppdatering. Denna etapp omfattar också uttryckligt registrerade pappersaffärer och versionsbundna PDF-bakgrundsmallar med serverhämtade kund-, bil- och prisuppgifter. Verifiering och utrullning redovisas i [etapprapporten](DEAL_DOCUMENT_RELEASE_20261114.md).
+
+Säljarstatistikens rapportvy är ett senare steg; denna etapp bevarar aktören som underlag. Externa annons-/bankanslutningar och separat backupplats har fortfarande externa förutsättningar. Äldre checkpoints nedan beskriver sina dåvarande lägen.
+
 ## Inbyte, direktavtal och manuell slutavräkning — 13 november 2026
 
 Direktavtal kan uttryckligen inkludera ett valt inbytesunderlag utan separat offertaccept. Kunden signerar frysta pris-/inbytesuppgifter. Faktiskt inbytesköp och lagerintag kan därefter registreras, och kundinbetalning, kundutbetalning och skuldlösen stäms av separat. Leverans kräver exakta avstämningar, faktiskt inbytesförvärv, signerat arkiverat avtal och aktiv reservation. Inga banköverföringar genomförs. Se [release- och verifieringsrapport](TRADE_IN_RELEASE_20261113.md) och [avräkningskontrakt](TRADE_IN_SETTLEMENT_20261113.md).

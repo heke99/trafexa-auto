@@ -1,0 +1,3 @@
+export type DealArchivePage = { companyId:string; dealId:string; actorId:string; role:string; version:number; archived:boolean; dealStatus:string; canArchive:boolean; blockedReason:'active_reservation'|'live_contract'|'unsettled_payment'|'deal_unavailable'|null; reviewHash:string };
+export type DealArchiveInput = { companyId:string; dealId:string; operation:'archive'|'restore'; expectedVersion:number; reviewHash:string; reason:string; acknowledged:true; requestId:string };
+export type DealArchiveResult = {ok:true;page:DealArchivePage}|{ok:false;code:'access_denied'|'conflict'|'invalid_input'|'unavailable';message:string};

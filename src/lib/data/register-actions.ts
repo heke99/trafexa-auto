@@ -9,7 +9,7 @@ import type { RegisterDatabase } from '@/lib/registers/database.types';
 import type { DealerRegisterInput, DealerRegisterKind, DealerRegisterPage, DealerRegisterResult, DealerRegisterDeal, DealerRegisterSort, DealOptionsInput, DealOptionsResult, DealerRegisterRole } from '@/lib/registers/types';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const statuses = { inventory: ['all', 'available', 'reserved', 'sold', 'archived'], customers: ['all', 'person', 'business'], deals: ['all', 'draft', 'reserved', 'cancelled', 'completed'] };
+const statuses = { inventory: ['all', 'available', 'reserved', 'sold', 'archived'], customers: ['all', 'person', 'business'], deals: ['all', 'draft', 'reserved', 'cancelled', 'completed', 'archived'] };
 const roles: DealerRegisterRole[] = ['owner', 'admin', 'sales', 'finance', 'viewer'];
 type Request = { kind: DealerRegisterKind; companyId: string; query: string; status: string; sort: DealerRegisterSort; cursor: Record<string, Json> | null; options: boolean; selectedId: string | null };
 function record(value: unknown): Record<string, unknown> {
@@ -86,9 +86,12 @@ function customer(value: unknown, ctx: CrmContext): Customer {
 function deal(value: unknown, ctx: CrmContext): DealerRegisterDeal {
   const row = companyRow(value, ctx);
   const relatedCustomer = customer(row.customer, ctx), stockItem = inventory(row.stockItem, ctx);
-  if (!statuses.deals.slice(1).includes(String(row.status)) || relatedCustomer.id !== id(row.customer_id) || stockItem.id !== id(row.stock_item_id)) throw new Error('invalid deal relation');
+  if (!['draft', 'reserved', 'cancelled', 'completed'].includes(String(row.status)) || row.archived !== undefined && typeof row.archived !== 'boolean' || relatedCustomer.id !== id(row.customer_id) || stockItem.id !== id(row.stock_item_id)) throw new Error('invalid deal relation');
+  const creator = row.createdBy === undefined ? undefined : record(row.createdBy);
+  const createdBy = creator ? {id:id(creator.id),name:creator.name === null ? null : text(creator.name,160,1)} : undefined;
+  if(createdBy?.name && /[\u0000-\u001f\u007f]/.test(createdBy.name))throw new Error('invalid creator');
   const price = integer(row.sale_price_ore); if (price < 1) throw new Error('invalid deal price');
-  return { id: id(row.id), status: row.status as string, sale_price_ore: price, customer_id: relatedCustomer.id, stock_item_id: stockItem.id, created_at: timestamp(row.created_at), customer: relatedCustomer, stockItem };
+  return { id: id(row.id), status: row.status as string, sale_price_ore: price, customer_id: relatedCustomer.id, stock_item_id: stockItem.id, created_at: timestamp(row.created_at), customer: relatedCustomer, stockItem, archived: row.archived === true, ...(createdBy ? {createdBy} : {}) };
 }
 async function load(req: Request): Promise<DealerRegisterPage & { selected?: Customer | InventoryItem | null }> {
   const ctx = await requireCrmContext(req.companyId);
@@ -104,10 +107,10 @@ async function load(req: Request): Promise<DealerRegisterPage & { selected?: Cus
   const parse = req.kind === 'inventory' ? inventory : req.kind === 'customers' ? customer : deal;
   const rows = page.rows.map((row) => parse(row, ctx));
   if (new Set(rows.map((row) => row.id)).size !== rows.length) throw new Error('duplicate row');
-  if (rows.some((row) => req.status !== 'all' && (req.kind === 'customers' ? (row as Customer).kind : (row as InventoryItem).status) !== req.status)) throw new Error('invalid filtered row');
+  if (rows.some((row) => req.kind === 'deals' ? req.status === 'archived' ? !(row as DealerRegisterDeal).archived : !!(row as DealerRegisterDeal).archived || req.status !== 'all' && (row as DealerRegisterDeal).status !== req.status : req.status !== 'all' && (req.kind === 'customers' ? (row as Customer).kind : (row as InventoryItem).status) !== req.status)) throw new Error('invalid filtered row');
   const rawCounts = record(page.counts), counts: Record<string, number> = {};
-  for (const key of statuses[req.kind]) counts[key] = integer(rawCounts[key]);
-  if (counts.all !== totalCount || statuses[req.kind].slice(1).reduce((sum, key) => sum + counts[key], 0) !== totalCount) throw new Error('invalid tab totals');
+  for (const key of statuses[req.kind]) counts[key] = integer(req.kind === 'deals' && key === 'archived' ? rawCounts[key] ?? 0 : rawCounts[key]);
+  if (counts.all + (req.kind === 'deals' ? counts.archived : 0) !== totalCount || statuses[req.kind].slice(1).reduce((sum, key) => sum + counts[key], 0) !== totalCount) throw new Error('invalid tab totals');
   let nextCursor: string | null = null;
   if (page.nextCursor !== null) {
     const next = validateCursor(page.nextCursor, req, ctx);

@@ -1,0 +1,8 @@
+export type PaperSaleBuyer={name:string;kind:'person'|'business';email:string|null;phone:string|null};
+export type PaperSaleSnapshot={source:'paper';buyer:PaperSaleBuyer;vehicle:{id:string;registration:string;make:string;model:string;year:number};priceOre:string;signedOn:string;paperReference:string;note:string;bankVerified:false;digitalSignature:false};
+export type PaperSaleReview={reviewId:string;reviewHash:string;snapshot:PaperSaleSnapshot};
+export type PaperSaleReceipt={id:string;source:'paper';companyId:string;stockItemId:string;dealId:string;customerId:string;actorId:string;priceOre:string;signedOn:string;paperReference:string;note:string;snapshot:PaperSaleSnapshot;recordedAt:string;bankVerified:false;digitalSignature:false};
+export type PaperSaleOptions={companyId:string;actorId:string;role:'owner'|'admin'|'finance';businessDate:string;basis:{stock:{id:string;status:string;askingPriceOre:string;vatScheme:string};vehicle:PaperSaleSnapshot['vehicle'];deal:{id:string;status:string;customerId:string;salePriceOre:string}|null;customer:({id:string;version:number}&PaperSaleBuyer)|null;reservations:{id:string;dealId:string;status:string;expiresAt:string}[]};existingReceipt:PaperSaleReceipt|null};
+export type PaperSalePrepareInput={companyId:string;stockItemId:string;dealId:string|null;customerId:string|null;buyer:PaperSaleBuyer|null;agreedPrice:string;signedOn:string;paperReference:string;note:string;requestId:string};
+export type PaperSaleConfirmInput={companyId:string;reviewId:string;reviewHash:string;acknowledged:true;requestId:string};
+export type PaperSaleResult<T>={ok:true}&T|{ok:false;code:'invalid_input'|'access_denied'|'conflict'|'unavailable';message:string};
