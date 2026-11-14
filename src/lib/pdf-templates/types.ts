@@ -1,0 +1,11 @@
+import type {UploadedPdfSource} from '../uploaded-pdf/types';
+export const PDF_TEMPLATE_KEYS=['customer.name','customer.email','customer.phone','customer.address','customer.identity','vehicle.registration','vehicle.vin','vehicle.make','vehicle.model','vehicle.modelYear','vehicle.mileageKm','deal.price','company.name','company.organisationNumber'] as const;
+export type PdfTemplateKey=typeof PDF_TEMPLATE_KEYS[number];
+export const PDF_TEMPLATE_LABELS:Record<PdfTemplateKey,string>={'customer.name':'Kundens namn','customer.email':'Kundens e-post','customer.phone':'Kundens telefon','customer.address':'Kundens adress','customer.identity':'Person-/organisationsnummer','vehicle.registration':'Registreringsnummer','vehicle.vin':'Chassinummer (VIN)','vehicle.make':'Bilmärke','vehicle.model':'Bilmodell','vehicle.modelYear':'Årsmodell','vehicle.mileageKm':'Mätarställning, km','deal.price':'Överenskommet pris','company.name':'Företagsnamn','company.organisationNumber':'Företagets organisationsnummer'};
+export type PdfTemplateField={id:string;key:PdfTemplateKey;pageIndex:number;x:number;y:number;width:number;height:number;fontSize:number};
+export type PdfTemplateAsset={id:string;companyId:string;filename:string;sha256:string;byteSize:number;pageCount:number;pages:{width:number;height:number}[]};
+export type PdfTemplateVersion={id:string;companyId:string;templateId:string;version:number;title:string;asset:PdfTemplateAsset;fields:PdfTemplateField[];createdAt:string};
+export type PdfTemplateResult<T>={ok:true}&T|{ok:false;code:'invalid_input'|'access_denied'|'conflict'|'unavailable';message:string};
+export type SavePdfTemplateVersionInput={companyId:string;assetId:string;templateId:string;expectedVersion:number;title:string;fields:PdfTemplateField[];requestId:string;acknowledged:true};
+export type GeneratePdfTemplateInput={companyId:string;dealId:string;templateVersionId:string;requestId:string;acknowledged:true};
+export type GeneratedPdfTemplateResult=PdfTemplateResult<{source:UploadedPdfSource}>;

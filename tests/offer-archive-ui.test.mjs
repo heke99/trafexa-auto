@@ -58,6 +58,9 @@ before(async () => {
       // These independently verified signing forms are outside the offer archive boundary.
       [resolve(repo, 'src/components/direct-deal-form')]: unrelated,
       [resolve(repo, 'src/components/uploaded-pdf-signing')]: unrelated,
+      [resolve(repo, 'src/components/paper-sale-form')]: unrelated,
+      [resolve(repo, 'src/components/deal-archive-control')]: unrelated,
+      [resolve(repo, 'src/components/pdf-template-workspace')]: unrelated,
       [resolve(repo, 'src/components/vehicle-photo-gallery')]: unrelated,
       [resolve(repo, 'src/components/advertising-workspace')]: unrelated,
     } },

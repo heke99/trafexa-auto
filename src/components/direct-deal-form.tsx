@@ -73,7 +73,19 @@ function ScopedDirectDealForm({snapshot,companyId,dealId,demo=false,onBusyChange
  useEffect(()=>{alive.current=true;if(!demo)void load(undefined,true);return()=>{alive.current=false;reads.current++;};},[]);
  useEffect(()=>{if(error)errorFocus.current?.focus();},[error]);
  useEffect(()=>{if(review)reviewFocus.current?.focus();},[review]);
- useEffect(()=>{if(sent)completionFocus.current?.focus();},[sent]);
+ useEffect(()=>{if(sent)completionFocus.current?.focus();},[sent?.signing.id,sent?.signing.status]);
+ const refreshSigning=useRef<()=>Promise<void>>(async()=>{}),refreshingSigning=useRef(false);
+ refreshSigning.current=async()=>{
+  if(!alive.current||demo||denied||unknown||loading||busy.busyRef.current||refreshingSigning.current||!sent||sent.signing.status==='completed'||sent.signing.status==='unavailable'||document.visibilityState==='hidden')return;
+  refreshingSigning.current=true;
+  try{await load(undefined,true);}finally{refreshingSigning.current=false;}
+ };
+ useEffect(()=>{
+  if(!sent||sent.signing.status==='completed'||sent.signing.status==='unavailable'||denied||demo)return;
+  const refresh=()=>{void refreshSigning.current();},timer=window.setInterval(refresh,15000);
+  window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);
+  return()=>{window.clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};
+ },[sent?.signing.id,sent?.signing.status,denied,demo]);
  function edit<K extends keyof Fields>(key:K,value:Fields[K]){if(busy.busyRef.current||unknown)return;setFields(current=>({...current,[key]:value}));setError('');prepareAttempt.current=null;sendAttempt.current=null;}
  function mode(value:Fields['customerMode']){if(busy.busyRef.current||unknown||activeDealId)return;reads.current++;setLoading(false);setCustomer(null);setPickedCustomer(null);setCustomerReady(false);pickedCustomerId.current=null;setFields(current=>({...current,customerMode:value,customerId:'',kind:'person',name:'',email:'',phone:'',address:'',identityNumber:''}));setError('');prepareAttempt.current=null;}
  async function prepare(retry=false){

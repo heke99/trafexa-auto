@@ -33,3 +33,8 @@ export const DealerDocumentHub=()=>null;
 
 export const DirectDealForm=()=>null;
 export const UploadedPdfSigning=()=>null;
+
+// These independent workflows stay outside the actual offer/archive component under test.
+export const PaperSaleForm=()=>null;
+export const DealArchiveControl=()=>null;
+export const PdfTemplateWorkspace=()=>null;

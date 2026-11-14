@@ -104,7 +104,7 @@ async function harness() {
       get: (key) => key === 'trafexa-company' && state().cookie !== undefined ? { value: state().cookie } : undefined,
       set: (...args) => { state().cookieWrites.push(args); state().cookie = args[1]; },
     }) },
-    'next/navigation': { redirect, notFound: () => { throw new Error('NOT_FOUND'); } },
+    'next/navigation': { redirect, useRouter:()=>({refresh(){},push(){}}), notFound: () => { throw new Error('NOT_FOUND'); } },
     'next/cache': { revalidatePath: (path) => state().revalidated.push(path) },
     '@/lib/supabase/server': { createServerSupabaseClient: async () => { state().clients++; return database(state()); } },
     './stock-import': { StockImport: () => null },

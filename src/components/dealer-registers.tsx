@@ -24,7 +24,7 @@ export type DealerRegistersProps = {
 const filters: Record<DealerRegisterKind, [string, string][]> = {
   inventory: [['all', 'Alla bilar'], ['available', 'Tillgängliga'], ['reserved', 'Reserverade'], ['sold', 'Sålda'], ['archived', 'Arkiverade']],
   customers: [['all', 'Alla kunder'], ['person', 'Privatpersoner'], ['business', 'Företag']],
-  deals: [['all', 'Alla affärer'], ['draft', 'Utkast'], ['reserved', 'Reservationer'], ['cancelled', 'Avbrutna'], ['completed', 'Levererade']],
+  deals: [['all', 'Alla affärer'], ['draft', 'Utkast'], ['reserved', 'Reservationer'], ['cancelled', 'Avbrutna'], ['completed', 'Levererade'], ['archived', 'Arkiverade']],
 };
 const nouns = { inventory: 'bilar', customers: 'kunder', deals: 'affärer' };
 const placeholders = { inventory: 'Sök bil eller reg.nr', customers: 'Sök namn, mejl eller telefon', deals: 'Sök kund, bil eller reg.nr' };
@@ -36,9 +36,10 @@ function demoPage(props: DealerRegistersProps, query: string, status: string, so
   const scope = { companyId: props.companyId, actorId: props.userId, role: props.role as DealerRegisterRole };
   const search = normalize(query);
   function select<T>(rows: T[], getStatus: (row: T) => string, getText: (row: T) => string, getPrice?: (row: T) => number) {
-    const counts: Record<string, number> = { all: rows.length };
-    for (const row of rows) counts[getStatus(row)] = (counts[getStatus(row)] ?? 0) + 1;
-    const selected = rows.filter(row => (status === 'all' || getStatus(row) === status) && normalize(getText(row)).includes(search));
+    const archived = (row:T) => props.kind === 'deals' && (row as DealerRegisterDeal).archived === true;
+    const counts: Record<string, number> = { all: rows.filter(row => !archived(row)).length };
+    for (const row of rows) counts[archived(row) ? 'archived' : getStatus(row)] = (counts[archived(row) ? 'archived' : getStatus(row)] ?? 0) + 1;
+    const selected = rows.filter(row => (props.kind === 'deals' ? status === 'archived' ? archived(row) : !archived(row) && (status === 'all' || getStatus(row) === status) : status === 'all' || getStatus(row) === status) && normalize(getText(row)).includes(search));
     if (sort !== 'recent' && getPrice) selected.sort((a, b) => (getPrice(a) - getPrice(b)) * (sort === 'price_desc' ? -1 : 1));
     const pageRows = selected.slice(offset, offset + 50);
     return { rows: pageRows, totalCount: rows.length, filteredCount: selected.length, counts, nextCursor: offset + 50 < selected.length ? `demo:${offset + 50}` : null };
@@ -140,7 +141,7 @@ function RegisterPanel(props: DealerRegistersProps) {
     {error ? <div className="quiet-empty"><p role="alert">{error}</p><button type="button" className="button button-outline button-small" onClick={refresh}>Försök igen</button>{position > 0 ? <button type="button" className="button button-outline button-small" onClick={() => { resetPage(); setRetry(value => value + 1); }}>Till första sidan</button> : null}</div> : null}
     {page ? page.rows.length ? renderRows(page) : !loading ? <div className="empty-state"><h3>{position > 0 && page.filteredCount > 0 ? 'Sidan är tom efter en ändring i registret.' : page.totalCount === 0 ? `Inga ${nouns[kind]} har registrerats ännu.` : `Inga ${nouns[kind]} matchar sökningen eller filtret.`}</h3><p>{position > 0 && page.filteredCount > 0 ? 'Gå till föregående sida eller uppdatera registret.' : page.totalCount === 0 ? firstRecordGuidance : 'Ändra sökningen eller välj ett annat filter.'}</p>{page.totalCount > 0 && page.filteredCount === 0 ? <button type="button" className="button button-outline button-small" onClick={clearCriteria}>Visa alla {nouns[kind]}</button> : null}</div> : null : null}
     <div className="table-footer" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
-      <span>{page ? `Visar ${count(page.rows.length)} av ${count(page.filteredCount)} träffar · ${count(page.totalCount)} ${nouns[kind]} totalt` : 'Antalet visas när registret har verifierats.'}</span>
+      <span>{page ? `Visar ${count(page.rows.length)} av ${count(page.filteredCount)} träffar · ${count(page.totalCount)} ${nouns[kind]} totalt${kind === 'deals' && page.counts.archived > 0 ? ' inklusive arkiverade' : ''}` : 'Antalet visas när registret har verifierats.'}</span>
       <nav aria-label="Registersidor" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <button type="button" className="button button-outline button-small" disabled={props.blocked || loading || position === 0} onClick={previous}>Tidigare</button>
         <span>Sida {position + 1}</span>
