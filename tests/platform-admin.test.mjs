@@ -20,6 +20,7 @@ async function fixture(options = {}) {
     async rpc(name, args) {
       calls.push([name, args]);
       if (options.rpc) { const result = await options.rpc(name, args); if (result !== undefined) return result; }
+      if (name === 'get_platform_admin_activation_access') return {data:{user_id:USER,can_activate:Boolean(options.activationEligible)},error:null};
       if (name === 'get_platform_admin_session') return { data: { is_platform_admin: admin, user_id: options.sessionUserId ?? USER }, error: options.sessionError ?? null };
       if (name === 'list_platform_companies') return { data: options.companyPage ?? { companies: [company], next_page_key: null }, error: options.listError ?? null };
       if (name === 'list_platform_contact_requests') return { data: options.contactPage ?? { requests: [], next_page_key: null }, error: null };
@@ -40,7 +41,7 @@ test('fresh verified Auth and matching private allowlist identity precede every 
   const { actions, calls } = await fixture();
   const result = await actions.listPlatformCompaniesAction({ search: ' AB ', limit: 3 });
   assert.equal(result.ok, true);
-  assert.deepEqual(calls, [['auth'], ['get_platform_admin_session', {}], ['list_platform_companies', { p_search: 'AB', p_page_key: null, p_limit: 3 }]]);
+  assert.deepEqual(calls, [['auth'], ['get_platform_admin_session', {}], ['list_platform_companies', { p_search: 'AB', p_page_key: null, p_limit: 3 }], ['auth'], ['get_platform_admin_session', {}]]);
   assert.deepEqual(Object.keys(result.companies[0]).sort(), ['createdAt', 'id', 'membershipCount', 'name', 'organisationNumber', 'status', 'stockCount']);
   assert.equal(JSON.stringify(result).includes('not-for-client'), false);
 });
@@ -75,11 +76,12 @@ test('mismatched allowlist UID, revoked admin and missing RPC fail closed', asyn
 
 test('Auth is refreshed for mutation after a successful read', async () => {
   let revoked = false;
-  const { actions, calls } = await fixture({ rpc(name) { if (name === 'get_platform_admin_session') return { data: { is_platform_admin: !revoked, user_id: USER }, error: null }; } });
+  const { actions, calls } = await fixture({ rpc(name) { if (name === 'get_platform_admin_activation_access') return {data:{user_id:USER,can_activate:Boolean(options.activationEligible)},error:null};
+      if (name === 'get_platform_admin_session') return { data: { is_platform_admin: !revoked, user_id: USER }, error: null }; } });
   assert.equal((await actions.listPlatformCompaniesAction()).ok, true);
   revoked = true;
   assert.equal((await actions.setPlatformCompanyStatusAction(mutation)).code, 'access_denied');
-  assert.equal(calls.filter(call => call[0] === 'auth').length, 2);
+  assert.equal(calls.filter(call => call[0] === 'auth').length, 3);
   assert.equal(calls.some(call => call[0] === 'set_platform_company_status'), false);
 });
 
@@ -95,7 +97,7 @@ test('keyset cursor and maximum limit are forwarded as typed RPC arguments', asy
   const { actions, calls } = await fixture({ companyPage: { companies: [{ ...company, id: NEXT }], next_page_key: NEXT } });
   const result = await actions.listPlatformCompaniesAction({ pageKey: COMPANY, limit: 50 });
   assert.equal(result.ok, true); assert.equal(result.nextPageKey, NEXT);
-  assert.deepEqual(calls.at(-1), ['list_platform_companies', { p_search: '', p_page_key: COMPANY, p_limit: 50 }]);
+  assert.deepEqual(calls.findLast(call=>call[0]==='list_platform_companies'), ['list_platform_companies', { p_search: '', p_page_key: COMPANY, p_limit: 50 }]);
 });
 
 test('malformed, duplicate, oversized and backwards provider lists never leak rows', async () => {
@@ -111,7 +113,7 @@ test('status mutations use only verified identity, expected status, normalized r
   const { actions, calls, invalidations } = await fixture();
   const result = await actions.setPlatformCompanyStatusAction({ ...mutation, reason: '  Konto granskas  ' });
   assert.equal(result.ok, true);
-  assert.deepEqual(calls.at(-1), ['set_platform_company_status', { p_company_id: COMPANY, p_expected_status: 'active', p_status: 'suspended', p_reason: 'Konto granskas', p_request_id: REQUEST }]);
+  assert.deepEqual(calls.findLast(call=>call[0]==='set_platform_company_status'), ['set_platform_company_status', { p_company_id: COMPANY, p_expected_status: 'active', p_status: 'suspended', p_reason: 'Konto granskas', p_request_id: REQUEST }]);
   assert.deepEqual(invalidations, ['/admin']);
   assert.equal('actorUserId' in result.receipt, false);
 });
@@ -163,7 +165,7 @@ test('read-only contact requests preserve multiline messages and expose only the
   const result = await actions.listPlatformContactRequestsAction({ limit: 1 });
   assert.equal(result.ok, true); assert.equal(result.requests[0].message, contact.message);
   assert.equal(JSON.stringify(result).includes('secret'), false);
-  assert.deepEqual(calls.at(-1), ['list_platform_contact_requests', { p_page_key: null, p_limit: 1 }]);
+  assert.deepEqual(calls.findLast(call=>call[0]==='list_platform_contact_requests'), ['list_platform_contact_requests', { p_page_key: null, p_limit: 1 }]);
   const denied = await fixture({ admin: false });
   assert.equal((await denied.actions.listPlatformContactRequestsAction()).code, 'access_denied');
   assert.equal(denied.calls.some(call => call[0] === 'list_platform_contact_requests'), false);
@@ -203,18 +205,19 @@ test('activation denies forged email/UID, unverified users, forbidden reservatio
 test('admin layout and page redirect missing users to the dedicated admin login without any privileged reads', async () => {
   for (const path of ['./src/app/admin/layout.tsx', './src/app/admin/page.tsx']) {
     const { loader, calls } = await fixture({ user: null });
-    await assert.rejects(() => loader.load(path).default({ children: 'PRIVATE CHILD' }), /REDIRECT:\/login\?next=\/admin/);
+    await assert.rejects(() => loader.load(path).default({ children: 'PRIVATE CHILD' }), /REDIRECT:\/login\?next=%2Fadmin/);
     assert.equal(calls.some(call => call[0] !== 'auth'), false);
   }
 });
 
-test('approved verified ordinary users see only the neutral activation view; no GET claims or global reads', async () => {
+test('ordinary users cannot see activation; own explicit eligibility permits only the activation view without GET claims', async () => {
   for (const path of ['./src/app/admin/layout.tsx', './src/app/admin/page.tsx']) {
-    const { loader, calls } = await fixture({ admin: false });
-    const element = await loader.load(path).default({ children: 'PRIVATE CHILD' });
-    assert.ok(element);
-    assert.equal(JSON.stringify(element).includes('PRIVATE CHILD'), false);
-    assert.equal(calls.some(call => ['claim_platform_admin_access', 'list_platform_companies', 'list_platform_contact_requests'].includes(call[0])), false);
+    for(const activationEligible of [false,true]){
+      const { loader, calls } = await fixture({ admin: false,activationEligible });
+      if(activationEligible){const element=await loader.load(path).default({children:'PRIVATE CHILD'});assert.ok(element);assert.equal(JSON.stringify(element).includes('PRIVATE CHILD'),false);}
+      else await assert.rejects(()=>loader.load(path).default({children:'PRIVATE CHILD'}),/NOT_FOUND/);
+      assert.equal(calls.some(call=>['claim_platform_admin_access','list_platform_companies','list_platform_contact_requests'].includes(call[0])),false);
+    }
   }
 });
 
@@ -225,3 +228,8 @@ test('unverified users cannot render the activation view or admin children', asy
     assert.equal(calls.some(call => call[0] !== 'auth'), false);
   }
 });
+
+test('revocation during older admin reads or company mutation suppresses data and success receipt',async()=>{
+ for(const rpc of['list_platform_companies','list_platform_contact_requests','set_platform_company_status']){let revoked=false;const f=await fixture({rpc(name){if(name==='get_platform_admin_session')return{data:{is_platform_admin:!revoked,user_id:USER},error:null};if(name===rpc)revoked=true;}});const result=rpc==='list_platform_companies'?await f.actions.listPlatformCompaniesAction():rpc==='list_platform_contact_requests'?await f.actions.listPlatformContactRequestsAction():await f.actions.setPlatformCompanyStatusAction(mutation);assert.equal(result.ok,false);assert.equal(result.code,'access_denied');assert.deepEqual(Object.keys(result).sort(),['code','message','ok']);assert.deepEqual(f.invalidations,[]);}
+});
+test('activation success cannot be returned under another fresh administrator identity',async()=>{let changed=false;let f;f=await fixture({rpc(name){if(name==='claim_platform_admin_access'){changed=true;f.db.auth.getUser=async()=>({data:{user:{...verifiedUser,id:NEXT}},error:null});}if(name==='get_platform_admin_session'&&changed)return{data:{is_platform_admin:true,user_id:NEXT},error:null};}});const result=await f.actions.activatePlatformAdminAction({});assert.equal(result.ok,false);assert.equal(result.code,'access_denied');assert.deepEqual(f.invalidations,[]);});

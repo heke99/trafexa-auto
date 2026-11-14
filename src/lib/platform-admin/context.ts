@@ -44,3 +44,19 @@ export async function getPlatformAdminContext(): Promise<PlatformAdminContext | 
   try { return await requirePlatformAdminContext(); } catch { return null; }
 }
 export const requirePlatformAdminPageContext = cache(requirePlatformAdminContext);
+
+/** Read-only eligibility probe. Never turn a normal login into an admin claim. */
+export async function requirePlatformAdminActivationContext(): Promise<PlatformAdminContext> {
+  const context=await requirePlatformAuthenticatedContext();
+  const result=await context.db.rpc('get_platform_admin_activation_access',{});
+  if(result.error)throw new PlatformAdminError(result.error.code==='42501'?'forbidden':'unavailable');
+  const value=result.data;
+  if(!value||typeof value!=='object'||Array.isArray(value)||value.user_id!==context.userId||typeof value.can_activate!=='boolean')throw new PlatformAdminError('unavailable');
+  if(!value.can_activate)throw new PlatformAdminError('forbidden');
+  const fresh=await requirePlatformAuthenticatedContext();
+  if(fresh.userId!==context.userId)throw new PlatformAdminError('forbidden');
+  return context;
+}
+export async function getPlatformAdminActivationContext(): Promise<PlatformAdminContext|null> {
+  try{return await requirePlatformAdminActivationContext();}catch{return null;}
+}

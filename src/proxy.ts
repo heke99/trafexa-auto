@@ -12,7 +12,15 @@ export async function proxy(request: NextRequest) {
   // not trigger a provider refresh before that inert handoff can complete.
   if(privateLink)return privateLinkHeaders(NextResponse.next());
   if (!isWorkspacePath(pathname) && !isPlatformAdminPath(pathname) && !isCompanyInvitationsPath(pathname) && !isCustomerOffersPath(pathname) && !isAuthPath(pathname)) return NextResponse.next();
-  let response = NextResponse.next({ request });
+  // Canonical return navigation only. Authorization remains fresh in pages/actions.
+  // Rebuild after cookie refreshes so the forwarded request retains new cookies.
+  const forwardRequest=()=>{
+    const headers=new Headers(request.headers);
+    headers.delete('x-trafexa-admin-path');
+    if(isPlatformAdminPath(pathname))headers.set('x-trafexa-admin-path',safeNextPath(pathname+search));
+    return NextResponse.next({request:{headers}});
+  };
+  let response = forwardRequest();
   response.headers.set('Cache-Control', 'private, no-store');
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -21,7 +29,7 @@ export async function proxy(request: NextRequest) {
     getAll: () => request.cookies.getAll(),
     setAll(items) {
       items.forEach(({ name, value }) => request.cookies.set(name, value));
-      response = NextResponse.next({ request });
+      response = forwardRequest();
       response.headers.set('Cache-Control', 'private, no-store');
       items.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
     }

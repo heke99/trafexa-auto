@@ -88,16 +88,16 @@ test('ordinary verified dealer is denied by actual server page and browser activ
   const loader = await createSourceLoader({
     '@/lib/supabase/server': { async createServerSupabaseClient() { return {
       auth: { async getUser() { serverCalls.push('auth'); return { data: { user: { id: userId, email: 'info@trafexa.com', email_confirmed_at: '2026-10-13T18:00:00Z', is_anonymous: false, user_metadata: { role: 'owner' } } }, error: null }; } },
-      async rpc(name) { serverCalls.push(name); assert.equal(name, 'get_platform_admin_session'); return { data: { is_platform_admin: false, user_id: userId }, error: null }; },
+      async rpc(name) { serverCalls.push(name);if(name==='get_platform_admin_session')return {data:{is_platform_admin:false,user_id:userId},error:null};if(name==='get_platform_admin_activation_access')return{data:{can_activate:false,user_id:userId},error:null};throw Error('Unexpected privileged RPC '+name); },
     }; } },
     '@/components/platform-admin-workspace': { PlatformAdminActivation, PlatformAdminWorkspace() { throw new Error('Dealer cannot receive admin data'); } },
     '@/lib/account-access/context': { async getAccountAccessContext() { return {emailVerified:true,status:'approved'}; } },
     'next/cache': { revalidatePath() { throw new Error('GET cannot write'); } },
-    'next/navigation': { notFound() { throw new Error('Unexpected notFound'); }, redirect() { throw new Error('Unexpected redirect'); } },
+    'next/navigation': { notFound() { throw Object.assign(new Error('NOT_FOUND'),{notFound:true}); }, redirect() { throw new Error('Unexpected redirect'); } },
   });
-  const deniedPage = await loader.load('./src/app/admin/page.tsx').default();
-  assert.equal(deniedPage.type, PlatformAdminActivation);
+  await assert.rejects(loader.load('./src/app/admin/page.tsx').default(),error=>error.notFound===true);
   assert.equal(serverCalls.includes('list_platform_companies'), false);
+  assert.equal(serverCalls.includes('get_platform_admin_activation_access'),true);
   const page = await setup({ activation: true });
   try {
     await expect(page.getByRole('heading', { name: 'Administratörsåtkomst krävs' })).toBeVisible();
@@ -287,8 +287,8 @@ test('unknown invitation transport reuses the reviewed request and provider ambi
  const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationResponses:[{throw:true},{ok:true,status:'unknown',invitationId:COMPANY,email:invitationApplication.email}]});
  try {
   await openInvitationReview(page);await page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'}).check();
-  await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();await expect(page.getByRole('alert')).toContainText('samma granskning');
-  await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
+  await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();await expect(page.getByRole('alert')).toContainText('samma begäran');
+  await page.getByRole('button',{name:'Kontrollera samma begäran',exact:true}).click();
   await expect(page.getByRole('region',{name:'Godkänn ansökan och bjud in'}).getByRole('status')).toContainText('Skicka inte en ny inbjudan');
   const calls=await page.evaluate(()=>window.fixture.invitationCalls);assert.deepEqual(calls[0],calls[1]);
   await expect(page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true})).toBeDisabled();
@@ -370,7 +370,7 @@ test('account approval requires review, keeps nonce for unknown outcome and refr
   await expect(page.getByRole('heading',{name:'Bekräfta kontobeslut'})).toBeFocused();
   await page.getByRole('button',{name:'Bekräfta kontobeslut',exact:true}).click();
   await expect(page.getByRole('alert')).toContainText('samma uppgifter');
-  await page.getByRole('button',{name:'Bekräfta kontobeslut',exact:true}).click();
+  await page.getByRole('button',{name:'Kontrollera samma kontobeslut',exact:true}).click();
   await expect(page.getByText('Kontobeslutet har registrerats. Listan visar aktuell åtkomst.')).toBeVisible();
   const calls=await page.evaluate(()=>window.fixture.accountStatusCalls);assert.deepEqual(calls[0],calls[1]);assert.equal(calls[0].expectedVersion,1);assert.equal(calls[0].status,'approved');assert.equal(calls[0].reason,'Identiteten och ansökan är granskade');
   await expect(page.getByRole('cell',{name:'new@example.invalid',exact:true})).toHaveCount(0);
@@ -431,7 +431,7 @@ async function installAdminCompanyFixtures(page) {
  });
 }
 
-for(const width of [390,1440])test(`superadmin visual snapshots cover overview, dealer management, accounts and billing at ${width}px`,async()=>{
+for(const width of [320,390,1440])test(`superadmin visual snapshots cover overview, dealer management, accounts and billing at ${width}px`,async()=>{
  const page=await setup({overviewTab:true,initialCompanies:[makeCompany(COMPANY,'Svenska Bilhandlargruppen AB'),makeCompany(NEXT,'Göteborgs Bil & Motor AB')],accountRows:[makeAccount({name:'Anna Andersson',email:'anna.andersson@bilhandlargruppen.invalid'}),makeAccount({userId:'40000000-0000-4000-8000-000000000002',name:'Erik Berg',email:'erik@motorgruppen.invalid',status:'approved'})]});
  const output=process.env.TRAFEXA_ADMIN_QA_DIR;
  async function capture(name){
@@ -639,8 +639,8 @@ test('failed renewal retains the exact reviewed request for deliberate retry aft
   await page.evaluate(()=>{window.fixture.renewResponses=[{throw:true}];});await openLifecycle(page);
   await page.getByLabel('Motivering för förnyelse').fill('Kunden behöver en ny länk.');await page.getByRole('button',{name:'Granska förnyelse'}).click();
   await page.getByRole('checkbox',{name:/Jag bekräftar att den tidigare aktiveringslänken/}).check();await page.getByRole('button',{name:'Bekräfta och skicka ny kontoinbjudan'}).click();
-  await expect(page.getByRole('alert')).toContainText('resultat kunde inte verifieras');
-  await expect(page.getByRole('button',{name:'Bekräfta och skicka ny kontoinbjudan'})).toBeEnabled();await page.getByRole('button',{name:'Bekräfta och skicka ny kontoinbjudan'}).click();
+  await expect(page.getByRole('alert')).toContainText('samma begäran');
+  await expect(page.getByRole('button',{name:'Kontrollera samma begäran',exact:true})).toBeEnabled();await page.getByRole('button',{name:'Kontrollera samma begäran',exact:true}).click();
   await expect(page.getByRole('button',{name:'Granska förnyelse'})).toHaveCount(0);
   const calls=await page.evaluate(()=>window.fixture.renewCalls);assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);
  }finally{await page.close();}
@@ -648,17 +648,19 @@ test('failed renewal retains the exact reviewed request for deliberate retry aft
 
  test('a changed renewal generation clears the previous acknowledgement before another reviewed renewal',async()=>{
  const changed=lifecycleRead('rejected',{canRenew:true});changed.lifecycle.delivery.id='70000000-0000-4000-8000-000000000002';
- const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationReadResponses:[lifecycleRead('sent',{canRenew:true}),changed]});
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationReadResponses:[lifecycleRead('sent',{canRenew:true}),changed,changed]});
  try {
-  await page.evaluate(()=>{window.fixture.renewResponses=[{throw:true}];});await openLifecycle(page);
+  await page.evaluate(()=>{window.fixture.renewResponses=[{throw:true},{ok:false,code:'conflict'}];});await openLifecycle(page);
   await page.getByLabel('Motivering för förnyelse').fill('Ny länk efter granskning.');await page.getByRole('button',{name:'Granska förnyelse'}).click();
   await page.getByRole('checkbox',{name:/Jag bekräftar att den tidigare aktiveringslänken/}).check();await page.getByRole('button',{name:'Bekräfta och skicka ny kontoinbjudan'}).click();
   await expect(page.getByText('Utskicket avvisades',{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Granska förnyelse'})).toBeVisible();
   await expect(page.getByRole('button',{name:'Bekräfta och skicka ny kontoinbjudan'})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Granska förnyelse'})).toBeDisabled();
+  await page.getByRole('button',{name:'Kontrollera samma begäran',exact:true}).click();
   await page.getByRole('button',{name:'Granska förnyelse'}).click();
   await expect(page.getByRole('checkbox',{name:/Jag bekräftar att den tidigare aktiveringslänken/})).not.toBeChecked();
-  assert.equal(await page.evaluate(()=>window.fixture.renewCalls.length),1);
+  const calls=await page.evaluate(()=>window.fixture.renewCalls);assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);
  }finally{await page.close();}
 });
 
@@ -692,14 +694,17 @@ test('changed case handling requires a new editable approval review and fresh no
 });
 test('lost replacement approval response preserves the new review nonce and reloads its durable replacement without reverting to the old approval',async()=>{
  const initial=staleApprovalRead(),updated=staleApprovalRead();updated.invitation={...initial.invitation,applicationVersion:3,reason:'Ny aktuell granskning.',requestId:'20000000-0000-4000-8000-000000000001'};
- const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationReadResponses:[initial,initial,updated,updated],invitationResponses:[{throw:true},{throw:true}]});
+ const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],invitationReadResponses:[initial,initial,updated,updated,updated],invitationResponses:[{throw:true},{throw:true},{ok:false,code:'conflict'}]});
  try{
   await openLifecycle(page);await page.getByLabel('Motivering för kontogodkännande').fill('Ny aktuell granskning.');await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();
   await page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'}).check();await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
-  await expect(page.getByRole('alert')).toContainText('samma granskning');await expect(page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true})).toBeEnabled();
-  await page.getByRole('button',{name:'Godkänn och skicka kontoinbjudan',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('samma begäran');await expect(page.getByRole('button',{name:'Kontrollera samma begäran',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Kontrollera samma begäran',exact:true}).click();
   await expect(page.getByLabel('Motivering för kontogodkännande')).toHaveValue(updated.invitation.reason);await expect(page.getByText(/Handläggningen har ändrats sedan det tidigare godkännandet/)).toHaveCount(0);
   const calls=await page.evaluate(()=>window.fixture.invitationCalls);assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);assert.notEqual(calls[0].requestId,initial.invitation.requestId);
+  await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeDisabled();
+  await page.getByRole('button',{name:'Kontrollera samma begäran',exact:true}).click();
+  const allCalls=await page.evaluate(()=>window.fixture.invitationCalls);assert.equal(allCalls.length,3);assert.deepEqual(allCalls[1],allCalls[2]);
   await page.getByRole('button',{name:'Uppdatera kontoinbjudans status'}).click();await expect(page.getByLabel('Motivering för kontogodkännande')).toBeDisabled();await expect(page.getByLabel('Motivering för kontogodkännande')).toHaveValue(updated.invitation.reason);await page.getByRole('button',{name:'Granska godkännande',exact:true}).click();await expect(page.getByRole('checkbox',{name:'Jag har granskat ansökan och godkänner kontot för invited@example.test.'})).not.toBeChecked();
  }finally{await page.close();}
 });
@@ -851,8 +856,8 @@ test('pending account decision locks parent navigation and every query control, 
   await expect(page.getByRole('heading',{name:'Bekräfta kontobeslut'})).toBeVisible();
   await page.evaluate(()=>window.releaseAccountStatus({throw:true}));
   await expect(page.getByRole('alert')).toContainText('samma uppgifter');
-  await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeEnabled();
-  await page.getByRole('button',{name:'Bekräfta kontobeslut',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeDisabled();
+  await page.getByRole('button',{name:'Kontrollera samma kontobeslut',exact:true}).click();
   await expect(page.getByText('Kontobeslutet har registrerats. Listan visar aktuell åtkomst.')).toBeVisible();
   const calls=await page.evaluate(()=>window.fixture.accountStatusCalls);assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);
  }finally{await page.close();}
@@ -944,3 +949,10 @@ for (const width of [320, 1440]) test(`Blocket write and receipt readback keep e
     await expect(page.getByRole('region', { name: 'Valt företags administration', exact: true })).toHaveCount(0);
   } finally { await page.close(); }
 });
+
+for(const width of[320,1440])test(`unknown company decision preserves reviewed intent and navigation protection at ${width}px`,async()=>{const page=await setup({statusResponses:[{throw:true}]});try{await page.setViewportSize({width,height:1000});await page.getByRole('button',{name:/Hantera status/}).click();await page.getByLabel('Motivering (obligatorisk)').fill('Granskad av ansvarig administratör.');await page.getByRole('button',{name:'Granska ändring',exact:true}).click();await page.getByRole('button',{name:'Bekräfta avstängning',exact:true}).click();await expect(page.getByRole('alert')).toContainText('samma uppgifter');for(const label of['Översikt','Företag','Inkomna ansökningar','Konton','Annonsfakturor'])await expect(page.getByRole('button',{name:label,exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Ändra motivering',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Avbryt',exact:true})).toBeDisabled();assert.equal(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;}),true);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);const visibleControls=await page.locator('[aria-labelledby="status-review-title"] .table-controls').evaluate(node=>{const r=node.getBoundingClientRect();return [...node.querySelectorAll('button')].every(button=>{const b=button.getBoundingClientRect();return b.left>=r.left-1&&b.right<=r.right+1;});});assert.equal(visibleControls,true);await page.screenshot({path:`/workspace/scratch/trafexa-nov14/admin-company-unknown-${width}.png`,fullPage:true});await page.getByRole('button',{name:'Bekräfta avstängning',exact:true}).click();await expect(page.getByText('Statusändringen har registrerats.',{exact:true})).toBeVisible();const calls=await page.evaluate(()=>window.fixture.statusCalls);assert.deepEqual(calls[0],calls[1]);await expect(page.getByRole('button',{name:'Konton',exact:true})).toBeEnabled();assert.equal(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;}),false);}finally{await page.close();}});
+test('unknown application handling holds recipient, status and exact review until deliberate same-request confirmation',async()=>{const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],applicationStatusResponses:[{throw:true}]});try{await page.setViewportSize({width:320,height:1000});await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();await page.getByRole('button',{name:/Visa ansökan/}).click();await page.getByLabel('Ny handläggningsstatus').selectOption('in_review');await page.getByLabel('Motivering för handläggning').fill('Ansökan kontrolleras.');await page.getByRole('button',{name:'Granska handläggningsstatus',exact:true}).click();await page.getByRole('button',{name:'Bekräfta handläggningsstatus',exact:true}).click();await expect(page.getByRole('alert')).toContainText('samma uppgifter');await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:/Tillbaka till ansökningar/})).toBeDisabled();await expect(page.getByRole('button',{name:'Avbryt ändring',exact:true})).toBeDisabled();await expect(page.getByLabel('Ny handläggningsstatus')).toBeDisabled();await page.getByRole('button',{name:'Bekräfta handläggningsstatus',exact:true}).click();await expect(page.getByText('Ansökans status har registrerats.',{exact:true})).toBeVisible();const calls=await page.evaluate(()=>window.fixture.applicationStatusCalls);assert.deepEqual(calls[0],calls[1]);await expect(page.getByRole('heading',{name:'Ansökan från Invited Person'})).toBeFocused();await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeEnabled();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);}finally{await page.close();}});
+test('switching verified administrator identity immediately discards prior private application and ignores its late response',async()=>{const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}]});try{await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();await page.evaluate(()=>window.fixture.detailResponses.push(new Promise(resolve=>window.resolvePreviousActorApplication=resolve)));await page.getByRole('button',{name:/Visa ansökan/}).click();await page.waitForFunction(()=>typeof window.resolvePreviousActorApplication==='function');await page.evaluate(company=>window.mountAdminFixture({actorUserId:'30000000-0000-4000-8000-000000000009',initialPage:{companies:[company],nextPageKey:null},initialError:null}),makeCompany(NEXT,'Nästa administratörs företag'));await page.evaluate(application=>window.resolvePreviousActorApplication({ok:true,application,audit:[]}),invitationApplication);await expect(page.getByRole('heading',{name:'Ansökan från Invited Person'})).toHaveCount(0);await expect(page.getByText('invited@example.test',{exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Företag',exact:true}).click();await expect(page.getByText('Nästa administratörs företag',{exact:true})).toBeVisible();await expect(page.getByText('Fixture AB',{exact:true})).toHaveCount(0);}finally{await page.close();}});
+test('company status review restores keyboard focus to its original row action when cancelled',async()=>{const page=await setup();try{const trigger=page.getByRole('button',{name:/Hantera status/});await trigger.focus();await page.keyboard.press('Enter');await expect(page.getByRole('heading',{name:'Ändra företagsstatus'})).toBeFocused();await page.getByRole('button',{name:'Avbryt',exact:true}).click();await expect(trigger).toBeFocused();}finally{await page.close();}});
+
+test('known main-admin receipts clear stale source after failed readback and release navigation without a second mutation',async()=>{const companyPage=await setup({listResponses:[{ok:false,code:'unavailable',message:'Aktuell företagslista kunde inte verifieras.'}]});try{await companyPage.getByRole('button',{name:/Hantera status/}).click();await companyPage.getByLabel('Motivering (obligatorisk)').fill('Företaget har granskats.');await companyPage.getByRole('button',{name:'Granska ändring',exact:true}).click();await companyPage.getByRole('button',{name:'Bekräfta avstängning',exact:true}).click();await expect(companyPage.getByRole('alert')).toContainText('Aktuell företagslista');await expect(companyPage.getByRole('row').filter({hasText:'Fixture AB'})).toHaveCount(0);await expect(companyPage.getByRole('button',{name:'Konton',exact:true})).toBeEnabled();await companyPage.getByRole('button',{name:'Sök',exact:true}).click();await expect(companyPage.getByRole('cell',{name:'Avstängt',exact:true})).toBeVisible();assert.equal(await companyPage.evaluate(()=>window.fixture.statusCalls.length),1);}finally{await companyPage.close();}const applicationPage=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],detailResponses:[{ok:true,application:invitationApplication,audit:[]},{ok:false,code:'unavailable',message:'Aktuell ansökan kunde inte verifieras.'}]});try{await applicationPage.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();await applicationPage.getByRole('button',{name:/Visa ansökan/}).click();await applicationPage.getByLabel('Ny handläggningsstatus').selectOption('in_review');await applicationPage.getByLabel('Motivering för handläggning').fill('Granskning pågår.');await applicationPage.getByRole('button',{name:'Granska handläggningsstatus',exact:true}).click();await applicationPage.getByRole('button',{name:'Bekräfta handläggningsstatus',exact:true}).click();await expect(applicationPage.getByRole('alert')).toContainText('Aktuell ansökan');await expect(applicationPage.getByRole('heading',{name:'Ansökan från Invited Person'})).toHaveCount(0);await expect(applicationPage.getByText('invited@example.test',{exact:true})).toHaveCount(0);await expect(applicationPage.getByRole('button',{name:'Företag',exact:true})).toBeEnabled();assert.equal(await applicationPage.evaluate(()=>window.fixture.applicationStatusCalls.length),1);}finally{await applicationPage.close();}});

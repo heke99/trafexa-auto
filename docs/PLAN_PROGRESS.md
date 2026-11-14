@@ -1,5 +1,9 @@
 # Planläge 14 november 2026
 
+## Superadmin: behörigheter och UI — 14 november 2026
+
+Adminroutning, konto-/företags-/ansökningshantering, medlemsroller, återförsök, mobilvy och statistik granskas i [superadminrapporten](SUPERADMIN_REVIEW_20261114.md). Verifierade fel omfattar aktivering för obehöriga, äldre svagare identitetskontroller, saknad slutkontroll av behörighet samt sena/osäkra svar i UI. Faktiska konton och underskrifter ändras inte som test. Aktuell helregression och publicering följs i etappens PR.
+
 ## Rättning av affärernas signeringsstatus — 14 november 2026
 
 Ett signerat avtal kunde visas som Utkast på affärskortet eftersom grundstatusen fortfarande var draft. Den separata verifierade avtalsstatusen används nu i listan och översikten, med läsuppdatering när kunden signerar. Även livscykelfilter, arkiverad översikt och osignerade historikrubriker granskas. Ingen försäljning, betalning eller leverans fabriceras för att ändra etiketten. Se [statusgranskningen](DEAL_STATUS_REVIEW_20261114.md) för verifiering och utrullning.
