@@ -17,3 +17,15 @@ Samlad regression omfattar 243 kanoniska testfiler och 2 209 godkända fall, uta
 Publicera kompatibel app före databasändringarna. Kör därefter pappersaffärer, affärsarkiv och PDF-mallar i den ordningen. Äldre RPC-svar utan arkiv-/säljarfält accepteras av den nya läsaren. När arkiverade poster finns krävs den nya läsaren; återställ inte endast appen till en äldre version utan kompatibilitetsåtgärd. Hosted migrationers faktiska versionsnummer synkas till filnamnen efter tillämpning. Inga befintliga affärs-/signaturrader fylls med påhittade data eller skrivs om av migrationerna.
 
 PDF-mallen måste vara statisk, okrypterad, högst 4 MB och 100 sidor, utan formulär, aktiva funktioner, rotation eller beskärnings-/koordinatförskjutning. Manuell placering och förhandsgranskning krävs. Kundsigneringen använder den befintliga personliga mejllänken; BankID aktiveras inte av denna etapp.
+
+## Publicering och efterkontroll
+
+Publicerat via [PR #69](https://github.com/heke99/trafexa-auto/pull/69), main `6b1500642571134a4f0ce9907afec72f2a174ef4`, READY-produktion `dpl_5tVCPAydPCzVrvtyUmZHgZsojrdJ`. Inloggningssidan på app.trafexa.com returnerade samma deploymentsmarkör. Databasen uppgraderades efter att denna app var aktiv:
+
+1. `20261114092944_manual_paper_sales.sql`
+2. `20261114092957_deal_list_archives.sql`
+3. `20261114093010_pdf_background_templates.sql`
+
+Filernas SQL är oförändrad; filnamnen följer faktisk hosted migrationshistorik. Fyra befintliga affärer och både företags-/kundsignaturernas kontrollvärden är oförändrade före/efter. Två av fyra äldre affärer har verkligt aktörsbundet namn genom företagssignaturen; okända namn uppfinns inte. Inga pappersaffärer, arkivmarkeringar eller PDF-mallar skapades som produktionsprov. Nya relevanta RPC-funktioner ger ingen anonym exekveringsrätt.
+
+Säkerhetsrådgivaren identifierar avsiktligt tio privata tabeller med RLS utan direkta klientpolicyer samt fyra uttryckligen autentiserade PDF-RPC:er med `SECURITY DEFINER`. Deras färska godkända konto-, aktivt företag- och owner/admin-kontroller verifieras i runtimeproven. Direkt tabellåtkomst är återkallad; privata original, lineage och fältdata exponeras inte genom generella klientpolicyer. Befintliga andra advisoryposter ändrades inte av etappen.
