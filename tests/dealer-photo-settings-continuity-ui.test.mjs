@@ -44,3 +44,23 @@ test('confirmed store profile change invalidates public manager without remounti
   assert.equal(await p.evaluate(()=>window.fixture.writes.length),0);
  }finally{await p.close();}
 });
+
+for(const [kind,callback] of [['native-templates','nativeTemplatesBusy'],['pdf-templates','templatesBusy']])test(`${kind} protects navigation and leaves only its own retry controls active`,async()=>{
+ const {p}=await setup('settings');try{
+  const target=p.getByTestId(kind+'-boundary'),other=p.getByTestId((kind==='native-templates'?'pdf-templates':'native-templates')+'-boundary');await expect(target).toBeVisible();
+  await p.evaluate(callback=>window.fixture[callback](true),callback);
+  assert.equal(await target.evaluate(node=>Boolean(node.closest('[inert]'))),false);assert.equal(await other.evaluate(node=>Boolean(node.closest('[inert]'))),true);
+  assert.equal(await p.locator('#settings-account').evaluate(node=>node.inert),true);
+  const link=p.locator('a[href="/inventory"]').first(),url=p.url();await link.evaluate(node=>node.click());assert.equal(p.url(),url);
+  await p.evaluate(callback=>window.fixture[callback](false),callback);assert.equal(await p.locator('#settings-account').evaluate(node=>node.inert),false);
+ }finally{await p.close();}
+});
+test('one template panel finishing cannot clear another template panel protection',async()=>{
+ const {p}=await setup('settings');try{
+  await p.evaluate(()=>{window.fixture.nativeTemplatesBusy(true);window.fixture.templatesBusy(true);window.fixture.nativeTemplatesBusy(false);});
+  assert.equal(await p.locator('#settings-account').evaluate(node=>node.inert),true);
+  assert.equal(await p.getByTestId('pdf-templates-boundary').evaluate(node=>Boolean(node.closest('[inert]'))),false);
+  assert.equal(await p.getByTestId('native-templates-boundary').evaluate(node=>Boolean(node.closest('[inert]'))),true);
+  await p.evaluate(()=>window.fixture.templatesBusy(false));assert.equal(await p.locator('#settings-account').evaluate(node=>node.inert),false);
+ }finally{await p.close();}
+});

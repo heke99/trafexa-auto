@@ -37,7 +37,13 @@ for (const order of ['guest-first', 'dealer-first']) test(`guest ${order}: repro
     const read = await page(h); assert.equal(read.blockedReason, null); assert.equal(read.source.archiveId, a.archive.id); assert.equal(read.source.amountDueOre, '200');
     const paid = await mutation(h, 'payment', 0, { amountOre: '200', bankReference: 'GUEST-PAID-001', bookedOn: read.businessDate });
     assert.equal(paid.registeredOre, '200'); assert.equal(paid.canDeliver, true);
+    const retriedPayment = await mutation(h, 'payment', 0, { amountOre: '200', bankReference: 'GUEST-PAID-001', bookedOn: read.businessDate });
+    assert.equal(retriedPayment.registeredOre, '200');
+    assert.equal(retriedPayment.entries.length, 1);
     const delivered = await mutation(h, 'deliver', 1); assert.ok(delivered.delivery); assert.equal(delivered.source.archiveId, a.archive.id);
+    const retriedDelivery = await mutation(h, 'deliver', 1);
+    assert.equal(retriedDelivery.delivery.id, delivered.delivery.id);
+    assert.equal(retriedDelivery.version, delivered.version);
     assert.equal((await h.db.query('select status from public.deals where id=$1', [D])).rows[0].status, 'completed');
     assert.equal((await h.db.query('select status from public.stock_items where id=$1', [S])).rows[0].status, 'sold');
     assert.equal((await rpc(h.db, U, 'get_contract_signing_archive', [h.signing.id, C])).archive.id, a.archive.id);

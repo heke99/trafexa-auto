@@ -30,7 +30,11 @@ async function execute(input: FulfilmentScope | FulfilmentMutation, write: boole
   const db = initial.db as unknown as SupabaseClient;
   const { data, error } = write ? await db.rpc('mutate_deal_fulfilment', { p_company_id: input.companyId, p_deal_id: input.dealId, p_input: input }) : await db.rpc('get_deal_fulfilment', { p_company_id: input.companyId, p_deal_id: input.dealId });
   if (error) throw error;
-  const page: FulfilmentPage = pageSchema.parse(data);
+  // A successful RPC may already have committed. An invalid response is not
+  // invalid user input: retain the original idempotent request for recovery.
+  const parsedPage = pageSchema.safeParse(data);
+  if (!parsedPage.success) throw { code: 'unavailable' };
+  const page: FulfilmentPage = parsedPage.data;
   if (page.companyId !== input.companyId || page.dealId !== input.dealId || page.actorId !== initial.userId || page.role !== initial.role) throw { code: '42501' };
   const current = await requireFulfilmentContext(input.companyId, write);
   if (current.userId !== initial.userId || current.role !== initial.role) throw { code: '42501' };
