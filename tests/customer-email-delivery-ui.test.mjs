@@ -100,3 +100,37 @@ test('ambiguous completion retry erases pending state and requires a fresh read;
 });
 
 for(const width of[320,1440])test(`accepted delivery has one compact status and hides technical link controls until requested at ${width}px`,async()=>{const page=await setup({}, {deliveryResponse:{ok:true,delivery:{status:'accepted',transport:'configured'}}});try{await page.setViewportSize({width,height:1000});const panel=page.getByRole('region',{name:'Kundens mejlinbjudan'});await expect(panel.getByText('Skickat',{exact:true})).toBeVisible();await expect(panel.getByText('anna@example.com',{exact:false})).toBeVisible();await expect(panel.getByRole('button',{name:'Visa dokumentlänkens status',exact:true})).not.toBeVisible();await expect(panel.getByText('Mejltjänsten har accepterat utskicket.',{exact:false})).not.toBeVisible();assert.ok((await panel.boundingBox()).height<250);await panel.getByText('Leverans och dokumentlänk',{exact:true}).click();await expect(panel.getByRole('button',{name:'Visa dokumentlänkens status',exact:true})).toBeVisible();await expect(panel.getByText('Mejltjänsten har accepterat utskicket.',{exact:false})).toBeVisible();assert.equal((await retryCalls(page)).length,0);}finally{await page.close();}});
+
+test('pending and ambiguous email retry protects enclosing workflow until a verified status read, including failed read recovery',async()=>{
+ const page=await setup({}, {customerEmailRetries:[{hold:true}]});
+ try{
+  await review(page);await page.getByRole('checkbox',{name:ack}).check();await page.getByRole('button',{name:'Försök skicka mejlet igen',exact:true}).click();
+  await page.waitForFunction(()=>typeof window.fixture.releaseCustomerEmailRetry==='function');
+  assert.equal(await page.evaluate(()=>window.fixture.parentBusy),true);
+  await page.evaluate(()=>window.fixture.releaseCustomerEmailRetry({ok:false,code:'unavailable',message:'Uppdatera mejlstatus efter obekräftat svar.'}));
+  await expect(page.getByRole('alert')).toContainText('Uppdatera mejlstatus');
+  assert.equal(await page.evaluate(()=>window.fixture.parentBusy),true);
+  await expect(page.getByRole('button',{name:'Uppdatera mejlinbjudans status'})).toBeEnabled();
+  await page.evaluate(()=>window.fixture.customerEmailReads=[{throw:true}]);
+  await page.getByRole('button',{name:'Uppdatera mejlinbjudans status'}).click();
+  await expect(page.getByRole('alert')).toContainText('Mejlstatus kunde inte hämtas');
+  assert.equal(await page.evaluate(()=>window.fixture.parentBusy),true);
+  await expect(page.getByRole('button',{name:'Granska nytt utskicksförsök'})).toHaveCount(0);
+  await page.evaluate(()=>window.fixture.deliveryResponse={ok:true,delivery:{status:'unknown',transport:'configured'}});
+  await page.getByRole('button',{name:'Uppdatera mejlinbjudans status'}).click();
+  await expect(page.getByText('Kontroll krävs',{exact:true})).toBeVisible();
+  assert.equal(await page.evaluate(()=>window.fixture.parentBusy),false);
+  assert.equal((await retryCalls(page)).length,1);
+ }finally{await page.close();}
+});
+test('external mutation disables email actions without hiding authoritative status or sending another email',async()=>{
+ const page=await setup({disabled:true});
+ try{
+  await expect(page.getByText('Väntar på utskick',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Granska nytt utskicksförsök'})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Uppdatera mejlinbjudans status'})).toBeDisabled();
+  await page.evaluate(props=>window.mountCustomerEmail({...props,disabled:false}),props);
+  await expect(page.getByRole('button',{name:'Granska nytt utskicksförsök'})).toBeEnabled();
+  assert.equal((await retryCalls(page)).length,0);
+ }finally{await page.close();}
+});
