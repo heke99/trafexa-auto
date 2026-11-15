@@ -9,6 +9,6 @@ window.mountArchiveFixture = (props) => {
   if (props.workspace) { window.fixture ??= {}; window.fixture.workspaceSnapshot = props.snapshot; }
   const element = props.workspace
     ? React.createElement(DealerWorkspace, { snapshot: props.snapshot, section: props.section ?? 'deals', demo: props.demo })
-    : React.createElement(DealOffers, props);
+    : React.createElement(DealOffers, {...props,onAccessDenied:message=>(window.fixture.denials??=[]).push(message),onBusyChange:value=>(window.fixture.busyEvents??=[]).push(value)});
   flushSync(() => root.render(element));
 };

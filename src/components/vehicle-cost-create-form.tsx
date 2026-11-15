@@ -5,7 +5,7 @@ import { createVehicleCostRequestAction } from '@/lib/data/vehicle-cost-actions'
 import type { VehicleCostCreateInput, VehicleCostCreateReceipt } from '@/lib/data/vehicle-cost-create-types';
 import { normalizeCreateMoney, normalizeCreateText, useCreateRequest } from './use-create-request';
 
-type Props = { companyId: string; stockItemId: string; userId: string; role: string; demo?: boolean; disabled?: boolean; onCreated: () => void; onDenied?: () => void };
+type Props = { companyId: string; stockItemId: string; userId: string; role: string; demo?: boolean; disabled?: boolean; onCreated: () => void; onDenied?: () => void; onBusyChange?: (busy: boolean) => void };
 const labels = { repair: 'Reparation / rekond', transport: 'Transport', inspection: 'Besiktning', finance: 'Finanskostnad', other: 'Övrigt' };
 function initialFields() { return { category: 'repair' as VehicleCostCreateInput['category'], description: '', amount: '', incurredOn: new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Stockholm' }).format(new Date()) }; }
 
@@ -13,9 +13,9 @@ export function VehicleCostCreateForm(props: Props) {
   if (!['owner', 'admin'].includes(props.role)) return null;
   return <ScopedCostForm key={`${props.companyId}:${props.userId}:${props.role}:${props.stockItemId}:${!!props.demo}`} {...props}/>;
 }
-function ScopedCostForm({ companyId, stockItemId, userId, demo = false, disabled = false, onCreated, onDenied }: Props) {
+function ScopedCostForm({ companyId, stockItemId, userId, demo = false, disabled = false, onCreated, onDenied, onBusyChange }: Props) {
   const [fields, setFields] = useState(initialFields), [reviewedConflict, setReviewedConflict] = useState(false);
-  const request = useCreateRequest<Omit<VehicleCostCreateInput, 'requestId'>>({ companyId, actorId: userId, kind: 'vehicle_cost', action: createVehicleCostRequestAction,
+  const request = useCreateRequest<Omit<VehicleCostCreateInput, 'requestId'>>({ companyId, actorId: userId, kind: 'vehicle_cost', onBusyChange, action: createVehicleCostRequestAction,
     receiptMatches: (value, input) => { const receipt = value as VehicleCostCreateReceipt, [whole, fraction = ''] = input.amount.replace(',', '.').split('.'); const amountOre = (BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'))).toString(); return receipt.stockItemId === input.stockItemId && receipt.category === input.category && receipt.description === input.description && receipt.amountOre === amountOre && receipt.incurredOn === input.incurredOn; },
     onSuccess: () => { setFields(initialFields()); onCreated(); }, onDenied: () => { setFields(initialFields()); onDenied?.(); },
   });
