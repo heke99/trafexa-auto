@@ -3,7 +3,7 @@ export async function listDealOffersAction(dealId, companyId) {
   window.fixture.listCalls.push({ dealId, companyId });
   return { ok: true, companyId, offers: window.fixture.offers };
 }
-export async function createOfferVersionAction(form) { const f=window.fixture;if(!f.createEnabled)throw new Error('Unexpected create action in archive test');f.createCalls.push(Object.fromEntries(form));const response=f.createResponses.shift();if(response?.throw)throw Error('unknown');return response||{ok:true,message:'Offertversionen har sparats.',offerId:f.offers[0].id}; }
+export async function createOfferVersionAction(form) { const f=window.fixture;if(!f.createEnabled)throw new Error('Unexpected create action in archive test');f.createCalls.push(Object.fromEntries(form));const response=f.createResponses.shift();if(response?.throw)throw Error('unknown');if(response?.defer)return new Promise(resolve=>f.resolveCreate=()=>resolve(response.result));return response||{ok:true,message:'Offertversionen har sparats.',offerId:f.offers[0].id}; }
 export async function archiveOfferAction(input) {
   window.fixture.archiveCalls.push({ ...input });
   const response = window.fixture.responses.shift();

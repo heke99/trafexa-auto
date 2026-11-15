@@ -98,3 +98,26 @@ test('unknown cancellation protects the enclosing deal until the reviewed operat
   await expect(page.getByRole('button',{name:'Stäng',exact:true})).toBeEnabled();
  }finally{await page.close();}
 });
+
+for(const kind of ['offer','tradeUnderlay'])test(`${kind} pending source blocks enclosing deal navigation and denial clears private rows`,async()=>{
+ const page=await setup(390);
+ try{
+  if(kind==='offer'){
+   await page.getByRole('button',{name:'Öppna affär',exact:true}).first().click();
+   await page.getByRole('button',{name:'Fler alternativ',exact:true}).click();
+  }else await page.getByRole('button',{name:'Inbytesunderlag',exact:true}).first().click();
+  await page.evaluate(kind=>window.fixture[kind+'Busy'](true),kind);
+  await expect(page.getByRole('button',{name:'Stäng',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Avtal och signering',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Uppdatera',exact:true})).toBeDisabled();
+  if(kind==='tradeUnderlay'){
+   await page.evaluate(()=>{window.fixture.tradePurchaseBusy(true);window.fixture.tradeUnderlayBusy(false);});
+   await expect(page.getByRole('button',{name:'Stäng',exact:true})).toBeDisabled();
+   await page.evaluate(()=>window.fixture.tradePurchaseBusy(false));
+  }else await page.evaluate(()=>window.fixture.offerBusy(false));
+  await expect(page.getByRole('button',{name:'Stäng',exact:true})).toBeEnabled();
+  await page.evaluate(kind=>window.fixture[kind+'Denied']('Åtkomsten har ändrats.'),kind);
+  await expect(page.locator('.compact-deal')).toHaveCount(0);
+  await expect(page.getByRole('alert')).toContainText('Åtkomsten har ändrats.');
+ }finally{await page.close();}
+});

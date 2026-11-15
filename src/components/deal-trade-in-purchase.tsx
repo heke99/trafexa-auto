@@ -40,7 +40,7 @@ function PurchasePanel({ companyId, dealId, userId, role, demo = false,onBusyCha
   const [acknowledged, setAcknowledged] = useState(false);
   const [readError, setReadError] = useState('');
   const [writeError, setWriteError] = useState('');
-  const [writing, setWriting] = useState(false);
+  const [writing, setWriting] = useState(false),[unknown,setUnknown]=useState(false),uncertain=useRef(false);
   const [receipt, setReceipt] = useState<TradeInAcquisition | null>(null);
   const [, startAction] = useTransition();
   const alive = useRef(false), sequence = useRef(0), locked = useRef(false);
@@ -64,11 +64,11 @@ function PurchasePanel({ companyId, dealId, userId, role, demo = false,onBusyCha
     return sameId(value.companyId, companyId) && sameId(value.dealId, dealId) && sameId(value.offerSnapshot.company.id, companyId) && sameId(value.offerSnapshot.deal_id, dealId) && value.offerVersion === value.offerSnapshot.version && sameId(value.tradeInId, value.offerSnapshot.trade_in.id) && value.tradeInVersion === value.offerSnapshot.trade_in.version && sameId(value.sellerCustomerId, value.offerSnapshot.customer.id) && value.signingRevision === 3;
   }
   function clearPrivate(message='Inbytesköpets behörighet eller underlag kunde inte verifieras.') {
-    onAccessDenied?.(message);
+    uncertain.current=false;setUnknown(false);onAccessDenied?.(message);
     setPage(null); setReceipt(null); setDraft(blank()); setReview(null); setAcknowledged(false); previousSource.current = null; retries.current.clear(); setPhase('error');
   }
   function refresh() {
-    if (demo || locked.current) return;
+    if (demo || locked.current || uncertain.current) return;
     locked.current = true;parentBusy.report(true);
     const token = ++sequence.current;
     setPhase('loading'); setReadError('');
@@ -136,15 +136,16 @@ function PurchasePanel({ companyId, dealId, userId, role, demo = false,onBusyCha
         const result = await recordTradeInAcquisitionAction({ ...values, requestId: nonce });
         if (!alive.current || token !== sequence.current) return;
         if (!result.ok) {
+          uncertain.current=result.code==='unavailable';setUnknown(uncertain.current);
           if (['access_denied', 'unauthenticated'].includes(result.code)) clearPrivate(result.error);
           else if (result.code === 'conflict') { setReview(null); setAcknowledged(false); setPage(null); setPhase('error'); setReadError('Kontrollera aktuell inköpsstatus innan du granskar uppgifterna igen.'); setDraft(current => ({ ...current, purchaseConfirmed: false, receivedConfirmed: false, debtConfirmed: false })); }
           setWriteError(result.error); return;
         }
-        if (!matchesReceipt(result, confirmed, nonce)) { clearPrivate(); setWriteError('Lagerintaget kunde inte verifieras för det här kontot och det granskade underlaget. Kontrollera aktuell status.'); return; }
-        retries.current.delete(fingerprint); setReceipt(result.acquisition); setReview(null); setAcknowledged(false);
+        if (!matchesReceipt(result, confirmed, nonce)) {uncertain.current=true;setUnknown(true);setWriteError('Lagerintaget kunde inte verifieras för det här kontot och det granskade underlaget. Kontrollera samma begäran igen.'); return; }
+        uncertain.current=false;setUnknown(false);retries.current.delete(fingerprint); setReceipt(result.acquisition); setReview(null); setAcknowledged(false);
       } catch {
-        if (alive.current && token === sequence.current) setWriteError('Inköpet och lagerintaget kunde inte bekräftas. Försök igen med samma granskade uppgifter och begäran, eller kontrollera aktuell status.');
-      } finally { locked.current = false;parentBusy.report(false); if (alive.current && token === sequence.current) setWriting(false); }
+        if (alive.current && token === sequence.current) {uncertain.current=true;setUnknown(true);setWriteError('Inköpet och lagerintaget kunde inte bekräftas. Kontrollera samma granskade begäran innan du lämnar affären.');}
+      } finally { locked.current = false;parentBusy.report(uncertain.current); if (alive.current && token === sequence.current) setWriting(false); }
     });
   }
 
@@ -174,8 +175,8 @@ function PurchasePanel({ companyId, dealId, userId, role, demo = false,onBusyCha
         <Attestation checked={draft.debtConfirmed} disabled={busy} onChange={value => change('debtConfirmed', value)}>Jag har stämt av skuldbeloppet mot underlaget för angivet datum, även om beloppet är 0 kr.</Attestation>
         <button type="submit" className="button button-green" disabled={busy || !draft.purchaseConfirmed || !draft.receivedConfirmed || !draft.debtConfirmed}>Granska inbytesköp och lagerintag</button>
       </form> : null}
-      {review && !acquisition ? <section aria-labelledby={`${field}-review`} className="workspace-form surface" style={{ padding: 18, marginTop: 18, minWidth: 0 }}><h4 id={`${field}-review`} ref={heading} tabIndex={-1}>Granska faktiskt inbytesköp och lagerintag</h4><FrozenSource source={review.source}/><p>Inköpsdatum: {review.input.acquiredOn}<br/>Verifierad extern inköpsavtalsreferens: {review.input.purchaseAgreementReference}<br/>Avstämd skuld: {formatOre(review.input.debtConfirmedOre)}<br/>Skuldavstämning: {review.input.debtConfirmedOn} · {review.input.debtEvidenceReference}<br/>Drivmedel: {fuelLabels[review.input.fuel]} · Växellåda: {gearboxLabels[review.input.gearbox]}<br/>Utpris inklusive eventuell moms: {formatOre(review.input.askingPriceOre)}</p><p>Du har intygat genomfört köp och kontrollerad rätt att sälja, mottagen bil samt avstämd skuld. Lagerstatus blir Tillgänglig och momsmodellen Ej klassificerad. Skulden minskar inte det registrerade inköpspriset.</p><Attestation checked={acknowledged} disabled={busy} onChange={setAcknowledged}>{review.source.sourceKind==='direct_deal'?'Jag har granskat exakt avtalsunderlag, signerat försäljningsavtal, inköpsavtal, intyg, skuld och lageruppgifter. Jag vill registrera det faktiska inbytesköpet och lagerintaget.':'Jag har granskat exakt offert, signerat försäljningsavtal, externt inköpsavtal, intyg, skuld och lageruppgifter. Jag vill registrera det faktiska inbytesköpet och lagerintaget.'}</Attestation><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><button type="button" className="button button-green" disabled={busy || !acknowledged} onClick={confirm}>Bekräfta faktiskt inbytesköp och lagerintag</button><button type="button" className="button button-outline" disabled={busy} onClick={() => { setReview(null); setAcknowledged(false); }}>Tillbaka och ändra</button></div></section> : null}
-      {!demo && phase !== 'idle' ? <button type="button" className="button button-outline" style={{ marginTop: 16 }} disabled={busy} onClick={refresh}>Kontrollera inköpsstatus</button> : null}
+      {review && !acquisition ? <section aria-labelledby={`${field}-review`} className="workspace-form surface" style={{ padding: 18, marginTop: 18, minWidth: 0 }}><h4 id={`${field}-review`} ref={heading} tabIndex={-1}>Granska faktiskt inbytesköp och lagerintag</h4><FrozenSource source={review.source}/><p>Inköpsdatum: {review.input.acquiredOn}<br/>Verifierad extern inköpsavtalsreferens: {review.input.purchaseAgreementReference}<br/>Avstämd skuld: {formatOre(review.input.debtConfirmedOre)}<br/>Skuldavstämning: {review.input.debtConfirmedOn} · {review.input.debtEvidenceReference}<br/>Drivmedel: {fuelLabels[review.input.fuel]} · Växellåda: {gearboxLabels[review.input.gearbox]}<br/>Utpris inklusive eventuell moms: {formatOre(review.input.askingPriceOre)}</p><p>Du har intygat genomfört köp och kontrollerad rätt att sälja, mottagen bil samt avstämd skuld. Lagerstatus blir Tillgänglig och momsmodellen Ej klassificerad. Skulden minskar inte det registrerade inköpspriset.</p><Attestation checked={acknowledged} disabled={busy||unknown} onChange={setAcknowledged}>{review.source.sourceKind==='direct_deal'?'Jag har granskat exakt avtalsunderlag, signerat försäljningsavtal, inköpsavtal, intyg, skuld och lageruppgifter. Jag vill registrera det faktiska inbytesköpet och lagerintaget.':'Jag har granskat exakt offert, signerat försäljningsavtal, externt inköpsavtal, intyg, skuld och lageruppgifter. Jag vill registrera det faktiska inbytesköpet och lagerintaget.'}</Attestation><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><button type="button" className="button button-green" disabled={busy || !acknowledged} onClick={confirm}>Bekräfta faktiskt inbytesköp och lagerintag</button><button type="button" className="button button-outline" disabled={busy||unknown} onClick={() => { setReview(null); setAcknowledged(false); }}>Tillbaka och ändra</button></div></section> : null}
+      {!demo && phase !== 'idle' ? <button type="button" className="button button-outline" style={{ marginTop: 16 }} disabled={busy||unknown} onClick={refresh}>Kontrollera inköpsstatus</button> : null}
     </section>
   </details>;
 }
