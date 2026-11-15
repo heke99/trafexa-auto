@@ -6,6 +6,10 @@ Slutför verkligt användarprov av hela affärsresan; välj och aktivera separat
 
 Arkivering och separata synliga knappar för arkivering/radering på affärskorten är rättade. Se [arkiverings- och raderingsrapporten](DEAL_ARCHIVE_REMOVE_20261115.md). De återstående planpunkterna ovan kvarstår.
 
+## Liknande status- och navigeringsfel — 15 november 2026
+
+Affärslistan hämtar uttryckligen färsk status efter direktavtal, registrerat pappersavtal, leverans och avbrytning. Pågående eller obekräftad avbrytning skyddar den öppnade affären mot navigering och behåller exakt granskad anledning och begäran vid återförsök. Ett kvitto för en annan affär får inte rapportera framgång. Superadmins översikt läser om totalsiffrorna vid återbesök och döljer gamla siffror vid läsfel. Verifierat med isolerade webbläsarflöden; inga verkliga affärer avbrutna eller dokument skickade i granskningen.
+
 ## Superadmin: behörigheter och UI — 14 november 2026
 
 Adminroutning, konto-/företags-/ansökningshantering, medlemsroller, återförsök, mobilvy och statistik granskas i [superadminrapporten](SUPERADMIN_REVIEW_20261114.md). Verifierade fel omfattar aktivering för obehöriga, äldre svagare identitetskontroller, saknad slutkontroll av behörighet samt sena/osäkra svar i UI. Faktiska konton och underskrifter ändras inte som test. Aktuell helregression och publicering följs i etappens PR.

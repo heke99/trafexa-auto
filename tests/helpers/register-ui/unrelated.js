@@ -8,7 +8,7 @@ export const VehiclePhotoGallery=()=>null;
 export const AdvertisingWorkspace=()=>null;
 export const CustomerContactLog=()=>null;
 export const CompanyFollowups=()=>null;
-export const DealCancellation=()=>null;
+export const DealCancellation=props=>{window.fixture.cancelBusy=props.onBusyChange;window.fixture.cancelCompleted=props.onCancelled;return React.createElement('div',{'data-testid':'cancellation-boundary'},'Avbrytningens komponentgräns');};
 export const DealTradeIns=()=>null;
 export const StockImport=()=>null;
 export const DealOffers=()=>null;

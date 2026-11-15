@@ -129,6 +129,7 @@ function ScopedPlatformAdminWorkspace({ initialPage, initialError, actorUserId }
     ++generation.current;
     accountCompanyReturn.current=false;
     setTab(nextTab); setCompanyDetail(null); setReview(null); setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null); setError(null); setNotice(null);
+    if (nextTab === 'overview') loadOverview();
     if (nextTab === 'contacts' && !contactsLoaded) loadContacts();
   }
   function openCompany(company: CompanyDetailTarget, view: CompanyView, trigger: HTMLButtonElement) {
