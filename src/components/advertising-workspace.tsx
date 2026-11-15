@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, useTransition } from 'react';
 import dynamic from 'next/dynamic';
 import { bindAdvertisingListingProgramAction, createAdvertisingListingAction, getAdvertisingSendQuoteAction, getStockAdvertisingAction, listAdvertisingStockAction, listAdvertisingWorkspaceAction, markAdvertisingListingReadyAction, saveAdvertisingListingAction, sendAdvertisingListingAction } from '@/lib/advertising/actions';
 import { ChannelConnections, channelNames, type AdvertisingChannel } from './channel-connections';
@@ -19,7 +19,18 @@ const money = (ore: string) => { const amount = BigInt(ore); return `${new Intl.
 const jobLabel = (status: string) => ({ queued: 'Köad för leverans', dispatching: 'Leverans pågår', published: 'Publicerad', submitted: 'Inskickad – publicering ej verifierad', retryable: 'Leverans behöver nytt försök', failed: 'Leverans misslyckades', rejected: 'Avvisad av kanal', outcome_unknown: 'Utfallet behöver avstämmas', unavailable: 'Kanalanslutning krävs' }[status] ?? status);
 const dateLabel = (value: string) => new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Stockholm' }).format(new Date(value));
 
-export function AdvertisingWorkspace({ companyId, role, userId, demo = false }: { companyId: string; role: string; userId: string; demo?: boolean }) {
+type Props={companyId:string;role:string;userId:string;demo?:boolean;onBusyChange?:(busy:boolean)=>void;onAccessDenied?:(message:string)=>void};
+export function AdvertisingWorkspace(props:Props){return <Workspace key={`${props.companyId}:${props.userId}:${props.role}:${!!props.demo}`} {...props}/>;}
+type Attempt={kind:'draft';editor:Editor}|{kind:'bind'|'review';review:Review};
+function Workspace({ companyId, role, userId, demo = false,onBusyChange,onAccessDenied }:Props) {
+  const sources=useRef(new Set<string>()),parentBusy=useRef(onBusyChange);parentBusy.current=onBusyChange;
+  const report=useCallback((source:string,value:boolean)=>{if(value)sources.current.add(source);else sources.current.delete(source);parentBusy.current?.(sources.current.size>0);},[]);
+  const uncertain=useRef<Attempt|null>(null),[unknown,setUnknown]=useState<Attempt['kind']|null>(null),[billingBusy,setBillingBusy]=useState(false);
+  function markUnknown(attempt:Attempt|null){uncertain.current=attempt;setUnknown(attempt?.kind??null);}
+  const reportBilling=useCallback((value:boolean)=>{setBillingBusy(value);report('billing',value);},[report]);
+  const reportChannel=useCallback((value:boolean)=>{setChannelBusy(value);report('channels',value);},[report]);
+  useEffect(()=>()=>{sources.current.clear();parentBusy.current?.(false);},[]);
+
   const [page, setPage] = useState<WorkspacePage | null>(null);
   const [stock, setStock] = useState<StockPage | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
@@ -39,7 +50,8 @@ export function AdvertisingWorkspace({ companyId, role, userId, demo = false }: 
   const reviewId = useId();
   const actorRole = page?.actorRole ?? role;
   const canEdit = !demo && !denied && ['owner', 'admin', 'sales'].includes(actorRole);
-  const busy = pending || channelBusy;
+  const busy = pending || channelBusy || billingBusy || unknown!==null;
+  const mutationBlocked=(kind:Attempt['kind'])=>pending||channelBusy||billingBusy||!!uncertain.current&&uncertain.current.kind!==kind;
   const blocketSupported = (listing: Listing) => listing.snapshot.photos.every(photo => photo.contentType === 'image/jpeg' || photo.contentType === 'image/png');
   const eligible = (channel: AdvertisingChannel) => page?.channels.some(connection => connection.channel === channel && connection.status === 'verified' && connection.dispatcherAvailable === true) ?? false;
   useEffect(() => { heading.current?.focus(); }, [review?.kind, review?.confirmed, review?.listing.id]);
@@ -47,7 +59,7 @@ export function AdvertisingWorkspace({ companyId, role, userId, demo = false }: 
   function failure(result: { code: string; message: string }) {
     setError(result.message);
     if (['access_denied', 'unauthenticated'].includes(result.code)) {
-      ++generation.current; setDenied(true); setPage(null); setStock(null); setEditor(null); setPhotos([]); setReview(null); setNotice(null); selectedStock.current = null;
+      markUnknown(null);report('own',false);onAccessDenied?.(result.message);++generation.current; setDenied(true); setPage(null); setStock(null); setEditor(null); setPhotos([]); setReview(null); setNotice(null); selectedStock.current = null;
     }
   }
   function identity(result: { companyId: string; actorUserId: string }) {
@@ -87,7 +99,7 @@ export function AdvertisingWorkspace({ companyId, role, userId, demo = false }: 
     return true;
   }
   function load(append: 'listings' | 'jobs' | null = null) {
-    if (demo || denied || inFlight.current || channelBusy) return;
+    if (demo || denied || inFlight.current || busy) return;
     const requestGeneration = ++generation.current;
     inFlight.current = true; setReview(null); setError(null); setNotice(null);
     startTransition(async () => {
@@ -144,23 +156,23 @@ export function AdvertisingWorkspace({ companyId, role, userId, demo = false }: 
     return true;
   }
   function saveDraft() {
-    if (!editor || !canEdit || busy || inFlight.current || !editor.title.trim() || editor.photoIds.length > 20) return;
-    const selected = editor;
+    if (!editor || !canEdit || mutationBlocked('draft') || inFlight.current || !editor.title.trim() || editor.photoIds.length > 20) return;
+    const selected = uncertain.current?.kind==='draft'?uncertain.current.editor:editor;
     const payload = { companyId, stockItemId: selected.stockId, title: selected.title.trim(), description: selected.description, photoIds: selected.photoIds, includeRegistrationNumber: selected.includeRegistrationNumber };
     const requestId = nonce({ kind: selected.listing ? 'save' : 'create', ...payload, listingId: selected.listing?.id, expectedVersion: selected.listing?.version });
     const requestGeneration = ++generation.current;
-    inFlight.current = true; setError(null); setNotice(null); setReview(null);
+    inFlight.current = true;report('own',true);setError(null); setNotice(null); setReview(null);
     startTransition(async () => {
       let received = false;
       try {
         const result = selected.listing ? await saveAdvertisingListingAction({ ...payload, listingId: selected.listing.id, expectedVersion: selected.listing.version, requestId }) : await createAdvertisingListingAction({ ...payload, requestId });
         if (generation.current !== requestGeneration) return;
-        if (!result.ok) { failure(result); return; }
-        received = true;
+        if (!result.ok) {markUnknown(result.code==='unavailable'?{kind:'draft',editor:selected}:null);failure(result);return;}
+        markUnknown(null);received = true;
         if (await reloadAfterReceipt(requestGeneration)) setNotice('Annonsutkastet har sparats. Den aktuella versionen har lästs in på nytt.');
       } catch {
-        if (generation.current === requestGeneration) { if (received) { setPage(null); setEditor(null); setError('Utkastet har sparats, men aktuell version kunde inte verifieras. Uppdatera annonskontot.'); } else setError('Svaret kunde inte verifieras. Spara igen med samma uppgifter och samma begäran.'); }
-      } finally { if (generation.current === requestGeneration) inFlight.current = false; }
+        if (generation.current === requestGeneration) { if (received) { setPage(null); setEditor(null); setError('Utkastet har sparats, men aktuell version kunde inte verifieras. Uppdatera annonskontot.'); } else {markUnknown({kind:'draft',editor:selected});setError('Svaret kunde inte verifieras. Spara igen med samma uppgifter och samma begäran.');} }
+      } finally { if (generation.current === requestGeneration){inFlight.current=false;report('own',uncertain.current!==null);} }
     });
   }
   function quoteMatches(result: Extract<Awaited<ReturnType<typeof getAdvertisingSendQuoteAction>>, { ok: true }>, listing: Listing, channels: AdvertisingChannel[]) {
@@ -189,17 +201,18 @@ export function AdvertisingWorkspace({ companyId, role, userId, demo = false }: 
     });
   }
   function bindStore() {
-    if (!review || review.kind !== 'send' || !review.storeChoice || busy || inFlight.current || !canEdit) return;
-    const selected=review, storeId=review.storeChoice;
+    if (!review || review.kind !== 'send' || !review.storeChoice || mutationBlocked('bind') || inFlight.current || !canEdit) return;
+    const selected=uncertain.current?.kind==='bind'?uncertain.current.review:review, storeId=selected.storeChoice;
     const payload={companyId,listingId:selected.listing.id,expectedVersion:selected.listing.version,storeId};
     const requestId=nonce({kind:'program-store',...payload});
-    const requestGeneration=++generation.current;inFlight.current=true;setError(null);
+    const requestGeneration=++generation.current;inFlight.current=true;report('own',true);setError(null);
     startTransition(async()=>{
+      let received=false;
       try {
         const result=await bindAdvertisingListingProgramAction({...payload,requestId});
         if (generation.current!==requestGeneration) return;
-        if (!result.ok) {failure(result);return;}
-        if (!identity(result)) return;
+        if (!result.ok) {markUnknown(result.code==='unavailable'?{kind:'bind',review:selected}:null);failure(result);return;}
+        if (!identity(result)) return;markUnknown(null);received=true;
         const quoted=await getAdvertisingSendQuoteAction({companyId,listingId:selected.listing.id,expectedVersion:selected.listing.version,channels:['blocket','wayke']});
         if (generation.current!==requestGeneration) return;
         if (!quoted.ok) {setReview(null);failure(quoted);return;}
@@ -207,8 +220,8 @@ export function AdvertisingWorkspace({ companyId, role, userId, demo = false }: 
         if (quoted.quote.selectedProgramStoreId !== storeId) {setReview(null);setError('Butiksvalet har ändrats. Förbered utskicket igen för att granska aktuell butik.');return;}
         setReview({...selected,channels:[],confirmed:false,quote:quoted.quote,confirmationQuote:undefined});
         setNotice('Butiken är vald. Granska aktuellt avtal och kanalpris före utskick.');
-      } catch {if (generation.current===requestGeneration) setError('Butiksvalets svar kunde inte verifieras. Välj samma butik igen för att kontrollera resultatet.');}
-      finally {if (generation.current===requestGeneration) inFlight.current=false;}
+      } catch {if (generation.current===requestGeneration){if(!received)markUnknown({kind:'bind',review:selected});setError(received?'Butiksvalet är sparat men aktuellt pris kunde inte läsas in. Förbered utskicket igen.':'Butiksvalets svar kunde inte verifieras. Välj samma butik igen för att kontrollera resultatet.');}}
+      finally {if (generation.current===requestGeneration){inFlight.current=false;report('own',uncertain.current!==null);}}
     });
   }
   function prepareConfirmation() {
@@ -232,49 +245,49 @@ export function AdvertisingWorkspace({ companyId, role, userId, demo = false }: 
     });
   }
   function commitReview() {
-    if (!review?.confirmed || !canEdit || busy || inFlight.current || (review.kind === 'send' && (!review.confirmationQuote || review.confirmationQuote.totalOre === null || !review.channels.length || (review.channels.includes('blocket') && !blocketSupported(review.listing))))) return;
-    const selected = review;
+    if (!review?.confirmed || !canEdit || mutationBlocked('review') || inFlight.current || (review.kind === 'send' && (!review.confirmationQuote || review.confirmationQuote.totalOre === null || !review.channels.length || (review.channels.includes('blocket') && !blocketSupported(review.listing))))) return;
+    const selected = uncertain.current?.kind==='review'?uncertain.current.review:review;
     const payload = { companyId, listingId: selected.listing.id, expectedVersion: selected.listing.version };
     const channels = [...selected.channels].sort();
     const expectedQuoteToken = selected.confirmationQuote?.reviewToken;
     const requestId = nonce({ kind: selected.kind, ...payload, channels, expectedQuoteToken });
     const requestGeneration = ++generation.current;
-    inFlight.current = true; setError(null); setNotice(null);
+    inFlight.current = true;report('own',true); setError(null); setNotice(null);
     startTransition(async () => {
       let received = false;
       try {
         const result = selected.kind === 'ready' ? await markAdvertisingListingReadyAction({ ...payload, requestId }) : await sendAdvertisingListingAction({ ...payload, channels, expectedQuoteToken: expectedQuoteToken!, requestId });
         if (generation.current !== requestGeneration) return;
-        if (!result.ok) { if (selected.kind === 'send' && result.code === 'conflict') { setReview(null); setError('Priset eller annonsunderlaget har ändrats. Förbered kanalutskicket på nytt och granska priset igen.'); } else failure(result); return; }
-        received = true; setReview(null);
+        if (!result.ok) {markUnknown(result.code==='unavailable'?{kind:'review',review:selected}:null);if (selected.kind === 'send' && result.code === 'conflict') { setReview(null); setError('Priset eller annonsunderlaget har ändrats. Förbered kanalutskicket på nytt och granska priset igen.'); } else failure(result); return; }
+        markUnknown(null);received = true; setReview(null);
         if (await reloadAfterReceipt(requestGeneration)) setNotice(selected.kind === 'ready' ? 'Annonsversionen är klar för granskning inför kanalutskick.' : `Utskicket har registrerats med ${money(selected.confirmationQuote!.totalOre!)} exklusive moms i granskat prisunderlag. Avgift registreras först för verifierad unik publicering. Se jobbstatusen nedan; köad betyder inte publicerad.`);
       } catch {
-        if (generation.current === requestGeneration) { if (received) { setPage(null); setEditor(null); setError('Åtgärden har registrerats, men aktuell status kunde inte verifieras. Uppdatera annonskontot.'); } else setError('Svaret kunde inte verifieras. Bekräfta igen med samma annonsversion, kanaler och begäran.'); }
-      } finally { if (generation.current === requestGeneration) inFlight.current = false; }
+        if (generation.current === requestGeneration) { if (received) { setPage(null); setEditor(null); setError('Åtgärden har registrerats, men aktuell status kunde inte verifieras. Uppdatera annonskontot.'); } else {markUnknown({kind:'review',review:selected});setError('Svaret kunde inte verifieras. Bekräfta igen med samma annonsversion, kanaler och begäran.');} }
+      } finally { if (generation.current === requestGeneration){inFlight.current=false;report('own',uncertain.current!==null);} }
     });
   }
   const dirty = editor?.listing && (editor.title !== editor.listing.snapshot.title || editor.description !== editor.listing.snapshot.description || editor.includeRegistrationNumber !== editor.listing.snapshot.includeRegistrationNumber || JSON.stringify(editor.photoIds) !== JSON.stringify(editor.listing.snapshot.photos.map(photo => photo.id)));
   if (demo) return <section className="surface"><div className="empty-state"><h2>Annonskonto</h2><p>Demonstration med exempeldata. Företagets annonser och kanalanslutningar visas i det inloggade företagskontot.</p></div></section>;
   return <section aria-label="Annonskonto"><div className="surface"><div className="panel-heading"><h2>Företagets annonser</h2><button type="button" className="text-link" disabled={busy || denied} onClick={() => load()}>Uppdatera annonskonto</button></div>
-    {!denied && page && ['owner', 'admin', 'finance'].includes(actorRole) && <button type="button" className="text-link" aria-expanded={showUsage} onClick={() => setShowUsage(value => !value)}>{showUsage ? 'Dölj statistik och faktureringsunderlag' : 'Visa statistik och faktureringsunderlag'}</button>}
+    {!denied && page && ['owner', 'admin', 'finance'].includes(actorRole) && <button type="button" className="text-link" aria-expanded={showUsage} disabled={busy} onClick={() => setShowUsage(value => !value)}>{showUsage ? 'Dölj statistik och faktureringsunderlag' : 'Visa statistik och faktureringsunderlag'}</button>}
     <p className="settings-note">Skapa annonsunderlag från lagrets biluppgifter och bilder. Ett sparat utkast eller köat leveransjobb är ingen publicerad annons.</p>
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="notice" role="status">{notice}</p>}{pending && <p role="status">Verifierar annonskontot…</p>}
     {!denied && page && <><div className="table-scroll"><table className="data-table"><caption className="sr-only">Annonsutkast och färdiga annonsversioner</caption><thead><tr><th scope="col">Annons</th><th scope="col">Pris från lager</th><th scope="col">Version</th><th scope="col">Status</th><th scope="col">Åtgärd</th></tr></thead><tbody>{page.listings.map(listing => <tr key={listing.id}><td><strong>{listing.snapshot.title}</strong></td><td>{money(listing.snapshot.priceGrossOre)}</td><td>{listing.version}</td><td>{listing.status === 'ready' ? 'Klar annonsversion' : 'Utkast'}</td><td><button type="button" className="text-link" disabled={busy} onClick={() => chooseStock(listing.stockId)}>Visa annons<span className="sr-only"> {listing.snapshot.title}</span></button></td></tr>)}</tbody></table></div>{!page.listings.length && <p className="quiet-empty">Inga annonsutkast ännu. Välj en lagerbil för att skapa underlaget.</p>}<div className="table-footer"><span>{page.listings.length} annonser inlästa</span>{page.nextPageKey && <button type="button" className="text-link" disabled={busy} onClick={() => load('listings')}>Läs in fler annonser</button>}</div></>}
     {!denied && stock && <div className="workspace-form" style={{ padding: 20 }}><label>Välj lagerbil<select value={editor?.stockId ?? ''} disabled={busy} onChange={event => chooseStock(event.target.value)}><option value="">Välj en bil från företagets lager</option>{stock.stock.map(choice => <option key={choice.id} value={choice.id}>{choice.make} {choice.model} · {choice.year} · {money(choice.priceGrossOre)}</option>)}</select></label>{stock.nextPageKey && <button type="button" className="text-link" disabled={busy} onClick={moreStock}>Läs in fler lagerbilar</button>}</div>}
   </div>
-    {!denied && page && showUsage && ['owner', 'admin', 'finance'].includes(actorRole) && <><AdvertisingUsagePanel key={`${companyId}:${userId}:${actorRole}`} companyId={companyId} userId={userId} role={actorRole} onDenied={message => failure({ code: 'access_denied', message })}/><AdvertisingBillingPanel companyId={companyId} userId={userId} role={actorRole} onDenied={message => failure({ code: 'access_denied', message })}/></>}
+    {!denied && page && showUsage && ['owner', 'admin', 'finance'].includes(actorRole) && <><AdvertisingUsagePanel key={`${companyId}:${userId}:${actorRole}`} companyId={companyId} userId={userId} role={actorRole} onDenied={message => failure({ code: 'access_denied', message })}/><AdvertisingBillingPanel onBusyChange={reportBilling} companyId={companyId} userId={userId} role={actorRole} onDenied={message => failure({ code: 'access_denied', message })}/></>}
     {!denied && editor && <section className="surface" style={{ marginTop: 24 }} aria-label="Annonseditor"><div className="panel-heading"><h2>{editor.listing ? `Annonsversion ${editor.listing.version}` : 'Nytt annonsutkast'}</h2></div><form className="workspace-form" style={{ padding: 20 }} onSubmit={event => { event.preventDefault(); if (event.currentTarget.reportValidity()) saveDraft(); }}>
       <label>Annonstitel<input type="text" required maxLength={160} value={editor.title} disabled={busy || !canEdit} onChange={event => { setEditor({ ...editor, title: event.target.value }); setReview(null); }}/></label><label>Annonsbeskrivning<textarea rows={5} maxLength={5000} value={editor.description} disabled={busy || !canEdit} onChange={event => { setEditor({ ...editor, description: event.target.value }); setReview(null); }}/></label>
       <p>Annonspris från fordonslagret: <strong>{editor.listing ? money(editor.listing.snapshot.priceGrossOre) : stock?.stock.find(choice => choice.id === editor.stockId) ? money(stock.stock.find(choice => choice.id === editor.stockId)!.priceGrossOre) : 'Läses från lagret vid sparande'}</strong></p><p className="form-privacy">Priset hämtas från bilens försäljningspris vid sparande. Ändra priset i fordonslagret. Annonsen innehåller inte interna inköpspriser, kostnader eller kunduppgifter.</p>
       <label className="auth-checkbox"><input type="checkbox" checked={editor.includeRegistrationNumber} disabled={busy || !canEdit} onChange={event => { setEditor({ ...editor, includeRegistrationNumber: event.target.checked }); setReview(null); }}/><span>Ta med registreringsnummer i annonsen</span></label><p className="form-privacy">Registreringsnumret delas bara när du väljer det här. VIN ingår aldrig i annonsunderlaget.</p>
       <VehiclePhotoGallery key={editor.stockId} companyId={companyId} stockId={editor.stockId} canEdit={false} onPhotosChange={setPhotos}/>
       <fieldset disabled={busy || !canEdit} style={{ border: 0, padding: 0 }}><legend>Välj annonsbilder · högst 20</legend>{photos.filter(photo => photo.status === 'active').map((photo, index) => <label className="auth-checkbox" key={photo.id}><input type="checkbox" checked={editor.photoIds.includes(photo.id)} disabled={!editor.photoIds.includes(photo.id) && editor.photoIds.length >= 20} onChange={event => { setEditor({ ...editor, photoIds: event.target.checked ? [...editor.photoIds, photo.id] : editor.photoIds.filter(id => id !== photo.id) }); setReview(null); }}/><span>Bild {index + 1} · {photo.contentType === 'image/jpeg' ? 'JPEG' : photo.contentType === 'image/png' ? 'PNG' : 'WebP'}{editor.photoIds[0] === photo.id && ' · huvudbild'}</span></label>)}</fieldset><p className="form-privacy">{editor.photoIds.length} bilder valda. Den först valda bilden är huvudbild. Ta bort och välj bilder igen för att ändra ordningen.</p>{canEdit && editor.photoIds.length > 0 && <button type="button" className="text-link" disabled={busy} onClick={() => { setEditor({ ...editor, photoIds: [] }); setReview(null); }}>Rensa bildval</button>}
-      {canEdit ? <button type="submit" className="button button-green" disabled={busy}>{editor.listing ? 'Spara ny utkastversion' : 'Skapa annonsutkast'}</button> : <p className="settings-note">Din roll har läsbehörighet för annonserna.</p>}
+      {canEdit ? <button type="submit" className="button button-green" disabled={mutationBlocked('draft')}>{editor.listing ? 'Spara ny utkastversion' : 'Skapa annonsutkast'}</button> : <p className="settings-note">Din roll har läsbehörighet för annonserna.</p>}
       {dirty && <p className="form-privacy">Spara ändringarna som en ny utkastversion före granskning.</p>}
       {editor.listing && <div className="table-controls" style={{ flexWrap: 'wrap' }}>{canEdit && editor.listing.status === 'draft' && <button type="button" className="button button-outline" disabled={busy || !!dirty || !editor.listing.snapshot.photos.length} onClick={() => { if (editor.listing) setReview({ kind: 'ready', listing: editor.listing, channels: [], confirmed: false }); }}>Granska annonsversion</button>}{canEdit && editor.listing.status === 'ready' && <button type="button" className="button button-green" disabled={busy || !!dirty} onClick={() => { if (editor.listing) openSend(editor.listing); }}>Förbered kanalutskick</button>}</div>}
     </form></section>}
     {!denied && review && <section className="surface" style={{ marginTop: 24 }} aria-labelledby={reviewId}><div className="panel-heading"><h2 id={reviewId} ref={heading} tabIndex={-1}>{review.confirmed ? 'Bekräfta annonsversionen' : 'Granska annonsversionen'}</h2></div><div className="dialog-content"><SnapshotPreview listing={review.listing}/>
-      {review.kind === 'send' && <>{review.quote?.programStores && <div className="form-field"><label htmlFor={`${reviewId}-store`}>Butik för Blocket-annonsen</label><select id={`${reviewId}-store`} value={review.storeChoice ?? review.quote.selectedProgramStoreId ?? ''} disabled={busy || review.confirmed} onChange={event=>setReview({...review,storeChoice:event.target.value,channels:[],confirmationQuote:undefined})}><option value="">Välj butik</option>{review.quote.programStores.map(store=><option key={store.id} value={store.id}>{store.name}</option>)}</select>{!review.confirmed && <button type="button" className="button button-outline" disabled={busy || !review.storeChoice || review.storeChoice===review.quote.selectedProgramStoreId} onClick={bindStore}>Använd vald butik</button>}<p className="settings-note">Butiken binds till annonsens publiceringspris. Efter accepterat Blocket-utskick kan butiken inte bytas. En separat verifierad kanalanslutning krävs.</p></div>}
+      {review.kind === 'send' && <>{review.quote?.programStores && <div className="form-field"><label htmlFor={`${reviewId}-store`}>Butik för Blocket-annonsen</label><select id={`${reviewId}-store`} value={review.storeChoice ?? review.quote.selectedProgramStoreId ?? ''} disabled={busy || review.confirmed} onChange={event=>setReview({...review,storeChoice:event.target.value,channels:[],confirmationQuote:undefined})}><option value="">Välj butik</option>{review.quote.programStores.map(store=><option key={store.id} value={store.id}>{store.name}</option>)}</select>{!review.confirmed && <button type="button" className="button button-outline" disabled={mutationBlocked('bind') || !review.storeChoice || review.storeChoice===review.quote.selectedProgramStoreId} onClick={bindStore}>Använd vald butik</button>}<p className="settings-note">Butiken binds till annonsens publiceringspris. Efter accepterat Blocket-utskick kan butiken inte bytas. En separat verifierad kanalanslutning krävs.</p></div>}
         <p>Annonsavgift i SEK exklusive moms per första verifierade unika publicering och kanal. Uppdateringar och nya leveransförsök ger ingen ny avgift.</p>
         {!review.quote && <p role="status">Verifierar kanalpriser…</p>}
         <fieldset disabled={busy || review.confirmed} style={{ border: 0, padding: 0 }}><legend>Välj annonskanaler</legend>{(['blocket', 'wayke'] as const).map(channel => {
@@ -292,10 +305,10 @@ export function AdvertisingWorkspace({ companyId, role, userId, demo = false }: 
         <p className="form-privacy">Utskicket gäller exakt den granskade versionen och de granskade priserna. Ingen avgift registreras för ett enbart köat, avvisat eller okänt leveransutfall. Ett köat jobb är inte bevis på publicering.</p>
       </>}
 
-      <div className="table-controls" style={{ flexWrap: 'wrap' }}><button type="button" className="button button-green" disabled={busy || (review.kind === 'send' && !review.channels.length)} onClick={() => review.confirmed ? commitReview() : prepareConfirmation()}>{review.confirmed ? review.kind === 'ready' ? 'Markera annonsversion klar' : 'Bekräfta kanalutskick' : 'Fortsätt till bekräftelse'}</button>{review.confirmed && <button type="button" className="button button-outline" disabled={busy} onClick={() => setReview({ ...review, confirmed: false, confirmationQuote: undefined })}>Tillbaka till granskning</button>}<button type="button" className="text-link" disabled={busy} onClick={() => setReview(null)}>Avbryt</button></div>
+      <div className="table-controls" style={{ flexWrap: 'wrap' }}><button type="button" className="button button-green" disabled={mutationBlocked('review') || (review.kind === 'send' && !review.channels.length)} onClick={() => review.confirmed ? commitReview() : prepareConfirmation()}>{review.confirmed ? review.kind === 'ready' ? 'Markera annonsversion klar' : 'Bekräfta kanalutskick' : 'Fortsätt till bekräftelse'}</button>{review.confirmed && <button type="button" className="button button-outline" disabled={busy} onClick={() => setReview({ ...review, confirmed: false, confirmationQuote: undefined })}>Tillbaka till granskning</button>}<button type="button" className="text-link" disabled={busy} onClick={() => setReview(null)}>Avbryt</button></div>
     </div></section>}
     {!denied && page && <><section className="surface" style={{ marginTop: 24 }} aria-label="Annonsleveranser"><div className="panel-heading"><h2>Jobbhistorik</h2></div><div className="table-scroll"><table className="data-table"><caption className="sr-only">Faktiska jobb för kanalleverans</caption><thead><tr><th scope="col">Kanal</th><th scope="col">Annonsversion</th><th scope="col">Status</th><th scope="col">Registrerat</th><th scope="col">Annonslänk</th></tr></thead><tbody>{page.jobs.map(job => <tr key={job.id}><td>{channelNames[job.channel]}</td><td>{job.listingVersion}</td><td>{jobLabel(job.status)}</td><td>{dateLabel(job.createdAt)}</td><td>{job.status === 'published' && job.providerUrl ? <a href={job.providerUrl} target="_blank" rel="noopener noreferrer">Visa på {channelNames[job.channel]}</a> : '—'}</td></tr>)}</tbody></table></div>{!page.jobs.length && <p className="quiet-empty">Inga leveransjobb registrerade.</p>}<div className="table-footer"><span>{page.jobs.length} jobb inlästa</span>{page.nextJobsPageKey && <button type="button" className="text-link" disabled={busy} onClick={() => load('jobs')}>Läs in fler jobb</button>}</div></section>
-      <ChannelConnections companyId={companyId} role={actorRole} userId={userId} connections={page.channels} disabled={pending || denied} onBusyChange={setChannelBusy} onDenied={message => failure({ code: 'access_denied', message })} onSaved={async () => { const requestGeneration = ++generation.current; setReview(null); setPage(null); setEditor(null); return readCurrent(requestGeneration, null, null, true); }}/></>}
+      <ChannelConnections companyId={companyId} role={actorRole} userId={userId} connections={page.channels} disabled={pending || billingBusy || unknown!==null || denied} onBusyChange={reportChannel} onDenied={message => failure({ code: 'access_denied', message })} onSaved={async () => { const requestGeneration = ++generation.current; setReview(null); setPage(null); setEditor(null); return readCurrent(requestGeneration, null, null, true); }}/></>}
   </section>;
 }
 

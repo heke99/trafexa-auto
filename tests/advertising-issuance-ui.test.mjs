@@ -136,3 +136,14 @@ test('nested invoice payment confirmation cannot be unmounted or replaced by inv
   await expect(page.getByRole('heading',{name:'Faktura TFX-2026-000041 · Delbetald',exact:true})).toBeVisible();
  }finally{await page.close();}
 });
+
+test('own issuance protects parent and preserves exact reviewed dates and nonce through ambiguity',async()=>{
+ const page=await setup();try{
+  await beginIssue(page);await page.getByRole('checkbox',{name:datesAck}).check();await page.evaluate(()=>window.issuanceMutationResponses.push({hold:true}));
+  await page.getByRole('button',{name:'Utfärda fakturan',exact:true}).click();await page.waitForFunction(()=>typeof window.releaseIssuanceMutation==='function');assert.equal(await page.evaluate(()=>window.issuanceBusyEvents.at(-1)),true);
+  await page.evaluate(()=>window.releaseIssuanceMutation({ok:false,code:'unavailable',message:'Obekräftat utfärdande'}));await expect(page.getByRole('alert')).toContainText('Obekräftat utfärdande');
+  await expect(page.getByRole('button',{name:'Uppdatera fakturering',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Avbryt granskning',exact:true})).toBeDisabled();await expect(page.getByRole('checkbox',{name:datesAck})).toBeDisabled();
+  await page.getByRole('button',{name:'Utfärda fakturan',exact:true}).click();await expect(page.getByText('Fakturan är utfärdad och bevarad.',{exact:false})).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>window.issuanceBusyEvents.at(-1))).toBe(false);const writes=await page.evaluate(()=>window.issuanceCalls.filter(row=>row.kind==='issue'));assert.equal(writes.length,2);assert.deepEqual(writes[0],writes[1]);
+ }finally{await page.close();}
+});

@@ -9,7 +9,7 @@ async function read(input, platform) {
 }
 export const getPlatformAdvertisingBillingAction = input => read(input,true);
 export const listAdvertisingBillingAction = input => read(input,false);
-async function mutate(kind,input) { window.billingCalls.push({kind,...input}); const next = window.billingMutationResponses?.shift(); if(next)return next; if(kind==='rate')return {ok:true,rate:{}}; return {ok:true,page:window.billing}; }
+async function mutate(kind,input) { window.billingCalls.push({kind,...input}); const next = window.billingMutationResponses?.shift(); if(next?.throw)throw Error('Unknown billing result');if(next?.hold)return new Promise(resolve=>{window.releaseBillingMutation=resolve;});if(next)return next; if(kind==='rate')return {ok:true,rate:{}}; return {ok:true,page:window.billing}; }
 export const saveAdvertisingChannelRateAction = input => mutate('rate',input);
 export const reconcileAdvertisingBillingAction = input => mutate('reconcile',input);
 export const lockAdvertisingBillingPeriodAction = input => mutate('lock',input);

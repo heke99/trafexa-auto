@@ -25,6 +25,7 @@ before(async () => {
   const config = { mode: 'development', target: 'web', devtool: false, context: repo,
     entry: resolve(helpers, 'entry.js'), output: { path: directory, filename: 'fixture.js', publicPath: '' },
     resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@/lib/advertising/payment-export-actions': resolve(repo, 'tests/helpers/advertising-payment-ui/unavailable-export-actions.js'), '@/lib/advertising/payment-actions': resolve(repo, 'tests/helpers/advertising-payment-ui/unavailable-actions.js'), '@/lib/advertising/invoice-email-actions': resolve(repo, 'tests/helpers/advertising-invoice-email-ui/actions.js'), '@/lib/advertising/invoice-email-send-actions': resolve(repo, 'tests/helpers/advertising-invoice-email-ui/send-actions.js'), '@/lib/advertising/credit-actions': resolve(repo, 'tests/helpers/advertising-credit-ui/actions.js'), '@/lib/advertising/issuance-actions': resolve(repo, 'tests/helpers/advertising-issuance-ui/actions.js'), '@/lib/advertising/financial-actions': resolve(repo, 'tests/helpers/advertising-financial-ui/actions.js'), '@/lib/advertising/invoice-actions': resolve(repo, 'tests/helpers/advertising-invoice-ui/actions.js'), '@/lib/advertising/correction-actions': resolve(repo, 'tests/helpers/advertising-corrections-ui/actions.js'), '@/lib/advertising/billing-actions': resolve(repo, 'tests/helpers/advertising-billing-ui/actions.js'), '@/lib/calculations/vehicle-calculation': resolve(repo, 'src/lib/calculations/vehicle-calculation.ts'), '@/lib/advertising/usage-actions': resolve(repo, 'tests/helpers/advertising-usage-ui/actions.js'), '@/lib/advertising/actions': resolve(helpers, 'actions.js'), '@/components/vehicle-photo-gallery': resolve(repo, 'src/components/vehicle-photo-gallery.tsx'), '@/lib/vehicle-photos/actions': resolve(helpers, 'photos.js'), '@/lib/vehicle-photos/types': resolve(repo, 'src/lib/vehicle-photos/types.ts') } },
+    plugins:[new webpack.optimize.LimitChunkCountPlugin({maxChunks:1})],
     module: { rules: [{ test: /\.tsx?$/, use: resolve(helpers, 'swc-loader.cjs') }] } };
   await new Promise((resolveBuild, reject) => { const compiler = webpack(config); compiler.run((error, stats) => compiler.close(() => { if (error || stats.hasErrors()) reject(error ?? new Error(stats.toString({ all: false, errors: true }))); else resolveBuild(); })); });
   browser = await playwright.launch({ executablePath: await Chromium.executablePath(), args: Chromium.args.filter(argument => argument !== '--single-process'), headless: true });
@@ -312,4 +313,49 @@ test('revoked write during store binding removes all previous company advertisem
  const store='10000000-0000-4000-8000-000000000030';
  const page=await setup({listings:[listing()],photos:[photo()],programStores:[{id:store,name:'Stockholm privat butik'}],bindProgramResponses:[{ok:false,code:'access_denied',message:'Åtkomsten har återkallats.'}]});
  try {await chooseStock(page);await page.getByRole('button',{name:'Förbered kanalutskick',exact:true}).click();await page.getByLabel('Butik för Blocket-annonsen',{exact:true}).selectOption(store);await page.getByRole('button',{name:'Använd vald butik',exact:true}).click();await expect(page.getByRole('alert')).toContainText('återkallats');await expect(page.getByRole('region',{name:'Granska annonsversionen',exact:true})).toHaveCount(0);await expect(page.getByRole('combobox',{name:'Butik för Blocket-annonsen',exact:true})).toHaveCount(0);await expect(page.locator('img')).toHaveCount(0);assert.equal(await page.evaluate(()=>window.fixture.sendCalls.length),0);}finally{await page.close();}
+});
+
+test('unknown draft retains exact editor and request while parent and competing controls stay protected',async()=>{
+ const page=await setup({createResponses:[{hold:true}]});try{
+  await chooseStock(page);await page.getByLabel('Annonstitel').fill('Granskat exakt utkast');
+  await page.getByRole('button',{name:'Skapa annonsutkast',exact:true}).click();await page.waitForFunction(()=>typeof window.fixture.releaseCreate==='function');
+  assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await expect(page.getByLabel('Annonstitel')).toBeDisabled();await expect(page.getByRole('button',{name:'Uppdatera annonskonto'})).toBeDisabled();
+  await page.evaluate(()=>window.fixture.releaseCreate({ok:false,code:'unavailable',message:'Obekräftat utkast'}));
+  await expect(page.getByRole('alert')).toContainText('Obekräftat');await expect(page.getByRole('button',{name:'Skapa annonsutkast',exact:true})).toBeEnabled();
+  await expect(page.getByLabel('Välj lagerbil')).toBeDisabled();await expect(page.getByRole('button',{name:'Visa statistik och faktureringsunderlag'})).toBeDisabled();
+  assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await page.getByRole('button',{name:'Skapa annonsutkast',exact:true}).click();await expect(page.getByText('Annonsutkastet har sparats.',{exact:false})).toBeVisible();
+  assert.deepEqual(await page.evaluate(()=>window.fixture.createCalls[0]),await page.evaluate(()=>window.fixture.createCalls[1]));
+  assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),false);
+ }finally{await page.close();}
+});
+async function installOwnerFinance(page){await page.evaluate(()=>{
+ const f=window.fixture,counts={queued:0,dispatching:0,outcomeUnknown:0,submitted:0,published:0,rejected:0,retryable:0,newPublications:0};window.calls=[];window.responses=[];
+ window.usage={ok:true,companyId:f.companyId,actorUserId:f.userId,actorRole:'owner',month:'2026-09',timeZone:'Europe/Stockholm',trackingStartedAt:'2026-09-01T00:00:00Z',legacyPublishedJobs:0,totals:{...counts,drafts:0,ready:0},channels:[{channel:'blocket',...counts},{channel:'wayke',...counts}],billing:{status:'quantity_only',unitPriceOre:null,totalOre:null,unpricedPublications:0}};
+ window.billing={companyId:f.companyId,actorUserId:f.userId,actorRole:'owner',month:'2026-09',periodStart:'2026-08-31T22:00:00Z',periodEnd:'2026-09-30T22:00:00Z',ended:true,trackingStartedAt:'2026-09-01T00:00:00Z',coverage:'complete',legacyPublishedJobs:0,rates:[],items:[],count:0,unpricedCount:0,totalOre:'0',reviewToken:'a'.repeat(64),locked:null,hasChangesSinceLock:false};
+ const fields={legalName:'QA Bil AB',organisationNumber:'5561112222',invoiceEmail:null,addressLine1:null,addressLine2:null,postalCode:null,city:null,countryCode:null,reference:null},buyerProfile={kind:'buyer',companyId:f.companyId,version:0,fields,missingFields:['invoiceEmail'],updatedAt:null},sellerProfile={...buyerProfile,kind:'seller',companyId:null};
+ window.invoiceCalls=[];window.invoicePage={companyId:f.companyId,actorUserId:f.userId,actorRole:'owner',month:'2026-09',buyerProfile,sellerProfile,canEditBuyer:true,canEditSeller:false,basis:{original:null,adjustments:[],reductionTotalOre:'0',netTotalOre:null},drafts:[],nextBeforeVersion:null,reviewToken:'a'.repeat(64),canonicalSnapshot:'{}'};
+});}
+test('nested invoice profile unknown result cannot hide advertising statistics or reset its reviewed retry',async()=>{
+ const page=await setup();try{
+  await installOwnerFinance(page);await page.getByRole('button',{name:'Visa statistik och faktureringsunderlag'}).click();
+  await page.getByRole('button',{name:'Visa faktureringsuppgifter och utkast'}).click();await page.getByRole('button',{name:'Ändra köparens faktureringsuppgifter'}).click();
+  await page.getByRole('button',{name:'Granska faktureringsuppgifterna'}).click();await page.getByRole('checkbox',{name:'Jag har granskat uppgifterna och eventuella kompletteringar som återstår.'}).check();
+  await page.evaluate(()=>window.invoiceMutationResponses=[{hold:true}]);await page.getByRole('button',{name:'Bekräfta och spara uppgifterna',exact:true}).click();await page.waitForFunction(()=>typeof window.releaseInvoiceMutation==='function');
+  await expect(page.getByRole('button',{name:'Dölj statistik och faktureringsunderlag'})).toBeDisabled();assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await page.evaluate(()=>window.releaseInvoiceMutation({ok:false,code:'unavailable',message:'Obekräftad profil'}));await expect(page.getByRole('alert')).toContainText('Obekräftad profil');
+  await expect(page.getByRole('button',{name:'Dölj statistik och faktureringsunderlag'})).toBeDisabled();
+  await page.getByRole('button',{name:'Bekräfta och spara uppgifterna',exact:true}).click();await expect(page.getByRole('button',{name:'Dölj statistik och faktureringsunderlag'})).toBeEnabled();
+  const calls=await page.evaluate(()=>window.invoiceCalls.filter(row=>row.kind==='buyer'));assert.deepEqual(calls[0],calls[1]);assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),false);
+ }finally{await page.close();}
+});
+test('a confirmed draft reload makes the visible usage draft count current',async()=>{
+ const page=await setup();try{
+  await installOwnerFinance(page);await page.getByRole('button',{name:'Visa statistik och faktureringsunderlag'}).click();
+  const usage=page.getByRole('region',{name:'Annonsstatistik och faktureringsunderlag'});await expect(usage.getByText('Annonsutkast',{exact:true}).locator('..').locator('dd')).toHaveText('0');
+  await chooseStock(page);await page.getByLabel('Annonstitel').fill('Nytt räknat utkast');await page.evaluate(()=>window.usage.totals.drafts=1);
+  await page.getByRole('button',{name:'Skapa annonsutkast',exact:true}).click();await expect(page.getByText('Annonsutkastet har sparats.',{exact:false})).toBeVisible();
+  await expect(usage.getByText('Annonsutkast',{exact:true}).locator('..').locator('dd')).toHaveText('1');
+ }finally{await page.close();}
 });
