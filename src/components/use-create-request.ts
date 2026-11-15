@@ -34,18 +34,19 @@ async function recoverPending(scope:string,payload:string){
  return {requestId,storageKey};
 }
 /** Keep an ambiguous attempt's immutable request ID and payload for an exact retry. */
-export function useCreateRequest<T extends {companyId:string}>(options:{companyId:string;actorId:string;kind:Receipt['kind'];action:(input:T&{requestId:string})=>Promise<Result>;onSuccess:()=>void;onDenied?:()=>void;receiptMatches?:(receipt:Receipt,input:T)=>boolean}){
+export function useCreateRequest<T extends {companyId:string}>(options:{companyId:string;actorId:string;kind:Receipt['kind'];action:(input:T&{requestId:string})=>Promise<Result>;onSuccess:()=>void;onBusyChange?:(busy:boolean)=>void;onDenied?:()=>void;receiptMatches?:(receipt:Receipt,input:T)=>boolean}){
  const router=useRouter();
- const live=useRef(true),busy=useRef(false);
+ const live=useRef(true),busy=useRef(false),uncertain=useRef(false),busyCallback=useRef(options.onBusyChange);busyCallback.current=options.onBusyChange;
  type Attempt={key:string;requestId:string;input:T;storageKey:string};
  const attempts=useRef(new Map<string,Attempt>());
  const attempt=useRef<Attempt|null>(null);
  const [state,setState]=useState<{status:'idle'|'pending'|'unknown'|'error'|'success'|'denied'|'conflict';message:string}>({status:'idle',message:''});
- useEffect(()=>{live.current=true;return()=>{live.current=false;};},[]);
+ useEffect(()=>{live.current=true;return()=>{live.current=false;busyCallback.current?.(false);};},[]);
  async function submit(input:T){
   if(busy.current||state.status==='denied')return;
   const key=JSON.stringify(input);
-  busy.current=true;setState({status:'pending',message:''});
+  if(uncertain.current&&attempt.current?.key!==key)return;
+  busy.current=true;busyCallback.current?.(true);setState({status:'pending',message:''});
   let sent=false;
   try{
    if(!attempts.current.has(key)){
@@ -59,20 +60,22 @@ export function useCreateRequest<T extends {companyId:string}>(options:{companyI
    const result=await options.action({...current.input,requestId:current.requestId});
    if(!live.current)return;
    if(!result.ok){
+    uncertain.current=result.code==='unavailable';
     if(result.code==='access_denied'||result.code==='company_changed'){attempts.current.clear();attempt.current=null;options.onDenied?.();setState({status:'denied',message:'Företaget eller behörigheten har ändrats. Läs in sidan igen innan du fortsätter.'});}
     else {if(result.code==='invalid_input'){removePending(current.storageKey);attempts.current.delete(key);attempt.current=null;}setState({status:result.code==='unavailable'?'unknown':result.code==='conflict'?'conflict':'error',message:result.code==='unavailable'?'Resultatet kunde inte bekräftas. Uppgifterna finns kvar. Försök igen med samma uppgifter för att kontrollera samma begäran.':result.message});}
     return;
    }
    const receipt=result.receipt;
    if(!receipt||receipt.companyId!==options.companyId||receipt.actorId!==options.actorId||receipt.requestId!==current.requestId||receipt.kind!==options.kind||!uuid.test(receipt.recordId)||typeof receipt.createdAt!=='string'||!/^\d{4}-\d{2}-\d{2}T/.test(receipt.createdAt)||!Number.isFinite(Date.parse(receipt.createdAt))||options.receiptMatches&&!options.receiptMatches(receipt,current.input)){
-    setState({status:'unknown',message:'Kvittot kunde inte verifieras. Uppgifterna finns kvar. Försök igen med samma uppgifter.'});return;
+    uncertain.current=true;setState({status:'unknown',message:'Kvittot kunde inte verifieras. Uppgifterna finns kvar. Försök igen med samma uppgifter.'});return;
    }
-   removePending(current.storageKey);attempts.current.delete(key);attempt.current=null;
+   uncertain.current=false;removePending(current.storageKey);attempts.current.delete(key);attempt.current=null;
    setState({status:'success',message:options.kind==='customer'?'Kunden har registrerats.':options.kind==='vehicle_cost'?'Kostnaden har registrerats på bilen.':'Intresseanmälan har registrerats hos Trafexa. Den är inte skickad till en finanspartner.'});
    options.onSuccess();router.refresh();
   }catch{
+   uncertain.current=sent;
    if(live.current)setState(sent?{status:'unknown',message:'Svaret kunde inte tas emot. Uppgifterna finns kvar. Försök igen med samma uppgifter för att kontrollera samma begäran.'}:{status:'error',message:'Ingen ny begäran skickades. Säker återförsökning är inte tillgänglig i den här webbläsarsessionen. Kontakta en ansvarig innan du fortsätter. Rensa inte olösta begäranden utan avstämning.'});
-  }finally{busy.current=false;}
+  }finally{busy.current=false;if(live.current)busyCallback.current?.(uncertain.current);}
  }
  function restartConflict(){
   // Only a definite payload conflict can be retired after the caller's review.

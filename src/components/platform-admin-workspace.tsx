@@ -130,7 +130,8 @@ function ScopedPlatformAdminWorkspace({ initialPage, initialError, actorUserId }
     accountCompanyReturn.current=false;
     setTab(nextTab); setCompanyDetail(null); setReview(null); setApplication(null); setApplicationAudit([]); setApplicationReview(null); setErasureReview(null); setError(null); setNotice(null);
     if (nextTab === 'overview') loadOverview();
-    if (nextTab === 'contacts' && !contactsLoaded) loadContacts();
+    if (nextTab === 'companies') loadCompanies(false, true);
+    if (nextTab === 'contacts') loadContacts();
   }
   function openCompany(company: CompanyDetailTarget, view: CompanyView, trigger: HTMLButtonElement) {
     if (uncertainRef.current || financeBusyRef.current || administration.busyRef.current) return;
@@ -143,35 +144,36 @@ function ScopedPlatformAdminWorkspace({ initialPage, initialError, actorUserId }
     if(accountCompanyReturn.current){accountCompanyReturn.current=false;setTab('accounts');requestAnimationFrame(()=>accountTab.current?.focus());return;}
     if (companyTrigger.current?.isConnected) companyTrigger.current.focus(); else companyTab.current?.focus();
   }
-  function loadCompanies(append = false) {
+  function loadCompanies(append = false, refresh = false) {
     if (uncertainRef.current || financeBusyRef.current || administration.busyRef.current) return;
     const requestGeneration = ++generation.current;
-    const query = append ? loadedSearch : search.trim();
+    const query = append || refresh ? loadedSearch : search.trim();
     const cursor = append ? nextPageKey : null;
     setError(null); setNotice(null); setReview(null);
-    if (!append) { setCompanyDetail(null); companyTrigger.current = null; accountCompanyReturn.current = false; intent.current = null; }
+    if (!append) { setCompanies([]); setNextPageKey(null); setCompanyDetail(null); companyTrigger.current = null; accountCompanyReturn.current = false; intent.current = null; }
     startTransition(async () => {
       try {
         const result = await listPlatformCompaniesAction({ search: query, pageKey: cursor, limit: 50 });
         if (generation.current !== requestGeneration) return;
-        if (!result.ok) { handleFailure(result); return; }
+        if (!result.ok) { setCompanies([]); setNextPageKey(null); handleFailure(result); return; }
         setCompanies(previous => append ? [...previous, ...result.companies.filter(company => !previous.some(item => item.id === company.id))] : result.companies);
         setNextPageKey(result.nextPageKey); setLoadedSearch(query);
-      } catch { if (generation.current === requestGeneration) setError('Listan kunde inte läsas in. Försök igen.'); }
+      } catch { if (generation.current === requestGeneration) { setCompanies([]); setNextPageKey(null); setError('Listan kunde inte läsas in. Försök igen.'); } }
     });
   }
   function loadContacts(append = false) {
     if (uncertainRef.current || invitationBusyRef.current) return;
     const requestGeneration = ++generation.current;
     setError(null); setNotice(null); setReview(null);
+    if (!append) { setContacts([]); setContactCursor(null); setContactsLoaded(false); }
     startTransition(async () => {
       try {
         const result = await listPlatformContactRequestsAction({ pageKey: append ? contactCursor : null, limit: 50 });
         if (generation.current !== requestGeneration) return;
-        if (!result.ok) { handleFailure(result); return; }
+        if (!result.ok) { setContacts([]); setContactCursor(null); setContactsLoaded(false); handleFailure(result); return; }
         setContacts(previous => append ? [...previous, ...result.requests.filter(contact => !previous.some(item => item.id === contact.id))] : result.requests);
         setContactCursor(result.nextPageKey); setContactsLoaded(true);
-      } catch { if (generation.current === requestGeneration) setError('Kontakterna kunde inte läsas in. Försök igen.'); }
+      } catch { if (generation.current === requestGeneration) { setContacts([]); setContactCursor(null); setContactsLoaded(false); setError('Kontakterna kunde inte läsas in. Försök igen.'); } }
     });
   }
   function saveStatus() {
