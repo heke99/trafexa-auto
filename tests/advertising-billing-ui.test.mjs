@@ -184,3 +184,24 @@ test('own channel price pending and unknown result holds parent and exact review
   const calls=await page.evaluate(()=>window.billingCalls.filter(row=>row.kind==='rate'));assert.deepEqual(calls[0],calls[1]);assert.equal(await page.evaluate(()=>window.billingBusyEvents.at(-1)),false);
  }finally{await page.close();}
 });
+
+test('nested correction protects locked billing controls while preserving its own exact retry',async()=>{
+ const locked={id:id(30),count:1,totalOre:'14950',lockedAt:'2026-10-01T12:00:00Z'},page=await setup({locked});
+ try{
+  await page.evaluate(locked=>{
+   const item={...window.billing.items[0],unitPriceOre:'14950',priceSource:'rate',rateVersion:1};
+   window.correctionCalls=[];window.correctionResponses=[];window.correctionMutationResponses=[{hold:true}];
+   window.corrections={companyId:window.billing.companyId,actorUserId:window.billing.actorUserId,actorRole:'platform_admin',month:window.billing.month,original:{...locked,items:[item],reviewToken:'b'.repeat(64),partialCoverageAcknowledged:true},adjustments:[],reductionTotalOre:'0',netTotalOre:'14950',reviewToken:'a'.repeat(64),canonicalSnapshot:'{}'};
+  },locked);
+  await page.getByRole('button',{name:'Visa rättelser av låst underlag',exact:true}).click();
+  await page.getByLabel('Publicering att rätta').selectOption(id(10));await page.getByLabel('Reduktion, kronor exkl. moms').fill('49,50');await page.getByLabel('Motivering till reduktionen').fill('Isolerat granskat underlag');
+  await page.getByRole('button',{name:'Granska reduktionen',exact:true}).click();await page.getByRole('checkbox',{name:'Jag har granskat företaget, månaden, originalpubliceringen, det återstående beloppet och motiveringen.'}).check();
+  const confirm=page.getByRole('button',{name:'Bekräfta och spara reduktionen',exact:true});await confirm.click();await page.waitForFunction(()=>typeof window.releaseCorrectionMutation==='function');
+  await expect(page.getByRole('button',{name:'Dölj rättelser',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Visa faktureringsuppgifter och utkast',exact:true})).toBeDisabled();
+  await page.evaluate(()=>window.releaseCorrectionMutation({ok:false,code:'unavailable',message:'Obekräftat underlag'}));
+  await expect(confirm).toBeEnabled();assert.equal(await confirm.evaluate(node=>Boolean(node.closest('[inert]'))),false);
+  await confirm.click();await expect(page.getByRole('button',{name:'Dölj rättelser',exact:true})).toBeEnabled();
+  const writes=await page.evaluate(()=>window.correctionCalls.filter(row=>row.kind==='create'));assert.deepEqual(writes[0],writes[1]);
+ }finally{await page.close();}
+});

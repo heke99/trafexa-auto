@@ -70,3 +70,30 @@ test('delivery and retry times use Swedish Stockholm dates without raw timestamp
   assert.equal(await page.evaluate(()=>window.emailCalls.some(c=>['send','queue'].includes(c.kind))),false);
  }finally{await page.close();}
 });
+
+test('pending and unknown queue protects parent, acknowledgement and review until exact retry is verified',async()=>{
+ const page=await setup();try{
+  await review(page);await page.evaluate(()=>window.emailQueueResponses.push({hold:true}));await page.getByRole('button',{name:'Bekräfta och skicka mejlet'}).click();
+  await page.waitForFunction(()=>typeof window.releaseEmailQueue==='function');assert.equal(await page.evaluate(()=>window.emailBusyEvents.at(-1)),true);
+  await expect(page.getByRole('button',{name:'Avbryt mejlgranskning'})).toBeDisabled();
+  await page.evaluate(()=>window.releaseEmailQueue({ok:false,code:'unavailable',message:'Obekräftad köregistrering'}));
+  await expect(page.getByRole('button',{name:'Bekräfta och skicka mejlet'})).toBeEnabled();await expect(page.getByRole('button',{name:'Uppdatera utskicksstatus'})).toBeDisabled();await expect(page.getByRole('checkbox',{name:ack})).toBeDisabled();assert.equal(await page.evaluate(()=>window.emailBusyEvents.at(-1)),true);
+  await page.getByRole('button',{name:'Bekräfta och skicka mejlet'}).click();await expect(page.getByRole('region',{name:'Dokumentets leveransstatus'})).toBeVisible();
+  const calls=await page.evaluate(()=>window.emailCalls.filter(row=>row.kind==='queue'));assert.deepEqual(calls[0],calls[1]);assert.equal(await page.evaluate(()=>window.emailBusyEvents.at(-1)),false);
+ }finally{await page.close();}
+});
+test('ambiguous dispatch keeps parent held after read failure and resolves only through scoped status without another send',async()=>{
+ const page=await setup();try{
+  await page.evaluate(()=>{window.emailSendResponses.push({throw:true});window.emailResponses.push({ok:false,code:'unavailable',message:'Status saknas'});});
+  await send(page);await expect(page.getByRole('alert')).toContainText('Status saknas');assert.equal(await page.evaluate(()=>window.emailBusyEvents.at(-1)),true);
+  assert.equal(await page.evaluate(()=>window.emailCalls.filter(row=>row.kind==='send').length),1);
+  await page.getByRole('button',{name:'Uppdatera utskicksstatus'}).click();await expect(page.getByRole('region',{name:'Dokumentets leveransstatus'})).toBeVisible();assert.equal(await page.evaluate(()=>window.emailBusyEvents.at(-1)),false);assert.equal(await page.evaluate(()=>window.emailCalls.filter(row=>row.kind==='send').length),1);
+ }finally{await page.close();}
+});
+test('verified prepared queue plus failed readback releases protection without requeueing or sending',async()=>{
+ const page=await setup({}, {},{ok:true,configured:false});try{
+  await review(page);await page.evaluate(()=>window.emailResponses.push({ok:false,code:'unavailable',message:'Efterläsning saknas'}));await page.getByRole('button',{name:'Bekräfta och förbered mejlet'}).click();
+  await expect(page.getByRole('alert')).toContainText('Efterläsning saknas');assert.equal(await page.evaluate(()=>window.emailBusyEvents.at(-1)),false);assert.equal(await page.evaluate(()=>window.emailCalls.filter(row=>row.kind==='queue').length),1);assert.equal(await page.evaluate(()=>window.emailCalls.filter(row=>row.kind==='send').length),0);
+  await page.getByRole('button',{name:'Uppdatera utskicksstatus'}).click();await expect(page.getByRole('region',{name:'Dokumentets leveransstatus'})).toBeVisible();assert.equal(await page.evaluate(()=>window.emailCalls.filter(row=>row.kind==='queue').length),1);
+ }finally{await page.close();}
+});

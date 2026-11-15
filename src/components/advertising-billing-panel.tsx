@@ -40,7 +40,8 @@ function Billing({ companyId, userId, role = 'platform_admin', superadmin = fals
   const [denied, setDenied] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const descendant = useDescendantBusy(reportDescendant),childSources=useRef(new Set<string>());
-  const reportChild=useCallback((id:string,value:boolean)=>{if(value)childSources.current.add(id);else childSources.current.delete(id);descendant.report(childSources.current.size>0);},[descendant.report]);
+  const [,refreshChildSources]=useState(0);
+  const reportChild=useCallback((id:string,value:boolean)=>{if(childSources.current.has(id)===value)return;if(value)childSources.current.add(id);else childSources.current.delete(id);refreshChildSources(v=>v+1);descendant.report(childSources.current.size>0);},[descendant.report]);
   const busy = operationBusy || descendant.busy || unknown;
   const generation = useRef(0), alive = useRef(true), inFlight = useRef(false);
   const requests = useRef(new Map<string, string>());
@@ -137,9 +138,9 @@ function Billing({ companyId, userId, role = 'platform_admin', superadmin = fals
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><button type="button" className="button button-green" disabled={operationBusy || descendant.busy || !review.confirmed || (review.kind === 'lock' && page.coverage === 'partial' && !review.coverageConfirmed)} onClick={() => void confirm()}>{review.kind === 'lock' ? 'Bekräfta och lås underlaget' : 'Bekräfta och spara priset'}</button><button type="button" className="button button-outline" disabled={busy} onClick={() => setReview(null)}>Avbryt granskning</button></div>
       </section>}
       {page.locked && !review && <button type="button" className="button button-outline" style={{ marginTop: 20 }} disabled={busy} aria-expanded={showCorrections} onClick={() => setShowCorrections(value => !value)}>{showCorrections ? 'Dölj rättelser' : 'Visa rättelser av låst underlag'}</button>}
-      {page.locked && showCorrections && <div inert={operationBusy||unknown}><AdvertisingBillingCorrectionsPanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={page.month} originalId={page.locked.id} onDenied={message => failure({ code: 'access_denied', message })}/></div>}
+      {page.locked && showCorrections && <div inert={operationBusy||unknown||(descendant.busy&&!childSources.current.has('corrections'))}><AdvertisingBillingCorrectionsPanel onBusyChange={value=>reportChild('corrections',value)} companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={page.month} originalId={page.locked.id} onDenied={message => failure({ code: 'access_denied', message })}/></div>}
       {!review && <button type="button" className="button button-outline" style={{ marginTop: 20 }} disabled={busy} aria-expanded={showInvoices} onClick={() => setShowInvoices(value => !value)}>{showInvoices ? 'Dölj faktureringsuppgifter och utkast' : 'Visa faktureringsuppgifter och utkast'}</button>}
-      {showInvoices && <div inert={operationBusy||unknown}><AdvertisingInvoicePanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={page.month} onBusyChange={value=>reportChild('invoices',value)} onDenied={message => failure({ code: 'access_denied', message })}/></div>}
+      {showInvoices && <div inert={operationBusy||unknown||(descendant.busy&&!childSources.current.has('invoices'))}><AdvertisingInvoicePanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={page.month} onBusyChange={value=>reportChild('invoices',value)} onDenied={message => failure({ code: 'access_denied', message })}/></div>}
     </>}
   </div></section>;
 }

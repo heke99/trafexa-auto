@@ -3,6 +3,7 @@ async function read(input, platform) {
  window.correctionCalls.push({kind:'read',...input,platform});
  const next=window.correctionResponses?.shift();
  if(next?.hold)return new Promise(resolve=>{window.releaseCorrection=resolve;});
+ if(next?.throw)throw new Error('Simulated read unavailable');
  if(next)return next;
  if(!window.corrections)return {ok:false,code:'unavailable',message:'Rättelseunderlag saknas i testet'};
  return {ok:true,page:{...window.corrections,month:input.month}};

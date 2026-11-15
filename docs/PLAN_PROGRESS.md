@@ -6,6 +6,12 @@ Slutför verkligt användarprov av hela affärsresan; välj och aktivera separat
 
 Arkivering och separata synliga knappar för arkivering/radering på affärskorten är rättade. Se [arkiverings- och raderingsrapporten](DEAL_ARCHIVE_REMOVE_20261115.md). De återstående planpunkterna ovan kvarstår.
 
+## Fakturamejl, kreditering, rättelser och unik annonsavgift — 15 november 2026
+
+Fakturamejl, kreditfakturor och rättelser av låst månadsunderlag rapporterar nu egna pågående och obekräftade åtgärder genom överordnade paneler. Betalning, mejl, kredit och rättelse använder separata skyddskällor; konkurrerande paneler skyddas utan att den aktiva kontrollen låses. Samma granskade underlag och begäran återanvänds. Ett obekräftat utskick kontrolleras genom en ny statusläsning utan automatisk omsändning. Känd framgång med misslyckad efterläsning orsakar inte en ny skrivning.
+
+Avgiftsgranskning i isolerad databas verifierar modellen per unik publicerad annons och kanal. Samma annons på Blocket och Wayke, ett terminalt återförsök och en ny annonsversion gav tre publicerade jobb men endast två debiterbara enheter, en per kanal. Ingen ändring av avgiftsberäkningen behövdes. Inga riktiga fakturor, krediteringar, betalningar, mejl eller partnerpubliceringar skapades i testerna.
+
 ## Dokumentöversikt, inbjudningsaccept och annonsfakturering — 15 november 2026
 
 Dokumentöversiktens nya v2-RPC tar även med färdigsignerade uppladdade PDF-avtal med lagrat original och bevis. Dokumentfilter, sökning och paginering stöder båda avtalstyperna; hämtning använder befintliga skyddade vägar och datum visas i Stockholmstid. Uppladdade original behåller befintlig ägar-/adminbehörighet, medan finansrollen behåller åtkomsten till native-avtal. Den gamla RPC:n lämnas oförändrad för säker övergång.
