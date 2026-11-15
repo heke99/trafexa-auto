@@ -2,10 +2,10 @@ import { BILLING_MONTH, BILLING_UUID } from './billing-validation.ts';
 import { parseAdvertisingCorrectionsPage } from './correction-validation.ts';
 import type { AdvertisingCorrectionsPage } from './correction-types';
 
-// Quoting alone does not prevent a spreadsheet from executing a reason as a formula.
+// Quoting alone does not prevent formulas, including behind invisible Unicode prefixes.
 function cell(value: string | number) {
   const text = String(value);
-  const safe = /^\s*[=+@-]/.test(text) ? `'${text}` : text;
+  const safe = /^[\s\p{Default_Ignorable_Code_Point}\p{Cc}]*[=+@-]/u.test(text) || /^[\p{Default_Ignorable_Code_Point}\p{Cc}]/u.test(text) ? `'${text}` : text;
   return `"${safe.replace(/"/g, '""')}"`;
 }
 

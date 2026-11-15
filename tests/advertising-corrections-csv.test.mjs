@@ -18,7 +18,7 @@ test('fully reduced original remains a counted publication with explicit zero ne
   assert.ok(generateAdvertisingCorrectionsCsv(correctionFixture({empty:true})).includes('"9007199254740993";"0";"9007199254740993"'));
 });
 test('human-entered reasons are quoted and spreadsheet formula prefixes are neutralized',()=>{
-  for(const prefix of ['=','+','-','@']){
+  for(const prefix of ['=','+','-','@','\u200B=','\u2060+','\u034F=','\u202E@','\u200B \u2060-']){
     const csv=generateAdvertisingCorrectionsCsv(correctionFixture({reason:prefix+'SUM("A1")'}));
     assert.ok(csv.includes(`"'${prefix}SUM(""A1"")"`));
   }
