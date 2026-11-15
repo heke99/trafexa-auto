@@ -3,4 +3,4 @@ import {createRoot} from 'react-dom/client';
 import {flushSync} from 'react-dom';
 import {CompanyPublicStore} from '../../../src/components/company-public-store';
 const root=createRoot(document.getElementById('root'));
-window.mountPublicStore=props=>flushSync(()=>root.render(React.createElement(CompanyPublicStore,props)));
+window.mountPublicStore=props=>flushSync(()=>root.render(React.createElement(CompanyPublicStore, {...props,onBusyChange:value=>(window.fixture.busyEvents??=[]).push(value),onAccessDenied:message=>(window.fixture.denials??=[]).push(message)})));
