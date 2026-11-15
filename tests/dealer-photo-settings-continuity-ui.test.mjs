@@ -19,14 +19,14 @@ test('protected photo operation keeps its own controls reachable and locks vehic
   await expect(p.getByRole('alert')).toContainText('Bildbehörigheten har ändrats.');await expect(p.getByRole('dialog')).toHaveCount(0);
  }finally{await p.close();}
 });
-for(const kind of ['store','public-store','branches'])test(`${kind} mutation protects enclosing settings while its exact retry remains reachable`,async()=>{
+for(const kind of ['store','public-store','branches','team'])test(`${kind} mutation protects enclosing settings while its exact retry remains reachable`,async()=>{
  const {p}=await setup('settings');try{
   const target=p.getByTestId(kind+'-boundary');await expect(target).toBeVisible();
   await p.evaluate(kind=>window.fixture[kind+'Busy'](true),kind);
   assert.equal(await target.evaluate(node=>Boolean(node.closest('[inert]'))),false);
-  for(const other of ['store','public-store','branches'].filter(value=>value!==kind))assert.equal(await p.getByTestId(other+'-boundary').evaluate(node=>Boolean(node.closest('[inert]'))),true);
+  for(const other of ['store','public-store','branches','team'].filter(value=>value!==kind))assert.equal(await p.getByTestId(other+'-boundary').evaluate(node=>Boolean(node.closest('[inert]'))),true);
   assert.equal(await p.locator('#settings-account').evaluate(node=>node.inert),true);
-  assert.equal(await p.locator('#settings-team').evaluate(node=>node.inert),true);
+  assert.equal(await p.locator('#settings-team').evaluate(node=>node.inert),kind!=='team');
   const link=p.locator('a[href="/inventory"]').first(),url=p.url();await link.evaluate(node=>node.click());assert.equal(p.url(),url);
   await p.evaluate(kind=>window.fixture[kind+'Busy'](false),kind);
   assert.equal(await p.locator('#settings-account').evaluate(node=>node.inert),false);

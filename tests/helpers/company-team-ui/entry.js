@@ -5,6 +5,6 @@ import { CompanyTeam } from '../../../src/components/company-team';
 import { CompanyInvitations } from '../../../src/components/company-invitations';
 const root = createRoot(document.getElementById('root'));
 window.mountTeamFixture = ({ invitations = false, strict = false, ...props }) => {
-  const component = invitations ? React.createElement(CompanyInvitations) : React.createElement(CompanyTeam, props);
+  const component = invitations ? React.createElement(CompanyInvitations) : React.createElement(CompanyTeam, {...props,onBusyChange:value=>(window.fixture.busyEvents??=[]).push(value),onAccessDenied:message=>(window.fixture.denials??=[]).push(message)});
   flushSync(() => root.render(strict ? React.createElement(React.StrictMode, null, component) : component));
 };
