@@ -260,3 +260,17 @@ test('actual POST uses the decoded upload pipeline and returns a sanitized photo
   assert.equal(JSON.stringify(result).includes(path), false); assert.equal(JSON.stringify(result).includes('storageBucket'), false);
   assert.equal(f.counts().registrations, 1); assert.equal(f.counts().downloads, 1);
 });
+
+test('malformed persisted photo receipt identity is unavailable rather than invalid user input', async () => {
+  for (const key of ['id', 'companyId', 'stockId']) {
+    const f = await fixture({ receiptPatch: { [key]: 'invalid' } });
+    await assert.rejects(f.upload.uploadVehiclePhoto(input()), errorCode('unavailable'));
+    assert.equal(f.counts().registrations, 1);
+  }
+  const f = await fixture({ receiptPatch: { id: 'invalid' } });
+  const form = new FormData(); form.set('companyId', company); form.set('stockId', stock); form.set('photoId', photoId); form.set('requestId', requestId); form.set('file', new File([png], 'car.png', { type: 'image/png' }));
+  const response = await f.post(new Request('https://app.example.test/api/vehicle-photos', { method: 'POST', headers: { Origin: 'https://app.example.test' }, body: form }));
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).code, 'unavailable');
+  assert.equal(f.counts().registrations, 1);
+});

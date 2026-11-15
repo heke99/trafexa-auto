@@ -198,3 +198,19 @@ test('historical receipt replay preserves the submitted policy version while sta
  const old={...valid,privacyVersion:'2026-10-14'};const replay=await request(old);assert.equal(replay.status,201);assert.equal(calls[0].payload.p_privacy_version,'2026-10-14');
  provider=async()=>new Response(JSON.stringify({code:'22023',message:'Application notice changed'}),{status:400});const stale=await request({...old,requestId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab'});assert.equal(stale.status,400);assert.match((await stale.json()).error,/Läs in sidan igen/);
 });
+
+test('an unfinished application body times out and is cancelled before database access',async t=>{
+ const originalSetTimeout=globalThis.setTimeout,originalClearTimeout=globalThis.clearTimeout;
+ const timer={};let fireTimeout,bodyController,cancelled=false,cleared=false;
+ t.mock.method(globalThis,'setTimeout',(callback,delay,...args)=>{if(delay!==5000)return originalSetTimeout(callback,delay,...args);fireTimeout=callback;return timer;});
+ t.mock.method(globalThis,'clearTimeout',handle=>{if(handle===timer)cleared=true;else originalClearTimeout(handle);});
+ const stream=new ReadableStream({start(controller){bodyController=controller;controller.enqueue(new TextEncoder().encode('{"name":'));},cancel(){cancelled=true;}});
+ const pending=request(stream,{raw:true});
+ try{
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(typeof fireTimeout,'function','body parsing needs a deadline before waiting for more bytes');
+  fireTimeout();
+  const body=await assertError(await pending,408);
+  assert.match(body.error,/för lång tid/);assert.equal(cancelled,true);assert.equal(cleared,true);assert.equal(calls.length,0);
+ }finally{if(!cancelled)bodyController.close();await pending;}
+});

@@ -24,3 +24,20 @@ test('service key rotation preserves the original capability and completion uses
 test('stable optional signing-link secret allows exact invitation retry across service-key rotation',async t=>{const h=await fixture(t);process.env.UPLOADED_PDF_LINK_SECRET='stable-synthetic-link-key';const u=await h.upload();h.state.rateLimited=true;await h.send(u.result.source);process.env.SUPABASE_SECRET_KEY='rotated-synthetic-service-key';h.state.rateLimited=false;const retry=await h.actions.retryUploadedPdfMailAction({companyId:C,sourceId:SOURCE,documentHash:u.result.source.documentHash,kind:'invitation',acknowledged:true});assert.equal(retry.ok,true);assert.equal(retry.delivery,'sent');assert.deepEqual(h.state.providers[1],h.state.providers[0]);await h.openMail();assert.equal((await h.actions.refreshUploadedPdfGuestAction(SOURCE)).ok,true);});
 test('changed signing key fails closed without changing an existing capability or sending an invalid replacement',async t=>{const h=await fixture(t),u=await h.upload();h.state.rateLimited=true;await h.send(u.result.source);const before=(await h.db.query('select token_sha256 from private.uploaded_pdf_tokens')).rows[0].token_sha256;process.env.SUPABASE_SECRET_KEY='rotated-synthetic-service-key';h.state.rateLimited=false;const retry=await h.actions.retryUploadedPdfMailAction({companyId:C,sourceId:SOURCE,documentHash:u.result.source.documentHash,kind:'invitation',acknowledged:true});assert.equal(retry.ok,true);assert.equal(retry.delivery,'key_changed');assert.equal(retry.source.delivery,'unknown');assert.equal(h.state.providers.length,1);assert.equal((await h.db.query('select token_sha256 from private.uploaded_pdf_tokens')).rows[0].token_sha256,before);await h.openMail();assert.equal((await h.actions.refreshUploadedPdfGuestAction(SOURCE)).ok,true);});
 test('archive failure preserves customer signature; guest refresh repairs files and explicit seller retry sends completion once',async t=>{const h=await fixture(t),u=await h.upload();await h.send(u.result.source);await h.openMail();h.state.failArtifactUpload=true;const signed=await h.actions.signUploadedPdfGuestAction({sourceId:SOURCE,documentHash:u.result.source.documentHash,fullName:'Åsa Köpare',acknowledged:true,requestId:id(41)});assert.equal(signed.ok,true);assert.equal(signed.source.status,'completed');assert.equal(signed.source.archive,null);assert.equal(await count(h,'uploaded_pdf_signatures'),2);assert.equal(h.state.providers.length,1);h.state.failArtifactUpload=false;const refresh=await h.actions.refreshUploadedPdfGuestAction(SOURCE);assert.equal(refresh.ok,true);assert.ok(refresh.source.archive);assert.equal(h.state.providers.length,1,'A read never dispatches email');const retry=await h.actions.retryUploadedPdfMailAction({companyId:C,sourceId:SOURCE,documentHash:u.result.source.documentHash,kind:'completed',acknowledged:true});assert.equal(retry.ok,true);assert.equal(retry.delivery,'sent');assert.equal(h.state.providers.length,2);assert.equal(await count(h,'uploaded_pdf_signatures'),2);});
+
+test('malformed committed PDF upload receipt stays uncertain and same source retry recovers one document',async t=>{
+ const h=await fixture(t),rpc=h.worker.rpc;
+ let corrupt=true;
+ h.worker.rpc=async(name,args)=>{const r=await rpc(name,args);return corrupt&&name==='register_uploaded_pdf_source'&&!r.error?{...r,data:{...r.data,byteSize:'invalid'}}:r;};
+ const first=await h.upload();
+ assert.equal(first.response.status,503);
+ assert.equal(first.result.code,'unavailable');
+ assert.equal(await count(h,'uploaded_pdf_sources'),1);
+ corrupt=false;
+ const recovered=await h.upload();
+ assert.equal(recovered.response.status,200);
+ assert.equal(recovered.result.source.id,SOURCE);
+ assert.equal(await count(h,'uploaded_pdf_sources'),1);
+ assert.equal(h.state.objects.size,1);
+ assert.equal(h.state.providers.length,0);
+});

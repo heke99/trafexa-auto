@@ -29,7 +29,10 @@ export async function requirePhotoContext(expectedCompany?: string, write = fals
 }
 export function parseStoredPhoto(value: unknown, companyId: string, photoId?: string, stockId?: string): StoredVehiclePhoto {
   const row = photoObject(value);
-  const id = photoUuid(row.id), actualCompany = photoUuid(row.companyId), actualStock = photoUuid(row.stockId);
+  // These IDs came from persisted metadata, not from user input. A malformed
+  // receipt may follow a committed upload and must keep its retry uncertain.
+  const storedUuid = (value: unknown) => { if (typeof value !== 'string' || !UUID.test(value)) throw new PhotoError('unavailable'); return value.toLowerCase(); };
+  const id = storedUuid(row.id), actualCompany = storedUuid(row.companyId), actualStock = storedUuid(row.stockId);
   if (actualCompany !== companyId || photoId && photoId !== id || stockId && stockId !== actualStock || row.storageBucket !== PHOTO_BUCKET || row.storageVisibility !== 'private') throw new PhotoError('unavailable');
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(String(row.contentType)) || !['active', 'archived'].includes(String(row.status)) || typeof row.sizeBytes !== 'number' || !Number.isSafeInteger(row.sizeBytes) || row.sizeBytes < 1 || row.sizeBytes > MAX_PHOTO_BYTES || typeof row.version !== 'number' || !Number.isSafeInteger(row.version) || row.version < 1 || typeof row.createdAt !== 'string' || !Number.isFinite(Date.parse(row.createdAt))) throw new PhotoError('unavailable');
   const suffix = row.contentType === 'image/jpeg' ? 'jpg' : row.contentType === 'image/png' ? 'png' : 'webp';
