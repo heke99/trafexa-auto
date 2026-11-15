@@ -6,6 +6,10 @@ Slutför verkligt användarprov av hela affärsresan; välj och aktivera separat
 
 Arkivering och separata synliga knappar för arkivering/radering på affärskorten är rättade. Se [arkiverings- och raderingsrapporten](DEAL_ARCHIVE_REMOVE_20261115.md). De återstående planpunkterna ovan kvarstår.
 
+## Rate limits, sidor och flikar — 15 november 2026
+
+Ansökans SQL-gränser och återförsök verifieras utan schemaändring. HTTP 429 och inloggningens throttling visar tydlig väntetext. Handlarens sidmeny kan scrollas i korta fönster, pågående reservationer skyddar navigationen och superadmins avbrutna konto-/medlemsgranskning återställer fokus till rätt rad. Se [granskningsrapporten](RATE_LIMIT_PAGES_REVIEW_20261115.md). Vercels aktiva IP-regler och Auths produktionsgränser är inte verifierade genom källkoden; konfigurationsläsningen saknar fungerande åtkomst. Inga riktiga ansökningar, beslut, reservationer eller utskick gjordes.
+
 ## API-granskning — 15 november 2026
 
 Webbansökan och företagsprofilens JSON-mutationer avbryter ofullständiga body-strömmar före skrivning. Felaktiga kvitton efter sparad PDF-/fotoregistrering behandlas som obekräftade serversvar och behåller samma återförsök. API-kontrakt för annonskörning, webhook, offentlig butik och skyddade dokumenthämtningar verifieras med isolerade underlag. Se [API-granskningen](API_REVIEW_20261115.md). Blockets verkliga partneråtkomst återstår att verifiera; Wayke saknar extern adapter. Inga riktiga partneranrop eller utskick gjordes.

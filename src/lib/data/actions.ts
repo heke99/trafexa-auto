@@ -42,13 +42,14 @@ export async function loginAction(form:FormData) {
  const nextPath=safeNextPath(form.get('next'));
  const errorPath=`/login?${new URLSearchParams({next:nextPath})}`;
  const email=authEmail(form,errorPath),password=authPassword(form,errorPath,1);
- let failed=false;
+ let failed=false,message='Inloggningen misslyckades. Kontrollera e-post och lösenord.';
  try {
   const db=await createServerSupabaseClient();
   const {error}=await db.auth.signInWithPassword({email,password});
   failed=Boolean(error);
+  if(error&&(error.status===429||['over_request_rate_limit','over_email_send_rate_limit'].includes(error.code??'')))message='För många inloggningsförsök på kort tid. Vänta en stund innan du försöker igen.';
  } catch {failed=true;}
- if(failed)redirect(`/login?${new URLSearchParams({next:nextPath,error:'Inloggningen misslyckades. Kontrollera e-post och lösenord.'})}`);
+ if(failed)redirect(`/login?${new URLSearchParams({next:nextPath,error:message})}`);
  redirect(await getAuthenticatedLandingPath(nextPath));
 }
 export async function signupAction(_form:FormData) {

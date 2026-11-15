@@ -1037,3 +1037,17 @@ test('returning to companies revalidates the applied search without submitting i
   assert.equal(await page.evaluate(()=>window.fixture.statusCalls.length),0);
  }finally{await page.close();}
 });
+
+test('account review cancellation restores keyboard focus to the exact original account row',async()=>{
+ const page=await setup({accountRows:[makeAccount(),makeAccount({userId:'40000000-0000-4000-8000-000000000099',email:'second@example.test'})]});
+ try{
+  await page.getByRole('button',{name:'Konton',exact:true}).click();
+  const trigger=page.getByRole('button',{name:'Granska konto second@example.test',exact:true});
+  await trigger.focus();await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading',{name:'Granska kontoåtkomst',exact:true})).toBeFocused();
+  await page.getByRole('button',{name:'Avbryt kontobeslut',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Granska kontoåtkomst',exact:true})).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  assert.equal(await page.evaluate(()=>window.fixture.accountStatusCalls.length),0);
+ }finally{await page.close();}
+});

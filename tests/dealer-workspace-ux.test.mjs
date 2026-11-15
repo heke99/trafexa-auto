@@ -73,3 +73,22 @@ test('fresh register removal and failed refresh both purge an open vehicle detai
 test('company name is a keyboard-accessible route to company selection on mobile and desktop',async()=>{for(const width of [320,390,1440])for(const demo of [false,true]){const p=await setup({width,demo});try{const link=p.getByRole('link',{name:'Företagsinställningar för Fiktiv QA Bilhandel. Byt företag.',exact:true});await expect(link).toBeVisible();await expect(link).toHaveAttribute('href',demo?'/demo?section=settings#settings-account':'/settings#settings-account');await link.focus();await expect(link).toBeFocused();assert.ok(await p.evaluate(width=>document.documentElement.scrollWidth<=width,width));}finally{await p.close();}}});
 test('first empty dealer registers give role-appropriate creation guidance without pointless search advice',async()=>{for(const [kind,role,copy]of[['inventory','owner','Använd ”Lägg till bil”'],['customers','sales','Använd ”Lägg till kund”'],['deals','owner','Välj en bil och lägg till kunden direkt i affären.'],['deals','sales','Välj en bil och lägg till kunden direkt i affären.'],['inventory','sales','Registret fylls när en behörig medarbetare']]){const p=await harness.page(320);try{const data=snapshot({size:0,role});await p.evaluate(({data,kind,role})=>{window.fixture.defaults.register={ok:true,page:{companyId:data.organization.id,actorId:data.user.id,role,kind,rows:[],totalCount:0,filteredCount:0,counts:{all:0},nextCursor:null}};window.mountWorkspace({snapshot:data,section:kind,demo:false});},{data,kind,role});await expect(p.locator('.empty-state')).toContainText(copy);if(kind==='deals')await expect(p.locator('.empty-state')).not.toContainText('Registrera en kund och en tillgänglig bil.');await expect(p.locator('.empty-state')).not.toContainText('Ändra sökningen');assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=320));}finally{await p.close();}}});
 test('no-match dealer search clears both query and status through an explicit show-all action',async()=>{const p=await setup({width:320,section:'inventory',demo:true});try{await p.getByRole('combobox',{name:'Lagerstatus'}).selectOption('reserved');await p.getByRole('searchbox').fill('inget matchar');await p.getByRole('button',{name:'Sök',exact:true}).click();await expect(p.locator('.empty-state')).toContainText('Inga bilar matchar');await p.getByRole('button',{name:'Visa alla bilar',exact:true}).click();await expect(p.getByRole('searchbox')).toHaveValue('');await expect(p.getByRole('combobox',{name:'Lagerstatus'})).toHaveValue('all');await expect(p.locator('.empty-state')).toHaveCount(0);await expect(p.getByText('Visar 4 av 4 träffar · 4 bilar totalt',{exact:true})).toBeVisible();assert.equal(await p.evaluate(()=>window.fixture.writes.length),0);}finally{await p.close();}});
+
+test('short dealer navigation scrolls every destination into view on mobile and desktop',async()=>{
+ for(const width of [390,1440]){
+  const p=await setup({width,section:'settings',demo:false});
+  try{
+   await p.setViewportSize({width,height:480});
+   if(width===390)await opened(p);
+   const sidebar=p.locator('#dealer-navigation'),last=sidebar.getByRole('link',{name:'Kontakta Trafexa',exact:true});
+   const before=await sidebar.evaluate(node=>({client:node.clientHeight,scroll:node.scrollHeight,overflow:getComputedStyle(node).overflowY}));
+   assert.ok(before.scroll>before.client,'short viewport must exercise overflow');
+   assert.equal(before.overflow,'auto');
+   await last.scrollIntoViewIfNeeded();
+   const bounds=await last.boundingBox();assert.ok(bounds&&bounds.y>=0&&bounds.y+bounds.height<=480,'last destination must be visible inside the viewport');
+   assert.ok(await sidebar.evaluate(node=>node.scrollTop>0));
+   await last.focus();await expect(last).toBeFocused();
+   assert.equal(await p.evaluate(()=>window.fixture.writes.length),0);
+  }finally{await p.close();}
+ }
+});

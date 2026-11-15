@@ -199,6 +199,15 @@ test('historical receipt replay preserves the submitted policy version while sta
  provider=async()=>new Response(JSON.stringify({code:'22023',message:'Application notice changed'}),{status:400});const stale=await request({...old,requestId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab'});assert.equal(stale.status,400);assert.match((await stale.json()).error,/Läs in sidan igen/);
 });
 
+test('intake rate limits return a minimum retry delay and preserve the same request for a later retry',async()=>{
+ provider=async()=>new Response(JSON.stringify({code:'P0001',message:'private quota diagnostics'}),{status:400});
+ const response=await request();const body=await assertError(response,429);
+ assert.equal(response.headers.get('retry-after'),'60');assert.equal(response.headers.get('cache-control'),'no-store');
+ assert.match(body.error,/För många ansökningar/);assert.match(body.error,/minst en minut/);assert.doesNotMatch(body.error,/private/);
+ provider=async()=>new Response(JSON.stringify({request_id:requestId,accepted:true}),{status:200});
+ const retry=await request();assert.equal(retry.status,201);assert.equal(retry.headers.has('retry-after'),false);assert.deepEqual(calls[0].payload,calls[1].payload);
+});
+
 test('an unfinished application body times out and is cancelled before database access',async t=>{
  const originalSetTimeout=globalThis.setTimeout,originalClearTimeout=globalThis.clearTimeout;
  const timer={};let fireTimeout,bodyController,cancelled=false,cleared=false;
