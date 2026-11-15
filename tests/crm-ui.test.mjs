@@ -84,3 +84,69 @@ test('follow-up conflict reload failures preserve the newer error and never rest
     } finally { await page.close(); }
   }
 });
+
+test('unknown contact creation protects parent and immutable payload until confirmed, then notifies followup invalidation',async()=>{
+ const page=await setup({writeResponses:[{throw:true}]});
+ try{
+  await page.getByLabel('Sammanfattning',{exact:true}).fill('Oförändrat kontaktunderlag');
+  await page.getByRole('button',{name:'Spara kontakt',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('kunde inte bekräftas');
+  assert.equal(await page.evaluate(()=>window.fixture.parentBusy),true);
+  assert.equal(await page.evaluate(()=>window.fixture.changed??0),0);
+  await expect(page.getByLabel('Sammanfattning',{exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Markera klar',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Uppdatera kontaktloggen'})).toBeDisabled();
+  await page.getByRole('button',{name:'Spara kontakt',exact:true}).click();
+  await expect(page.getByRole('status')).toContainText('Kontakten är sparad');
+  await page.waitForFunction(()=>window.fixture.parentBusy===false);
+  assert.equal(await page.evaluate(()=>window.fixture.changed),1);
+  const writes=await page.evaluate(()=>window.fixture.writes);assert.deepEqual(writes[0],writes[1]);
+ }finally{await page.close();}
+});
+test('unknown followup update locks reason, navigation and competing contact creation while allowing exact retry',async()=>{
+ const page=await setup({updateResponses:[{throw:true}]});
+ try{
+  await page.getByRole('button',{name:'Markera klar',exact:true}).click();
+  await page.getByLabel('Anledning till ändringen').fill('Kontrollerat med kunden');
+  await page.getByRole('button',{name:'Bekräfta klar'}).click();
+  await expect(page.getByRole('alert')).toContainText('kunde inte bekräftas');
+  assert.equal(await page.evaluate(()=>window.fixture.parentBusy),true);
+  await expect(page.getByLabel('Anledning till ändringen')).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Tillbaka',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Spara kontakt',exact:true})).toBeDisabled();
+  await page.getByRole('button',{name:'Bekräfta klar'}).click();
+  await expect(page.getByRole('region',{name:'Granska uppföljningen'})).toHaveCount(0);
+  await page.waitForFunction(()=>window.fixture.parentBusy===false);
+  assert.equal(await page.evaluate(()=>window.fixture.changed),1);
+  const writes=await page.evaluate(()=>window.fixture.updates);assert.deepEqual(writes[0],writes[1]);
+ }finally{await page.close();}
+});
+test('followup refresh token removes completed items, preserves filter and clears stale data on failure',async()=>{
+ const page=await setup({}, {followups:true});
+ try{
+  await expect(page.getByText(/Anna Exempel/)).toBeVisible();
+  await page.getByLabel('Visa uppföljningar').selectOption('all');
+  await expect(page.getByText(/Anna Exempel/)).toBeVisible();
+  await page.evaluate(p=>{window.fixture.contacts=[];window.mountCrmFixture({...p,followups:true,refreshToken:1});},props);
+  await expect(page.getByText('Inga uppföljningar att visa.')).toBeVisible();
+  await expect(page.getByLabel('Visa uppföljningar')).toHaveValue('all');
+  assert.equal(await page.evaluate(()=>window.fixture.reads.at(-1).filter),'all');
+  await page.evaluate(({p,contact})=>{window.fixture.contacts=[contact];window.mountCrmFixture({...p,followups:true,refreshToken:2});},{p:props,contact});
+  await expect(page.getByText(/Anna Exempel/)).toBeVisible();
+  await page.evaluate(p=>{window.fixture.readResponses.push({ok:false,code:'unavailable',message:'Läsningen misslyckades'});window.mountCrmFixture({...p,followups:true,refreshToken:3});},props);
+  await expect(page.getByRole('alert')).toHaveText('Läsningen misslyckades');
+  await expect(page.getByRole('button',{name:'Öppna kund'})).toHaveCount(0);
+ }finally{await page.close();}
+});
+test('another customer receipt cannot announce success or release parent mutation protection',async()=>{
+ const page=await setup({writeResponses:[{ok:true,contact:{...contact,customerId:id(99)}}]});
+ try{
+  await page.getByLabel('Sammanfattning',{exact:true}).fill('Korrekt kund');
+  await page.getByRole('button',{name:'Spara kontakt',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('kunde inte bekräftas');
+  assert.equal(await page.evaluate(()=>window.fixture.parentBusy),true);
+  assert.equal(await page.evaluate(()=>window.fixture.changed??0),0);
+  await expect(page.getByText('Kontakten är sparad.',{exact:true})).toHaveCount(0);
+  await expect(page.getByLabel('Sammanfattning',{exact:true})).toBeDisabled();
+ }finally{await page.close();}
+});

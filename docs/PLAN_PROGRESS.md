@@ -6,6 +6,10 @@ Slutför verkligt användarprov av hela affärsresan; välj och aktivera separat
 
 Arkivering och separata synliga knappar för arkivering/radering på affärskorten är rättade. Se [arkiverings- och raderingsrapporten](DEAL_ARCHIVE_REMOVE_20261115.md). De återstående planpunkterna ovan kvarstår.
 
+## Kund-, finans- och adminlistornas kontinuitet — 15 november 2026
+
+Kundskapande, finansintresse och kontaktlogg skyddar nu öppna dialoger under pågående och obekräftade skrivningar. Samma uppgifter och begäran återanvänds vid kontroll; skapad kund och ändrade uppföljningar läses om utan att invänta en annan serverrendering. Superadmins företags- och ansökningslistor hämtas på nytt vid återbesök. Företagslistan behåller tillämpad sökning, bevarar oskickat sökutkast och börjar från första sidan med ett färskt underlag. Isolerade webbläsartester, inga verkliga kund-/finansregistreringar eller utskick i granskningen. Återstående integrations- och backupplan ovan kvarstår.
+
 ## Liknande status- och navigeringsfel — 15 november 2026
 
 Affärslistan hämtar uttryckligen färsk status efter direktavtal, registrerat pappersavtal, leverans och avbrytning. Pågående eller obekräftad avbrytning skyddar den öppnade affären mot navigering och behåller exakt granskad anledning och begäran vid återförsök. Ett kvitto för en annan affär får inte rapportera framgång. Superadmins översikt läser om totalsiffrorna vid återbesök och döljer gamla siffror vid läsfel. Verifierat med isolerade webbläsarflöden; inga verkliga affärer avbrutna eller dokument skickade i granskningen.

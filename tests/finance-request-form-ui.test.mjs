@@ -69,23 +69,23 @@ test('finance conflict requires explicit review, preserves fields and clears the
   await p.getByRole('button',{name:'Granska ny finansbegäran',exact:true}).click();await p.getByRole('checkbox',{name:restartAck}).check();await p.getByRole('button',{name:'Börja om med finansbegäran'}).click();
   await expect(p.locator('[name=deal_id]')).toHaveValue('');await expect(p.getByLabel('Önskat finansbelopp, kr')).toHaveValue('125000');await expect(p.getByLabel('Beskriv behovet')).toHaveValue('Behåll beskrivningen');
   assert.equal(await p.evaluate(()=>window.fixture.writes.length),1);assert.equal(await p.evaluate(()=>sessionStorage.length),0);
+  const readsBeforeFreshVerification=await p.evaluate(()=>window.fixture.reads.length);
   const refreshed={...row,sale_price_ore:'9990000'};await open(p,pageFor([refreshed]));await p.getByRole('button',{name:`Välj ${row.stockItem.vehicles.registration_number}`,exact:true}).click();
-  assert.equal(await p.evaluate(()=>window.fixture.reads.length),2);await expect(p.getByRole('region',{name:'Kopplad affär'})).toContainText('99 900');
+  assert.ok(await p.evaluate(()=>window.fixture.reads.length)>readsBeforeFreshVerification);await expect(p.getByRole('region',{name:'Kopplad affär'})).toContainText('99 900');
   await p.getByRole('button',{name:'Skicka intresseanmälan',exact:true}).click();await p.waitForFunction(()=>window.fixture.writes.length===2);
   const latest=await p.evaluate(()=>window.fixture.writes[1].input);assert.notEqual(latest.requestId,original.requestId);assert.equal(latest.dealId,row.id);assert.equal(latest.note,original.note);await expect(p.getByText('Inget har skickats.',{exact:false})).toHaveCount(0);
   assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  }finally{await p.close();}
 });
-test('finance conflict restart preserves a different ambiguous request identity and cannot restart an unknown attempt',async()=>{
- const {p}=await setup();try{
+test('finance unknown result freezes deal selection and fields until exact retry then permits reviewed conflict restart',async()=>{
+ const {p,s}=await setup();try{
+  const row=deal(1);await open(p,pageFor([row]));await p.getByRole('button',{name:`Välj ${row.stockItem.vehicles.registration_number}`,exact:true}).click();
   await p.getByLabel('Önskat finansbelopp, kr').fill('100000');await p.evaluate(()=>window.fixture.responses.createFinanceIntakeRequest=[{throw:true}]);await p.getByRole('button',{name:'Skicka intresseanmälan',exact:true}).click();
   await expect(p.getByRole('button',{name:'Kontrollera samma begäran'})).toBeVisible();await expect(p.getByRole('button',{name:'Granska ny finansbegäran',exact:true})).toHaveCount(0);
-  const unknown=await p.evaluate(()=>window.fixture.writes[0].input);
-  await p.getByLabel('Önskat finansbelopp, kr').fill('200000');await conflict(p);
-  await p.getByRole('button',{name:'Granska ny finansbegäran',exact:true}).click();await p.getByRole('checkbox',{name:restartAck}).check();await p.getByRole('button',{name:'Börja om med finansbegäran'}).click();
-  assert.equal(await p.evaluate(()=>sessionStorage.length),1);
-  await p.getByLabel('Önskat finansbelopp, kr').fill('100000');await p.getByRole('button',{name:'Skicka intresseanmälan',exact:true}).click();await p.waitForFunction(()=>window.fixture.writes.length===3);
-  assert.deepEqual(await p.evaluate(()=>window.fixture.writes[2].input),unknown);
+  await expect(p.getByLabel('Önskat finansbelopp, kr')).toBeDisabled();await expect(p.getByRole('button',{name:'Ta bort koppling'})).toBeDisabled();await expect(p.getByRole('button',{name:'Stäng affärsväljaren'})).toBeDisabled();await expect(p.getByRole('button',{name:'Uppdatera',exact:true})).toBeDisabled();assert.equal(await p.evaluate(()=>window.fixture.createBusy),true);
+  const unknown=await p.evaluate(()=>window.fixture.writes[0].input);await p.evaluate(s=>window.mountFinance({snapshot:{...s},companyId:s.organization.id}),s);await expect(p.locator('[name=deal_id]')).toHaveValue(row.id);await expect(p.getByRole('region',{name:'Kopplad affär'})).toContainText(row.stockItem.vehicles.registration_number);await p.getByRole('button',{name:'Kontrollera samma begäran'}).click();await expect(p.getByRole('status')).toContainText('Intresseanmälan har registrerats');assert.deepEqual(await p.evaluate(()=>window.fixture.writes[1].input),unknown);assert.equal(await p.evaluate(()=>window.fixture.createBusy),false);
+  await p.getByLabel('Önskat finansbelopp, kr').fill('200000');await conflict(p);await p.getByRole('button',{name:'Granska ny finansbegäran',exact:true}).click();await p.getByRole('checkbox',{name:restartAck}).check();await p.getByRole('button',{name:'Börja om med finansbegäran'}).click();
+  await expect(p.getByLabel('Önskat finansbelopp, kr')).toBeEnabled();assert.equal(await p.evaluate(()=>sessionStorage.length),0);
  }finally{await p.close();}
 });
 test('blocked identity removal keeps finance conflict blocked and its original request intact',async()=>{

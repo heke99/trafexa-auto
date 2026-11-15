@@ -9,7 +9,7 @@ import type {DealerRegisterDeal,DealerRegisterPage} from '@/lib/registers/types'
 import {formatOre} from '@/lib/calculations/vehicle-calculation';
 import {DealerRegisters} from './dealer-registers';
 
-type Props={snapshot:WorkspaceSnapshot;companyId:string;demo?:boolean};
+type Props={snapshot:WorkspaceSnapshot;companyId:string;demo?:boolean;onBusyChange?:(busy:boolean)=>void};
 const date=(value:string)=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm'}).format(new Date(value));
 function description(deal:DealerRegisterDeal){return `${deal.stockItem.vehicles.make} ${deal.stockItem.vehicles.model} · ${deal.stockItem.vehicles.registration_number} · ${deal.customer.name} · ${formatOre(String(deal.sale_price_ore))} · ${date(deal.created_at)}`;}
 
@@ -20,18 +20,18 @@ export function FinanceRequestForm(props:Props){
  if(companyId!==snapshot.organization?.id||!['owner','admin','sales','finance'].includes(role))return <p role="status">Du har inte behörighet att anmäla finansbehov i det aktiva företaget.</p>;
  return <ScopedFinanceRequestForm key={`${companyId}:${snapshot.user.id}:${role}:${demo}`} {...props}/>;
 }
-function ScopedFinanceRequestForm({snapshot,companyId,demo=false}:Props){
+function ScopedFinanceRequestForm({snapshot,companyId,demo=false,onBusyChange}:Props){
  const [fields,setFields]=useState({product:'purchase' as 'purchase'|'stock',requestedAmount:'',deposit:'0',termMonths:'',note:''});
  const [pickerOpen,setPickerOpen]=useState(false);
  const [restartReview,setRestartReview]=useState(false),[restartAck,setRestartAck]=useState(false),[restartNotice,setRestartNotice]=useState('');
  const restartHeading=useRef<HTMLHeadingElement>(null);
  useEffect(()=>{if(restartReview)restartHeading.current?.focus();},[restartReview]);
  const [selection,setSelection]=useState<{deal:DealerRegisterDeal;snapshot:WorkspaceSnapshot}|null>(null);
- const selected=selection?.snapshot===snapshot?selection.deal:null;
  const [verified,setVerified]=useState<{page:DealerRegisterPage;snapshot:WorkspaceSnapshot}|null>(null);
  const summaryId=useId();
- const request=useCreateRequest<Omit<FinanceIntakeCreateInput,'requestId'>>({companyId,actorId:snapshot.user.id,kind:'finance_intake',action:createFinanceIntakeRequestAction,onSuccess:()=>{setFields({product:'purchase',requestedAmount:'',deposit:'0',termMonths:'',note:''});setSelection(null);},onDenied:()=>{setFields({product:'purchase',requestedAmount:'',deposit:'0',termMonths:'',note:''});setSelection(null);setVerified(null);}});
- const disabled=demo||request.pending||request.denied||request.conflicted;
+ const request=useCreateRequest<Omit<FinanceIntakeCreateInput,'requestId'>>({companyId,actorId:snapshot.user.id,kind:'finance_intake',onBusyChange,action:createFinanceIntakeRequestAction,onSuccess:()=>{setFields({product:'purchase',requestedAmount:'',deposit:'0',termMonths:'',note:''});setSelection(null);},onDenied:()=>{setFields({product:'purchase',requestedAmount:'',deposit:'0',termMonths:'',note:''});setSelection(null);setVerified(null);}});
+ const selected=selection&&(selection.snapshot===snapshot||request.pending||request.state.status==='unknown')?selection.deal:null;
+ const disabled=demo||request.pending||request.state.status==='unknown'||request.denied||request.conflicted;
  const change=(key:keyof typeof fields,value:string)=>{request.edit();setRestartNotice('');setFields(current=>({...current,[key]:value}));};
  const clearSelection=useCallback(()=>{setSelection(null);setVerified(null);},[]);
  const verifySelection=useCallback((page:DealerRegisterPage)=>{
@@ -43,10 +43,10 @@ function ScopedFinanceRequestForm({snapshot,companyId,demo=false}:Props){
   <div className="inline-note"><ShieldCheck size={19}/><p>Detta är en intresseanmälan till Trafexa. Ingen kreditupplysning tas och ingen ansökan skickas till en bank.</p></div>
   <section aria-label="Kopplad affär" style={{marginBlock:'16px'}}>
    <p id={summaryId}>{selected?<>Vald affär: <strong>{description(selected)}</strong></>:'Ingen kopplad affär. Du kan anmäla behovet utan att välja en affär.'}</p>
-   <button type="button" className="button button-outline" aria-expanded={pickerOpen} disabled={request.pending} onClick={()=>setPickerOpen(value=>!value)}>{pickerOpen?'Stäng affärsväljaren':selected?'Byt affär':'Välj affär'}</button>
-   {selected?<button type="button" className="button button-outline" disabled={request.pending} onClick={()=>setSelection(null)}>Ta bort koppling</button>:null}
+   <button type="button" className="button button-outline" aria-expanded={pickerOpen} disabled={request.pending||request.state.status==='unknown'||request.denied||request.conflicted} onClick={()=>setPickerOpen(value=>!value)}>{pickerOpen?'Stäng affärsväljaren':selected?'Byt affär':'Välj affär'}</button>
+   {selected?<button type="button" className="button button-outline" disabled={disabled} onClick={()=>setSelection(null)}>Ta bort koppling</button>:null}
   </section>
-  {pickerOpen?<DealerRegisters kind="deals" companyId={companyId} userId={snapshot.user.id} role={snapshot.membership?.role??'viewer'} demo={demo} snapshot={snapshot} onCriteriaChange={clearSelection} onPage={verifySelection} renderRows={page=>page.kind==='deals'?<ul style={{listStyle:'none',padding:0}}>{page.rows.map(deal=><li key={deal.id} style={{paddingBlock:12,borderBottom:'1px solid var(--border)',overflowWrap:'anywhere'}}><p>{description(deal)}</p><button type="button" className="button button-outline" aria-pressed={selected?.id===deal.id} disabled={disabled||verified?.page!==page||verified.snapshot!==snapshot} onClick={()=>{request.edit();setSelection({deal,snapshot});}}>Välj {deal.stockItem.vehicles.registration_number}</button></li>)}</ul>:null}/>:null}
+  {pickerOpen?<DealerRegisters blocked={request.pending||request.state.status==='unknown'} kind="deals" companyId={companyId} userId={snapshot.user.id} role={snapshot.membership?.role??'viewer'} demo={demo} snapshot={snapshot} onCriteriaChange={clearSelection} onPage={verifySelection} renderRows={page=>page.kind==='deals'?<ul style={{listStyle:'none',padding:0}}>{page.rows.map(deal=><li key={deal.id} style={{paddingBlock:12,borderBottom:'1px solid var(--border)',overflowWrap:'anywhere'}}><p>{description(deal)}</p><button type="button" className="button button-outline" aria-pressed={selected?.id===deal.id} disabled={disabled||verified?.page!==page||verified.snapshot!==snapshot} onClick={()=>{request.edit();setSelection({deal,snapshot});}}>Välj {deal.stockItem.vehicles.registration_number}</button></li>)}</ul>:null}/>:null}
   <form method="post" className="workspace-form" aria-label="Anmäl finansbehov" onSubmit={event=>{event.preventDefault();if(disabled)return;setRestartNotice('');void request.submit({companyId,product:fields.product,dealId:selected?.id??null,requestedAmount:normalizeCreateMoney(fields.requestedAmount),deposit:normalizeCreateMoney(fields.deposit),termMonths:normalizeCreateText(fields.termMonths).replace(/^0+(?=\d)/,''),note:normalizeCreateText(fields.note)});}}>
    {request.state.message?<p role={request.state.status==='success'?'status':'alert'}>{request.state.message}</p>:null}
   {request.state.status==='unknown'?<button type="button" className="button button-outline" onClick={request.retry}>Kontrollera samma begäran</button>:null}

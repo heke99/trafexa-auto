@@ -53,7 +53,12 @@ async function setup({ activation = false, initialCompanies = [makeCompany()], n
   }, { companies: initialCompanies, statusResponses, listResponses, contactResponses, application, detailResponses, applicationStatusResponses, eraseResponses, overviewResponses, accountRows, accountResponses, accountStatusResponses, invitationResponses, invitationReadResponses });
   await page.addScriptTag({ path: bundle });
   await page.evaluate(props => window.mountAdminFixture(props), { actorUserId: '30000000-0000-4000-8000-000000000001', activation, initialPage: { companies: initialCompanies, nextPageKey }, initialError: null });
-  if (!activation && !overviewTab) await page.getByRole('button', { name: 'Företag', exact: true }).click();
+  if (!activation && !overviewTab) {
+    await page.evaluate(initialPage => window.fixture.listResponses.unshift({ok:true,...initialPage}), {companies:initialCompanies,nextPageKey});
+    await page.getByRole('button', { name: 'Företag', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Sök', exact: true })).toBeEnabled();
+    await page.evaluate(() => { window.fixture.listCalls=[]; });
+  }
   return page;
 }
 
@@ -952,7 +957,7 @@ for (const width of [320, 1440]) test(`Blocket write and receipt readback keep e
 
 for(const width of[320,1440])test(`unknown company decision preserves reviewed intent and navigation protection at ${width}px`,async()=>{const page=await setup({statusResponses:[{throw:true}]});try{await page.setViewportSize({width,height:1000});await page.getByRole('button',{name:/Hantera status/}).click();await page.getByLabel('Motivering (obligatorisk)').fill('Granskad av ansvarig administratör.');await page.getByRole('button',{name:'Granska ändring',exact:true}).click();await page.getByRole('button',{name:'Bekräfta avstängning',exact:true}).click();await expect(page.getByRole('alert')).toContainText('samma uppgifter');for(const label of['Översikt','Företag','Inkomna ansökningar','Konton','Annonsfakturor'])await expect(page.getByRole('button',{name:label,exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Ändra motivering',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Avbryt',exact:true})).toBeDisabled();assert.equal(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;}),true);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);const visibleControls=await page.locator('[aria-labelledby="status-review-title"] .table-controls').evaluate(node=>{const r=node.getBoundingClientRect();return [...node.querySelectorAll('button')].every(button=>{const b=button.getBoundingClientRect();return b.left>=r.left-1&&b.right<=r.right+1;});});assert.equal(visibleControls,true);await page.screenshot({path:`/workspace/scratch/trafexa-nov14/admin-company-unknown-${width}.png`,fullPage:true});await page.getByRole('button',{name:'Bekräfta avstängning',exact:true}).click();await expect(page.getByText('Statusändringen har registrerats.',{exact:true})).toBeVisible();const calls=await page.evaluate(()=>window.fixture.statusCalls);assert.deepEqual(calls[0],calls[1]);await expect(page.getByRole('button',{name:'Konton',exact:true})).toBeEnabled();assert.equal(await page.evaluate(()=>{const e=new Event('beforeunload',{cancelable:true});window.dispatchEvent(e);return e.defaultPrevented;}),false);}finally{await page.close();}});
 test('unknown application handling holds recipient, status and exact review until deliberate same-request confirmation',async()=>{const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],applicationStatusResponses:[{throw:true}]});try{await page.setViewportSize({width:320,height:1000});await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();await page.getByRole('button',{name:/Visa ansökan/}).click();await page.getByLabel('Ny handläggningsstatus').selectOption('in_review');await page.getByLabel('Motivering för handläggning').fill('Ansökan kontrolleras.');await page.getByRole('button',{name:'Granska handläggningsstatus',exact:true}).click();await page.getByRole('button',{name:'Bekräfta handläggningsstatus',exact:true}).click();await expect(page.getByRole('alert')).toContainText('samma uppgifter');await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:/Tillbaka till ansökningar/})).toBeDisabled();await expect(page.getByRole('button',{name:'Avbryt ändring',exact:true})).toBeDisabled();await expect(page.getByLabel('Ny handläggningsstatus')).toBeDisabled();await page.getByRole('button',{name:'Bekräfta handläggningsstatus',exact:true}).click();await expect(page.getByText('Ansökans status har registrerats.',{exact:true})).toBeVisible();const calls=await page.evaluate(()=>window.fixture.applicationStatusCalls);assert.deepEqual(calls[0],calls[1]);await expect(page.getByRole('heading',{name:'Ansökan från Invited Person'})).toBeFocused();await expect(page.getByRole('button',{name:'Företag',exact:true})).toBeEnabled();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);}finally{await page.close();}});
-test('switching verified administrator identity immediately discards prior private application and ignores its late response',async()=>{const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}]});try{await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();await page.evaluate(()=>window.fixture.detailResponses.push(new Promise(resolve=>window.resolvePreviousActorApplication=resolve)));await page.getByRole('button',{name:/Visa ansökan/}).click();await page.waitForFunction(()=>typeof window.resolvePreviousActorApplication==='function');await page.evaluate(company=>window.mountAdminFixture({actorUserId:'30000000-0000-4000-8000-000000000009',initialPage:{companies:[company],nextPageKey:null},initialError:null}),makeCompany(NEXT,'Nästa administratörs företag'));await page.evaluate(application=>window.resolvePreviousActorApplication({ok:true,application,audit:[]}),invitationApplication);await expect(page.getByRole('heading',{name:'Ansökan från Invited Person'})).toHaveCount(0);await expect(page.getByText('invited@example.test',{exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Företag',exact:true}).click();await expect(page.getByText('Nästa administratörs företag',{exact:true})).toBeVisible();await expect(page.getByText('Fixture AB',{exact:true})).toHaveCount(0);}finally{await page.close();}});
+test('switching verified administrator identity immediately discards prior private application and ignores its late response',async()=>{const page=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}]});try{await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();await page.evaluate(()=>window.fixture.detailResponses.push(new Promise(resolve=>window.resolvePreviousActorApplication=resolve)));await page.getByRole('button',{name:/Visa ansökan/}).click();await page.waitForFunction(()=>typeof window.resolvePreviousActorApplication==='function');await page.evaluate(company=>{window.fixture.companies=[company];window.mountAdminFixture({actorUserId:'30000000-0000-4000-8000-000000000009',initialPage:{companies:[company],nextPageKey:null},initialError:null});},makeCompany(NEXT,'Nästa administratörs företag'));await page.evaluate(application=>window.resolvePreviousActorApplication({ok:true,application,audit:[]}),invitationApplication);await expect(page.getByRole('heading',{name:'Ansökan från Invited Person'})).toHaveCount(0);await expect(page.getByText('invited@example.test',{exact:true})).toHaveCount(0);await page.getByRole('button',{name:'Företag',exact:true}).click();await expect(page.getByText('Nästa administratörs företag',{exact:true})).toBeVisible();await expect(page.getByText('Fixture AB',{exact:true})).toHaveCount(0);}finally{await page.close();}});
 test('company status review restores keyboard focus to its original row action when cancelled',async()=>{const page=await setup();try{const trigger=page.getByRole('button',{name:/Hantera status/});await trigger.focus();await page.keyboard.press('Enter');await expect(page.getByRole('heading',{name:'Ändra företagsstatus'})).toBeFocused();await page.getByRole('button',{name:'Avbryt',exact:true}).click();await expect(trigger).toBeFocused();}finally{await page.close();}});
 
 test('known main-admin receipts clear stale source after failed readback and release navigation without a second mutation',async()=>{const companyPage=await setup({listResponses:[{ok:false,code:'unavailable',message:'Aktuell företagslista kunde inte verifieras.'}]});try{await companyPage.getByRole('button',{name:/Hantera status/}).click();await companyPage.getByLabel('Motivering (obligatorisk)').fill('Företaget har granskats.');await companyPage.getByRole('button',{name:'Granska ändring',exact:true}).click();await companyPage.getByRole('button',{name:'Bekräfta avstängning',exact:true}).click();await expect(companyPage.getByRole('alert')).toContainText('Aktuell företagslista');await expect(companyPage.getByRole('row').filter({hasText:'Fixture AB'})).toHaveCount(0);await expect(companyPage.getByRole('button',{name:'Konton',exact:true})).toBeEnabled();await companyPage.getByRole('button',{name:'Sök',exact:true}).click();await expect(companyPage.getByRole('cell',{name:'Avstängt',exact:true})).toBeVisible();assert.equal(await companyPage.evaluate(()=>window.fixture.statusCalls.length),1);}finally{await companyPage.close();}const applicationPage=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],detailResponses:[{ok:true,application:invitationApplication,audit:[]},{ok:false,code:'unavailable',message:'Aktuell ansökan kunde inte verifieras.'}]});try{await applicationPage.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();await applicationPage.getByRole('button',{name:/Visa ansökan/}).click();await applicationPage.getByLabel('Ny handläggningsstatus').selectOption('in_review');await applicationPage.getByLabel('Motivering för handläggning').fill('Granskning pågår.');await applicationPage.getByRole('button',{name:'Granska handläggningsstatus',exact:true}).click();await applicationPage.getByRole('button',{name:'Bekräfta handläggningsstatus',exact:true}).click();await expect(applicationPage.getByRole('alert')).toContainText('Aktuell ansökan');await expect(applicationPage.getByRole('heading',{name:'Ansökan från Invited Person'})).toHaveCount(0);await expect(applicationPage.getByText('invited@example.test',{exact:true})).toHaveCount(0);await expect(applicationPage.getByRole('button',{name:'Företag',exact:true})).toBeEnabled();assert.equal(await applicationPage.evaluate(()=>window.fixture.applicationStatusCalls.length),1);}finally{await applicationPage.close();}});
@@ -977,4 +982,58 @@ test('returning to overview after a company decision revalidates totals and clea
     await expect(page.getByText('10 aktiva · 2 avstängda', { exact: true })).toBeVisible();
     assert.equal(await page.evaluate(() => window.fixture.overviewCalls.length), 3);
   } finally { await page.close(); }
+});
+
+test('returning to applications discovers new requests and failed refresh removes stale rows and cursors',async()=>{
+ const first={...invitationApplication,id:COMPANY,name:'Första ansökan',email:'first@example.test'},next={...invitationApplication,id:NEXT,name:'Ny ansökan',email:'new@example.test'};
+ const page=await setup({contactResponses:[{ok:true,requests:[first],nextPageKey:'old-contact-cursor'}]});
+ try{
+  await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();
+  await expect(page.getByText(first.email,{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Översikt',exact:true}).click();
+  await page.evaluate(next=>window.fixture.contactResponses.push({ok:true,requests:[next],nextPageKey:null}),next);
+  await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();
+  await expect(page.getByText(next.email,{exact:true})).toBeVisible();
+  await expect(page.getByText(first.email,{exact:true})).toHaveCount(0);
+  assert.equal(await page.evaluate(()=>window.fixture.contactCalls.length),2);
+  await page.getByRole('button',{name:'Översikt',exact:true}).click();
+  await page.evaluate(()=>window.fixture.contactResponses.push({ok:false,code:'unavailable',message:'Ansökningslistan kunde inte verifieras.'}));
+  await page.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('Ansökningslistan');
+  await expect(page.getByText(next.email,{exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Läs in äldre',exact:true})).toHaveCount(0);
+  await page.evaluate(next=>window.fixture.contactResponses.push({ok:true,requests:[next],nextPageKey:null}),next);
+  await page.getByRole('button',{name:'Uppdatera',exact:true}).click();
+  await expect(page.getByText(next.email,{exact:true})).toBeVisible();
+  assert.equal(await page.evaluate(()=>window.fixture.applicationStatusCalls.length+window.fixture.invitationCalls.length),0);
+ }finally{await page.close();}
+});
+
+test('returning to companies revalidates the applied search without submitting its draft, clears stale failures and resets pagination',async()=>{
+ const matched=makeCompany(COMPANY,'Match AB'),added=makeCompany(NEXT,'Nya Match AB');
+ const page=await setup();
+ try{
+  await page.evaluate(matched=>window.fixture.listResponses.push({ok:true,companies:[matched],nextPageKey:'old-company-cursor'}),matched);
+  await page.getByLabel('Sök företag eller organisationsnummer').fill('Match');
+  await page.getByRole('button',{name:'Sök',exact:true}).click();
+  await expect(page.getByText(matched.name,{exact:true})).toBeVisible();
+  await page.getByLabel('Sök företag eller organisationsnummer').fill('Oskickat utkast');
+  await page.getByRole('button',{name:'Översikt',exact:true}).click();
+  await page.evaluate(()=>window.fixture.listResponses.push(new Promise(resolve=>window.resolveCompanyRefresh=resolve)));
+  await page.getByRole('button',{name:'Företag',exact:true}).click();
+  await page.waitForFunction(()=>typeof window.resolveCompanyRefresh==='function');
+  await expect(page.getByText(matched.name,{exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Läs in fler',exact:true})).toHaveCount(0);
+  let calls=await page.evaluate(()=>window.fixture.listCalls);assert.deepEqual(calls.at(-1),{search:'Match',pageKey:null,limit:50});
+  await page.evaluate(()=>window.resolveCompanyRefresh({ok:false,code:'unavailable',message:'Företagslistan kunde inte verifieras.'}));
+  await expect(page.getByRole('alert')).toContainText('Företagslistan');
+  await expect(page.getByText(matched.name,{exact:true})).toHaveCount(0);
+  await expect(page.getByLabel('Sök företag eller organisationsnummer')).toHaveValue('Oskickat utkast');
+  await page.getByRole('button',{name:'Översikt',exact:true}).click();
+  await page.evaluate(added=>window.fixture.listResponses.push({ok:true,companies:[added],nextPageKey:null}),added);
+  await page.getByRole('button',{name:'Företag',exact:true}).click();
+  await expect(page.getByText(added.name,{exact:true})).toBeVisible();
+  calls=await page.evaluate(()=>window.fixture.listCalls);assert.equal(calls.at(-1).search,'Match');assert.equal(calls.at(-1).pageKey,null);
+  assert.equal(await page.evaluate(()=>window.fixture.statusCalls.length),0);
+ }finally{await page.close();}
 });

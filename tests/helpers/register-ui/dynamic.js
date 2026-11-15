@@ -1,7 +1,8 @@
 import React from 'react';
 export default function dynamic(loader){
  const source=String(loader);
- if(source.includes('CustomerContactLog'))return function CustomerContactBoundary(props){const [draft,setDraft]=React.useState('');return React.createElement('section',{'data-testid':'customer-contact-boundary','data-customer':props.customerId},React.createElement('label',null,'Anteckningsutkast',React.createElement('input',{value:draft,onChange:event=>setDraft(event.target.value)})),React.createElement('button',{type:'button',onClick:props.onAccessDenied},'Neka kontaktåtkomst'));};
+ if(source.includes('CompanyFollowups'))return function FollowupsBoundary(props){return React.createElement('div',{'data-testid':'followups-boundary','data-revision':props.refreshToken??0});};
+ if(source.includes('CustomerContactLog'))return function CustomerContactBoundary(props){const [draft,setDraft]=React.useState('');window.fixture.contactBusy=props.onBusyChange;window.fixture.contactChanged=props.onChanged;return React.createElement('section',{'data-testid':'customer-contact-boundary','data-customer':props.customerId},React.createElement('label',null,'Anteckningsutkast',React.createElement('input',{value:draft,onChange:event=>setDraft(event.target.value)})),React.createElement('button',{type:'button',onClick:props.onAccessDenied},'Neka kontaktåtkomst'));};
 
  if(source.includes('DealTradeInPurchase'))return function TradePurchaseBoundary(props){window.fixture.tradePurchaseBusy=props.onBusyChange;window.fixture.tradePurchaseDenied=props.onAccessDenied;return null;};
  if(source.includes('DealFulfilment'))return function FulfilmentBoundary(props){window.fixture.fulfilmentDelivered=props.onDelivered;window.fixture.fulfilmentBusy=props.onBusyChange;window.fixture.fulfilmentDenied=props.onAccessDenied;return null;};

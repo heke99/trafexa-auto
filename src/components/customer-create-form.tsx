@@ -6,17 +6,17 @@ import {createCustomerRequestAction,type CustomerCreateInput} from '@/lib/data/c
 import type {WorkspaceSnapshot} from '@/lib/data/workspace';
 import {normalizeCreateText,useCreateRequest} from './use-create-request';
 
-type Props={snapshot:WorkspaceSnapshot;companyId:string;demo?:boolean};
+type Props={snapshot:WorkspaceSnapshot;companyId:string;demo?:boolean;onBusyChange?:(busy:boolean)=>void;onCompleted?:()=>void};
 const initial={name:'',kind:'person' as 'person'|'business',email:'',phone:'',address:'',notes:''};
 export function CustomerCreateForm(props:Props){
  const role=props.snapshot.membership?.role??'viewer';
  if(props.companyId!==props.snapshot.organization?.id||!['owner','admin','sales'].includes(role))return <p role="status">Du har inte behörighet att lägga till kunder i det aktiva företaget.</p>;
  return <ScopedCustomerForm key={`${props.companyId}:${props.snapshot.user.id}:${role}:${!!props.demo}`} {...props}/>;
 }
-function ScopedCustomerForm({snapshot,companyId,demo=false}:Props){
+function ScopedCustomerForm({snapshot,companyId,demo=false,onBusyChange,onCompleted}:Props){
  const [fields,setFields]=useState(initial);
- const request=useCreateRequest<Omit<CustomerCreateInput,'requestId'>>({companyId,actorId:snapshot.user.id,kind:'customer',action:createCustomerRequestAction,onSuccess:()=>setFields(initial),onDenied:()=>setFields(initial)});
- const disabled=demo||request.pending||request.denied||request.conflicted;
+ const request=useCreateRequest<Omit<CustomerCreateInput,'requestId'>>({companyId,actorId:snapshot.user.id,kind:'customer',onBusyChange,action:createCustomerRequestAction,onSuccess:()=>{setFields(initial);onCompleted?.();},onDenied:()=>setFields(initial)});
+ const disabled=demo||request.pending||request.state.status==='unknown'||request.denied||request.conflicted;
  const change=(key:keyof typeof initial,value:string)=>{request.edit();setFields(current=>({...current,[key]:value}));};
  if(request.denied)return <p role="alert">{request.state.message}</p>;
  return <form method="post" className="workspace-form" aria-label="Lägg till kund" onSubmit={event=>{event.preventDefault();if(disabled)return;void request.submit({companyId,name:normalizeCreateText(fields.name),kind:fields.kind,email:normalizeCreateText(fields.email).toLowerCase(),phone:normalizeCreateText(fields.phone),address:normalizeCreateText(fields.address),notes:normalizeCreateText(fields.notes)});}}>
