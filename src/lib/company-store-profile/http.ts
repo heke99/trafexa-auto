@@ -62,6 +62,8 @@ async function mutationBody(request: Request): Promise<{ value: unknown } | { re
   }
   const reader = request.body?.getReader();
   if (!reader) return { response: failure(400) };
+  let expired = false;
+  const timeout = setTimeout(() => { expired = true; void reader.cancel().catch(() => {}); }, 5000);
   try {
     const decoder = new TextDecoder('utf-8', { fatal: true }); let size = 0, source = '';
     while (true) {
@@ -70,11 +72,12 @@ async function mutationBody(request: Request): Promise<{ value: unknown } | { re
       if (size > COMPANY_STORE_BODY_LIMIT) { await reader.cancel().catch(() => {}); return { response: failure(413, 'invalid_input', 'Begäran är för stor.') }; }
       source += decoder.decode(chunk.value, { stream: true });
     }
+    if (expired) return { response: failure(408, 'invalid_input', 'Det tog för lång tid att ta emot begäran. Försök igen.') };
     source += decoder.decode(); const value: unknown = JSON.parse(source);
     if (!value || typeof value !== 'object' || Array.isArray(value)) return { response: failure(400) };
     return { value };
-  } catch { return { response: failure(400) }; }
-  finally { reader.releaseLock(); }
+  } catch { void reader.cancel().catch(() => {}); return { response: failure(expired ? 408 : 400, 'invalid_input', expired ? 'Det tog för lång tid att ta emot begäran. Försök igen.' : 'Begäran kunde inte godkännas.') }; }
+  finally { clearTimeout(timeout); reader.releaseLock(); }
 }
 
 /** Session-authenticated Trafexa API. These handlers do not contact an advertiser. */

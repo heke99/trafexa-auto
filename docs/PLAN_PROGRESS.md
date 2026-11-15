@@ -6,6 +6,10 @@ Slutför verkligt användarprov av hela affärsresan; välj och aktivera separat
 
 Arkivering och separata synliga knappar för arkivering/radering på affärskorten är rättade. Se [arkiverings- och raderingsrapporten](DEAL_ARCHIVE_REMOVE_20261115.md). De återstående planpunkterna ovan kvarstår.
 
+## API-granskning — 15 november 2026
+
+Webbansökan och företagsprofilens JSON-mutationer avbryter ofullständiga body-strömmar före skrivning. Felaktiga kvitton efter sparad PDF-/fotoregistrering behandlas som obekräftade serversvar och behåller samma återförsök. API-kontrakt för annonskörning, webhook, offentlig butik och skyddade dokumenthämtningar verifieras med isolerade underlag. Se [API-granskningen](API_REVIEW_20261115.md). Blockets verkliga partneråtkomst återstår att verifiera; Wayke saknar extern adapter. Inga riktiga partneranrop eller utskick gjordes.
+
 ## Avstämningskvitton, mallgranskning och arkivtid — 15 november 2026
 
 Ett ogiltigt kvitto efter avstämningens databasanrop behandlas som obekräftat resultat, inte som felaktigt användarunderlag. Granskad betalning och samma begäran behålls för kontroll. Isolerad databasverifiering visar att samma betalning registreras en gång och att leveransens återförsök återger samma leveransidentitet.

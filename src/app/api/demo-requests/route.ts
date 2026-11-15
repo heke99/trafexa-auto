@@ -15,17 +15,20 @@ export async function POST(request:NextRequest) {
  let data:Record<string,unknown>;
  const reader=request.body?.getReader();
  if(!reader)return NextResponse.json({error:'Kontrollera formuläret.'},{status:400});
+ let bodyExpired=false;
+ const bodyTimeout=setTimeout(()=>{bodyExpired=true;void reader.cancel().catch(()=>{});},5000);
  try {
   const decoder=new TextDecoder('utf-8',{fatal:true});let size=0,body='';
   while(true){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.byteLength;
    if(size>8192){await reader.cancel().catch(()=>{});return NextResponse.json({error:'Formuläret är för stort.'},{status:413});}
    body+=decoder.decode(chunk.value,{stream:true});
   }
+  if(bodyExpired)return NextResponse.json({error:'Det tog för lång tid att ta emot formuläret. Försök igen.'},{status:408});
   body+=decoder.decode();const parsed:unknown=JSON.parse(body);
   if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))return NextResponse.json({error:'Kontrollera formuläret.'},{status:400});
   data=parsed as Record<string,unknown>;
- }catch{return NextResponse.json({error:'Kontrollera formuläret.'},{status:400});}
- finally{reader.releaseLock();}
+ }catch{void reader.cancel().catch(()=>{});return NextResponse.json({error:bodyExpired?'Det tog för lång tid att ta emot formuläret. Försök igen.':'Kontrollera formuläret.'},{status:bodyExpired?408:400});}
+ finally{clearTimeout(bodyTimeout);reader.releaseLock();}
  let application:ReturnType<typeof validateWebApplication>;
  try {application=validateWebApplication(data,{allowHistoricalReplay:true});}catch(error){return NextResponse.json({error:error instanceof Error?error.message:'Kontrollera formuläret.'},{status:400});}
  const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
