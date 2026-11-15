@@ -84,3 +84,46 @@ test('verified published store can be withdrawn during profile or advertising ou
  try{await open(p);await expect(p.getByRole('alert')).toContainText('Ny publicering är spärrad');await expect(p.getByRole('button',{name:'Granska publicering',exact:true})).toHaveCount(0);await p.getByRole('button',{name:'Granska avpublicering'}).click();await p.getByRole('checkbox',{name:/vill avpublicera/}).check();await p.getByRole('button',{name:'Avpublicera butiken',exact:true}).click();await expect(p.getByText('Aktuell status:')).toContainText('Avpublicerad');assert.equal(await p.evaluate(()=>window.fixture.unpublishCalls.length),1);assert.equal(await p.evaluate(()=>window.fixture.publishCalls.length),0);}finally{await p.close();}
  }
 });
+
+test('pending and unknown public-store mutation protects parent and same reviewed publication',async()=>{
+ const p=await setup(state(),{publishResponses:[{defer:true}]});try{
+  await open(p);await review(p);await confirm(p);await p.waitForFunction(()=>typeof window.fixture.resolve==='function');
+  assert.equal(await p.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await expect(p.getByRole('button',{name:'Stäng publik butik'})).toBeDisabled();
+  await p.evaluate(()=>window.fixture.resolve({ok:false,code:'unavailable',message:'Okänd publicering'}));
+  await expect(p.getByRole('alert')).toContainText('Okänd publicering');
+  await expect(p.getByRole('button',{name:'Tillbaka till urval'})).toBeDisabled();
+  await expect(p.getByRole('button',{name:'Uppdatera butiksunderlag'})).toBeDisabled();
+  await expect(p.getByRole('checkbox',{name:/Jag har granskat exakt/})).toBeDisabled();
+  assert.equal(await p.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await p.getByRole('button',{name:'Publicera butiken på Trafexa',exact:true}).click();
+  await expect(p.getByRole('status')).toContainText('registrerats');
+  const writes=await p.evaluate(()=>window.fixture.publishCalls);assert.deepEqual(writes[0],writes[1]);
+  assert.equal(await p.evaluate(()=>window.fixture.busyEvents.at(-1)),false);
+ }finally{await p.close();}
+});
+
+test('fresh sibling profile refreshes idle store manager without publishing',async()=>{
+ const p=await setup();try{
+  await open(p);await expect(p.getByRole('heading',{name:/Profilversion 3:/})).toBeVisible();
+  await p.evaluate(({companyId,userId})=>{window.fixture.profile.profile.version=4;window.fixture.profile.profile.fields.displayName='Uppdaterad butik';window.mountPublicStore({companyId,userId,role:'owner',refreshToken:1});},{companyId:COMPANY,userId:ACTOR});
+  await expect(p.getByRole('heading',{name:'Profilversion 4: Uppdaterad butik'})).toBeVisible();
+  assert.equal(await p.evaluate(()=>window.fixture.publishCalls.length),0);
+ }finally{await p.close();}
+});
+test('changed sibling profile retains unsaved publication review but requires current source before new write',async()=>{
+ const p=await setup();try{
+  await open(p);await review(p);await p.getByRole('checkbox',{name:/Jag har granskat exakt/}).check();
+  await p.evaluate(({companyId,userId})=>{window.fixture.profile.profile.version=4;window.fixture.profile.profile.fields.displayName='Ny profil';window.mountPublicStore({companyId,userId,role:'owner',refreshToken:1});},{companyId:COMPANY,userId:ACTOR});
+  await expect(p.getByRole('heading',{name:'Bekräfta publik butik'})).toBeVisible();
+  await expect(p.getByRole('heading',{name:fields().displayName,exact:true})).toBeVisible();
+  await expect(p.getByRole('status')).toContainText('Dina val och granskade uppgifter finns kvar');
+  await expect(p.getByRole('button',{name:'Publicera butiken på Trafexa',exact:true})).toBeDisabled();
+  await p.getByRole('button',{name:'Tillbaka till urval'}).click();
+  await expect(p.getByLabel('Butikens adressnamn')).toHaveValue('bilfirman');
+  await expect(p.getByRole('checkbox',{name:/Volvo 3/})).toBeChecked();
+  await p.getByRole('button',{name:'Uppdatera butiksunderlag'}).click();
+  await expect(p.getByRole('heading',{name:'Profilversion 4: Ny profil'})).toBeVisible();
+  await review(p);await confirm(p);assert.equal(await p.evaluate(()=>window.fixture.publishCalls[0].profileVersion),4);
+ }finally{await p.close();}
+});

@@ -48,3 +48,17 @@ test('onboarding never navigates after a wrong actor receipt',async()=>{const ta
 test('authorized historical onboarding replay may return current admin membership',async()=>{const tab=await setup({onboarding:true,fixture:{defaultPage:storePage({role:'admin'})}});try{await fillCreate(tab);await tab.getByRole('button',{name:'Granska företag och butiksprofil'}).click();await createAck(tab).check();await createButton(tab).click();await tab.waitForFunction(()=>window.fixture.routes.length===1);assert.deepEqual(await tab.evaluate(()=>window.fixture.routes),['/settings']);}finally{await tab.close();}});
 test('onboarding rejects mismatched receipt and changed actor never navigates on an old response',async()=>{const tab=await setup({onboarding:true});try{await fillCreate(tab);await tab.getByRole('button',{name:'Granska företag och butiksprofil'}).click();await createAck(tab).check();await tab.evaluate(()=>window.fixture.manual=true);await createButton(tab).click();await tab.waitForFunction(()=>window.fixture.calls.length===1);await tab.evaluate(userId=>window.mountOnboarding({userId,loginEmail:'next@example.invalid'}),id(99));await expect(tab.getByLabel('Butikens publika e-postadress',{exact:true})).toHaveValue('');const input=(await calls(tab))[0].input;await respond(tab,0,{ok:true,companyId:COMPANY,actorId:ACTOR,role:'owner',requestId:input.requestId,profile:profile(),source:source(),sourceSha256:'a'.repeat(64)});assert.deepEqual(await tab.evaluate(()=>window.fixture.routes),[]);await expect(tab.getByLabel('Butikens publika e-postadress',{exact:true})).toHaveValue('');}finally{await tab.close();}});
 for(const width of [320,1280])test(`profile and onboarding reviews fit ${width}px with keyboard focus`,async()=>{const tab=await setup({width,onboarding:true});try{await fillCreate(tab);await tab.getByRole('button',{name:'Granska företag och butiksprofil'}).focus();await tab.keyboard.press('Enter');await expect(tab.getByRole('heading',{name:'Granska nytt företagskonto och butiksprofil'})).toBeFocused();const dimensions=await tab.evaluate(()=>({width:innerWidth,body:document.body.scrollWidth,document:document.documentElement.scrollWidth}));assert.ok(dimensions.body<=width&&dimensions.document<=width,JSON.stringify(dimensions));assert.deepEqual(await calls(tab),[]);}finally{await tab.close();}});
+
+test('unknown profile write keeps parent protected and reviewed fields fixed until same confirmation resolves',async()=>{
+ const tab=await setup({fixture:{responses:{read:[],save:[{throw:true}],export:[],detail:[],create:[]}}});try{
+  await edit(tab);await tab.getByLabel('Butiksnamn',{exact:true}).fill('Skyddad butik');await reviewSave(tab);await saveAck(tab).check();await saveButton(tab).click();
+  await expect(tab.getByRole('alert')).toContainText('kunde inte bekräftas');
+  assert.equal(await tab.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await expect(tab.getByRole('button',{name:'Tillbaka och ändra'})).toBeDisabled();
+  await expect(tab.getByRole('button',{name:'Kontrollera aktuell butiksprofil'})).toBeDisabled();
+  await expect(saveAck(tab)).toBeDisabled();await saveButton(tab).click();
+  await expect(tab.getByText('Butiksprofil version 2 är sparad',{exact:false})).toBeVisible();
+  const writes=(await calls(tab)).filter(call=>call.kind==='save');assert.deepEqual(writes[0].input,writes[1].input);
+  assert.equal(await tab.evaluate(()=>window.fixture.busyEvents.at(-1)),false);assert.equal(await tab.evaluate(()=>window.fixture.changed),1);
+ }finally{await tab.close();}
+});

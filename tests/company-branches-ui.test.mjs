@@ -65,3 +65,22 @@ test('closing panel clears private view; reopening revalidates without mutations
 test('320px branch heading stays readable beside wrapped keyboard controls before and after review',async()=>{
  const p=await setup();try{await p.setViewportSize({width:320,height:900});const heading=p.getByRole('heading',{name:'Filialregister',exact:true}),opener=p.getByRole('button',{name:'Öppna filialregister',exact:true});await expect(heading).toBeVisible();assert.ok(await heading.evaluate(node=>node.getBoundingClientRect().height<32));await opener.focus();await p.keyboard.press('Enter');await expect(p.getByRole('button',{name:/Redigera filial/})).toBeVisible();await edit(p);await expect(p.getByRole('heading',{name:'Bekräfta filialändring',exact:true})).toBeFocused();assert.ok(await p.evaluate(()=>Array.from(document.querySelectorAll('.button')).every(button=>button.getBoundingClientRect().left>=0&&button.getBoundingClientRect().right<=innerWidth)));await p.screenshot({path:'/tmp/trafexa-review-branches320.png',fullPage:true});assert.equal(await p.evaluate(()=>window.fixture.saveCalls.length+window.fixture.statusCalls.length),0);}finally{await p.close();}
 });
+
+test('pending and unknown branch write holds parent and immutable review until exact retry resolves',async()=>{
+ const p=await setup(state(),{saveResponses:[{defer:true}]});try{
+  await open(p);await edit(p);await confirm(p);await p.waitForFunction(()=>typeof window.fixture.resolve==='function');
+  assert.equal(await p.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await expect(p.getByRole('button',{name:'Stäng filialregister'})).toBeDisabled();
+  await p.evaluate(()=>window.fixture.resolve({ok:false,code:'unavailable',message:'Okänt filialresultat'}));
+  await expect(p.getByRole('alert')).toContainText('Okänt filialresultat');
+  await expect(p.getByRole('button',{name:'Tillbaka till uppgifter'})).toBeDisabled();
+  await expect(p.getByRole('button',{name:'Uppdatera filialer'})).toBeDisabled();
+  await expect(p.getByRole('combobox',{name:'Visa filialer'})).toBeDisabled();
+  await expect(p.getByRole('checkbox')).toBeDisabled();
+  assert.equal(await p.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await p.getByRole('button',{name:'Bekräfta filialändringen',exact:true}).click();
+  await expect(p.getByRole('status')).toContainText('aktuella listan');
+  const writes=await p.evaluate(()=>window.fixture.saveCalls);assert.deepEqual(writes[0],writes[1]);
+  assert.equal(await p.evaluate(()=>window.fixture.busyEvents.at(-1)),false);
+ }finally{await p.close();}
+});

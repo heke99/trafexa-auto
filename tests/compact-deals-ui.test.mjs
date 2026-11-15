@@ -121,3 +121,19 @@ for(const kind of ['offer','tradeUnderlay'])test(`${kind} pending source blocks 
   await expect(page.getByRole('alert')).toContainText('Åtkomsten har ändrats.');
  }finally{await page.close();}
 });
+
+test('contract history delivery holds enclosing deal until status resolution and denial clears private rows',async()=>{
+ const page=await setup(320);try{
+  await page.getByRole('button',{name:'Öppna affär',exact:true}).first().click();
+  await page.locator('summary').filter({hasText:'Avtalshistorik och dokument'}).click();
+  await expect(page.getByTestId('contracts-history-boundary')).toBeVisible();
+  await page.evaluate(()=>window.fixture.contractHistoryBusy(true));
+  await expect(page.getByRole('button',{name:'Stäng',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Ladda upp PDF',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Uppdatera',exact:true})).toBeDisabled();
+  await page.evaluate(()=>window.fixture.contractHistoryBusy(false));
+  await expect(page.getByRole('button',{name:'Stäng',exact:true})).toBeEnabled();
+  await page.evaluate(()=>window.fixture.contractHistoryDenied('Avtalens behörighet har ändrats.'));
+  await expect(page.locator('.compact-deal')).toHaveCount(0);await expect(page.getByRole('alert')).toContainText('Avtalens behörighet har ändrats.');
+ }finally{await page.close();}
+});

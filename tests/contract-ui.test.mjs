@@ -31,3 +31,28 @@ test('template outside first family page is freshly reloaded after receipt; no a
 
 for(const width of [390,1440])test(`dealer contract draft presentation at ${width}px`,async()=>{const page=await setup({drafts:[draft]},{deal:true},width);try{await expect(page.getByRole('link',{name:'Hämta osignerat avtalsutkast 1 som PDF'})).toHaveAttribute('href',`/api/contracts/${draft.id}/pdf`);await expect(page.getByText('Avtalsunderlag 1',{exact:true})).toBeVisible();await expect(page.getByText('Avtalsutkast 1 · Osignerat',{exact:true})).toHaveCount(0);if(process.env.TRAFEXA_CONTRACT_SCREENSHOTS){await mkdir(process.env.TRAFEXA_CONTRACT_SCREENSHOTS,{recursive:true});await page.screenshot({path:resolve(process.env.TRAFEXA_CONTRACT_SCREENSHOTS,`draft-${width}.png`),fullPage:true});}await page.getByLabel('Godkänd avtalsmall',{exact:true}).selectOption(template.id);await page.getByRole('button',{name:'Granska avtalsutkast'}).click();await expect(page.getByRole('heading',{name:'Granska osignerat avtalsutkast'})).toBeFocused();await expect(page.getByRole('button',{name:'Bekräfta och skapa osignerat utkast'})).toBeDisabled();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));if(process.env.TRAFEXA_CONTRACT_SCREENSHOTS)await page.screenshot({path:resolve(process.env.TRAFEXA_CONTRACT_SCREENSHOTS,`draft-review-${width}.png`),fullPage:true});assert.equal(await page.evaluate(()=>window.fixture.calls.some(c=>c.kind==='draft')),false);}finally{await page.close();}});
 test('archived contract view retains PDF history while suppressing drafting and signature requests',async()=>{const page=await setup({drafts:[draft]},{deal:true,readOnly:true},320);try{await expect(page.getByText('Arkiverad affär.',{exact:false})).toBeVisible();await expect(page.getByRole('link',{name:'Hämta osignerat avtalsutkast 1 som PDF'})).toHaveAttribute('href',`/api/contracts/${draft.id}/pdf`);await expect(page.getByRole('button',{name:'Granska avtalsutkast'})).toHaveCount(0);await expect(page.getByLabel('Godkänd avtalsmall',{exact:true})).toHaveCount(0);await page.getByText('Visa underskrifter och hämta avtal',{exact:true}).click();await expect(page.getByRole('button',{name:'Begär underskrifter för avtalsutkastet'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Granska min underskrift'})).toHaveCount(0);assert.equal(await page.evaluate(()=>window.fixture.calls.some(c=>c.kind==='draft')),false);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));}finally{await page.close();}});
+
+
+test('nested contract email holds draft controls and enclosing busy signal through ambiguous result',async()=>{
+ const signing={id:id(20),companyId:props.companyId,dealId:props.dealId,draftId:draft.id,draftVersion:1,documentHash:'a'.repeat(64),renderedTerms:'Fryst avtalsinnehåll',status:'completed',revision:3,customerEmail:'anna@example.com',customerSignature:{fullName:'Anna'},companySignature:{fullName:'Handlaren'},canSign:false,party:'company',draft};
+ const page=await setup({drafts:[draft],rows:[signing],customerEmailRetries:[{hold:true}],deliveryByKind:{contract_invitation:{ok:true,delivery:{status:'accepted',transport:'configured'}},contract_completed:{ok:true,delivery:{status:'pending',transport:'configured'}}}},{deal:true},320);
+ try{
+  await page.getByText('Visa och hantera underskrifter',{exact:true}).click();
+  const completion=page.getByRole('region',{name:'Kundens mejl med färdigsignerat avtal',exact:true});
+  await completion.getByRole('button',{name:'Granska nytt försök för färdigsignerat avtal',exact:true}).click();
+  await completion.getByRole('checkbox').check();await completion.getByRole('button',{name:'Försök skicka mejlet igen',exact:true}).click();
+  await page.waitForFunction(()=>typeof window.fixture.releaseCustomerEmailRetry==='function');
+  assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await expect(page.getByRole('button',{name:'Uppdatera avtalsunderlag',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Granska avtalsutkast',exact:true})).toBeDisabled();
+  await page.evaluate(()=>window.fixture.releaseCustomerEmailRetry({ok:false,code:'unavailable',message:'Obekräftat mejlförsök'}));
+  await expect(completion.getByRole('button',{name:'Uppdatera färdigmejlets status',exact:true})).toBeEnabled();
+  await expect(page.getByRole('button',{name:'Uppdatera avtalsunderlag',exact:true})).toBeDisabled();
+  await page.evaluate(()=>window.fixture.customerEmailReads=[{ok:true,delivery:{status:'accepted',transport:'configured'}}]);
+  await completion.getByRole('button',{name:'Uppdatera färdigmejlets status',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Uppdatera avtalsunderlag',exact:true})).toBeEnabled();
+  assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),false);
+  assert.equal(await page.evaluate(()=>window.fixture.customerEmailCalls.filter(call=>call.kind==='retry').length),1);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ }finally{await page.close();}
+});

@@ -6,6 +6,10 @@ Slutför verkligt användarprov av hela affärsresan; välj och aktivera separat
 
 Arkivering och separata synliga knappar för arkivering/radering på affärskorten är rättade. Se [arkiverings- och raderingsrapporten](DEAL_ARCHIVE_REMOVE_20261115.md). De återstående planpunkterna ovan kvarstår.
 
+## Avtalshistorik, fordonsbilder och butiksinställningar — 15 november 2026
+
+Mejl- och länkåtgärder i avtalshistoriken skyddar nu hela den öppnade affären via avtalsutkast och signeringsvyn. Inbjudnings- och färdigmejl hålls isär, och den aktiva kontrollen kan användas utan att konkurrerande åtgärder öppnas. Bilbilder behåller samma fil, bildidentitet och begäran vid obekräftad uppladdning eller borttagning; efterföljande läsfel ändrar inte ett redan bekräftat sparande till ett nytt skrivförsök. Butiksprofil, offentlig butik och filialer skyddar pågående/obekräftade ändringar mot navigering och nya underlag. Bekräftad butiksprofil uppdaterar den offentliga butikens underlag; pågående granskning bevaras och behöver uttryckligen läsas om före en ny publicering. Isolerade tester, inga riktiga mejl, bilder eller butiksändringar i granskningen.
+
 ## Import, mejlstatus och inköps-/kalkylunderlag — 15 november 2026
 
 Lagerimport skyddar fil och kolumnmappning medan resultatet är pågående eller obekräftat, och kontrollerar samma import med samma begäran även efter en lageruppdatering. Kända avvisningar skiljs från okända transportresultat och nekad åtkomst. Importerat lager läses uttryckligen om efter bekräftelse. Mejlinbjudningarnas utskicks- och länkåtgärder rapporterar skydd till offertgranskningen; ett obekräftat mejlförsök stäms av genom statusläsning utan automatisk omsändning. Inköps-/skickunderlag behåller granskad version vid återförsök. Ett obekräftat kalkylsparande kräver ett nytt verifierat underlag före nästa ändring, utan att ändringen skickas igen automatiskt. Egna kontrollknappar är åtkomliga medan dialog och andra åtgärder skyddas. Isolerade tester; inga verkliga importer, mejl eller ekonomiska underlag ändrade.
