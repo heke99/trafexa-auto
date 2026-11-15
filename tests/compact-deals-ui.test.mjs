@@ -137,3 +137,24 @@ test('contract history delivery holds enclosing deal until status resolution and
   await expect(page.locator('.compact-deal')).toHaveCount(0);await expect(page.getByRole('alert')).toContainText('Avtalens behörighet har ändrats.');
  }finally{await page.close();}
 });
+
+for(const [status,action,label]of [['draft','reserveVehicle','Reservera bil'],['reserved','releaseReservation','Släpp reservation']])test(`pending ${action} protects tabs, closing and workspace navigation until action settles`,async()=>{
+ const page=await harness.page(390);
+ try{
+  const data=snapshot({size:1}),row={...deal(1),status};
+  await page.evaluate(({data,result,action})=>{window.fixture.defaults.register=result;window.fixture.responses[action]=[{wait:true}];window.mountWorkspace({snapshot:data,section:'deals'});},{data,result:registerPage({kind:'deals',rows:[row],total:1}),action});
+  await page.getByRole('button',{name:'Öppna affär',exact:true}).click();
+  await page.getByRole('button',{name:'Fler alternativ',exact:true}).click();
+  await page.getByRole('button',{name:label,exact:true}).click();
+  await page.waitForFunction(()=>window.fixture.vehicleDeferred?.length===1);
+  await expect(page.getByRole('button',{name:'Ladda upp PDF',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Stäng',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Skapa affär',exact:true})).toBeDisabled();
+  await expect(page.getByRole('searchbox')).toBeDisabled();
+  const url=page.url();await page.locator('a[href="/inventory"]').first().evaluate(node=>node.click());assert.equal(page.url(),url);
+  assert.deepEqual(await page.evaluate(()=>window.fixture.writes.map(({kind,input})=>({kind,deal:input.deal_id}))),[{kind:action,deal:row.id}]);
+  await page.evaluate(()=>window.fixture.vehicleDeferred.shift()());
+  await expect(page.getByRole('button',{name:'Ladda upp PDF',exact:true})).toBeEnabled();
+  await expect(page.getByRole('button',{name:'Stäng',exact:true})).toBeEnabled();
+ }finally{await page.close();}
+});

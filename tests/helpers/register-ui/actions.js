@@ -7,9 +7,9 @@ export async function createVehicleCostRequestAction(input) { const result=await
 export function loadVehicleCosts(input){return window.fixture.read('costs',input);}
 export function createVehicleAction(form){return deferredVehicleAction('createVehicle',form);}
 export function createCustomerAction(form){return window.fixture.mutate('createCustomer',Object.fromEntries(form));}
-export function reserveVehicleAction(form){return window.fixture.mutate('reserveVehicle',Object.fromEntries(form));}
+export function reserveVehicleAction(form){return deferredVehicleAction('reserveVehicle',form);}
 export function createFinanceRequestAction(form){return window.fixture.mutate('createFinanceRequest',Object.fromEntries(form));}
-export function releaseReservationAction(form){return window.fixture.mutate('releaseReservation',Object.fromEntries(form));}
+export function releaseReservationAction(form){return deferredVehicleAction('releaseReservation',form);}
 export function updateVehiclePriceAction(form){return deferredVehicleAction('updateVehiclePrice',form);}
 export function signOutAction(form){return window.fixture.mutate('signOut',Object.fromEntries(form));}
 export function selectCompanyAction(form){return window.fixture.mutate('selectCompany',Object.fromEntries(form));}

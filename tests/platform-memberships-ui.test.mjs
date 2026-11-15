@@ -114,3 +114,16 @@ test('company member write stays locked through late receipt status reconciliati
   await expect(p.getByRole('alert')).toContainText('återkallad');await expect(p.getByRole('table')).toHaveCount(0);await expect(p.getByRole('button',{name:'Konton',exact:true})).toBeDisabled();
  }finally{await p.close();}
 });
+
+test('cancelling a membership review restores the exact member action for keyboard users',async()=>{
+ const p=await setup({state:memberPage({members:[member(),member(8)]})});
+ try{
+  const trigger=p.getByRole('button',{name:'Hantera medlemskap för member8@example.com',exact:true});
+  await trigger.focus();await p.keyboard.press('Enter');
+  await expect(p.getByRole('heading',{name:'Granska medlemskap',exact:true})).toBeFocused();
+  await p.getByRole('button',{name:'Avbryt medlemsändring',exact:true}).click();
+  await expect(p.getByRole('heading',{name:'Granska medlemskap',exact:true})).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  assert.equal(await p.evaluate(()=>window.fixture.memberUpdateCalls.length),0);
+ }finally{await p.close();}
+});

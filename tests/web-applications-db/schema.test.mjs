@@ -34,4 +34,25 @@ test('rollback-only SQL smoke verifies the same real schema and leaves no fixtur
 
 test('global throttle is atomic across different applicant addresses and counts only committed new rows',async t=>{const db=await setup(t);for(let i=0;i<10;i++)await submit(db,args(id(300+i),{p_email:`applicant${i}@example.test`}));await assert.rejects(submit(db,args(id(311),{p_email:'eleventh@example.test'})),e=>e.code==='P0001');assert.equal((await db.query('select count(*)::int n from private.demo_requests')).rows[0].n,10);});
 
+test('email limit expires by committed row time while exact replay never consumes a slot',async t=>{
+ const db=await setup(t);
+ for(let i=500;i<503;i++)await submit(db,args(id(i)));
+ await assert.rejects(submit(db,args(id(503))),e=>e.code==='P0001');
+ for(let i=0;i<5;i++)assert.deepEqual(await submit(db,args(id(500))),{accepted:true,request_id:id(500)});
+ assert.equal((await db.query('select count(*)::int n from private.demo_requests')).rows[0].n,3);
+ await db.query("update private.demo_requests set created_at=now()-interval '61 minutes' where request_id=$1",[id(500)]);
+ assert.deepEqual(await submit(db,args(id(503))),{accepted:true,request_id:id(503)});
+ await assert.rejects(submit(db,args(id(504))),e=>e.code==='P0001');
+});
+
+test('global minute window resets independently of hourly email limits and exact replay succeeds while full',async t=>{
+ const db=await setup(t);
+ for(let i=0;i<10;i++)await submit(db,args(id(600+i),{p_email:`window${i}@example.test`}));
+ await assert.rejects(submit(db,args(id(610),{p_email:'new-window@example.test'})),e=>e.code==='P0001');
+ assert.deepEqual(await submit(db,args(id(600),{p_email:'window0@example.test'})),{accepted:true,request_id:id(600)});
+ await db.query("update private.demo_requests set created_at=now()-interval '61 seconds'");
+ assert.deepEqual(await submit(db,args(id(610),{p_email:'new-window@example.test'})),{accepted:true,request_id:id(610)});
+ assert.equal((await db.query('select count(*)::int n from private.demo_requests')).rows[0].n,11);
+});
+
 test('competing actual administrators change one case version once and preserve no-op audited intent',async t=>{const db=await setup(t);await db.query('insert into private.platform_admins(user_id,created_by) values($1,$2)',[OTHER,ADMIN]);await submit(db);const app=await application(db);const results=await Promise.allSettled([invoke(db,'authenticated',ADMIN,'set_platform_web_application_status',[app.id,1,'in_review','Första granskning',id(400)]),invoke(db,'authenticated',OTHER,'set_platform_web_application_status',[app.id,1,'contacted','Andra granskning',id(401)])]);assert.equal(results.filter(x=>x.status==='fulfilled').length,1);assert.equal(results.filter(x=>x.status==='rejected'&&x.reason.code==='40001').length,1);const current=await application(db);const noop=await invoke(db,'authenticated',ADMIN,'set_platform_web_application_status',[app.id,2,current.status,'Verifierad oförändrad status',id(402)]);assert.equal(noop.changed,false);assert.equal(noop.version,2);assert.equal((await db.query('select count(*)::int n from private.web_application_status_audit')).rows[0].n,2);});
