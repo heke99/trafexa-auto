@@ -1,4 +1,10 @@
-# Planläge 14 november 2026
+# Planläge 15 november 2026
+
+## Kvarvarande planpunkter — 15 november 2026
+
+Slutför verkligt användarprov av hela affärsresan; välj och aktivera separat extern avtalsbackup; bygg säljarstatistikens rapportvy; anslut Blocket/Wayke när partneravtal och API-åtkomst finns; anslut banker/finanspartner; välj bokföringssystem och bygg kopplingen. Grund för annonsintegrationer, manuell avstämning, dokumentexport och säljarens aktörskoppling finns. Dessa punkter är inte automatiskt färdiga genom senaste UI-rättningarna.
+
+Arkivering och separata synliga knappar för arkivering/radering på affärskorten är rättade. Se [arkiverings- och raderingsrapporten](DEAL_ARCHIVE_REMOVE_20261115.md). De återstående planpunkterna ovan kvarstår.
 
 ## Superadmin: behörigheter och UI — 14 november 2026
 

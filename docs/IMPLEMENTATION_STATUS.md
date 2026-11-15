@@ -1,5 +1,9 @@
 # Implementationsstatus
 
+## Arkivering och synlig radering — 15 november 2026
+
+Arkiveringen tillåter färdigsignerade underlag och hämtar om den aktiva listan efter bekräftelse. Separata synliga knappar finns direkt på affärskortet; osignerade utkast kan tas bort från både aktiva och arkiverade listor med internt bevarade original. Se [etapprapporten](DEAL_ARCHIVE_REMOVE_20261115.md).
+
 ## Superadmin: behörigheter och UI — 14 november 2026
 
 Adminroutning, konto-/företags-/ansökningshantering, medlemsroller, återförsök, mobilvy och statistik granskas i [superadminrapporten](SUPERADMIN_REVIEW_20261114.md). Verifierade fel omfattar aktivering för obehöriga, äldre svagare identitetskontroller, saknad slutkontroll av behörighet samt sena/osäkra svar i UI. Faktiska konton och underskrifter ändras inte som test. Aktuell helregression och publicering följs i etappens PR.

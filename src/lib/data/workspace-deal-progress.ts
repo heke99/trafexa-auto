@@ -11,8 +11,8 @@ export async function workspaceDealProgress(db:unknown,companyId:string,actorId:
   const result=await(db as {rpc(name:string,args:Record<string,unknown>):Promise<{data:unknown;error:unknown}>}).rpc('get_deal_contract_progress',{p_company_id:companyId,p_deal_ids:ids});
   if(result.error)throw result.error;const data=object(result.data);
   if(data.companyId!==companyId||data.actorId!==actorId||data.role!==role||!Array.isArray(data.rows)||data.rows.length!==ids.length)throw Error('Deal progress scope changed');
-  const entries=new Map(data.rows.map(raw=>{const row=object(raw);if(typeof row.dealId!=='string'||!ids.includes(row.dealId)||typeof row.archived!=='boolean')throw Error('Unexpected deal');return[row.dealId,{contractProgress:parseDealContractProgress(row.contractProgress),archived:row.archived}] as const;}));
+  const entries=new Map(data.rows.map(raw=>{const row=object(raw);if(typeof row.dealId!=='string'||!ids.includes(row.dealId)||typeof row.archived!=='boolean'||row.removed!==undefined&&typeof row.removed!=='boolean')throw Error('Unexpected deal');return[row.dealId,{contractProgress:parseDealContractProgress(row.contractProgress),archived:row.archived,removed:row.removed===true}] as const;}));
   if(entries.size!==ids.length)throw Error('Duplicate deal progress');
-  return{deals:deals.map(d=>({...d,...entries.get(d.id.toLowerCase())!}))};
+  return{deals:deals.filter(d=>!entries.get(d.id.toLowerCase())!.removed).map(d=>{const{removed,...projection}=entries.get(d.id.toLowerCase())!;return{...d,...projection};})};
  }catch{return{deals:unverified,error:'Avtalsstatus kunde inte verifieras. Uppdatera sidan för aktuell signeringsstatus.'};}
 }
