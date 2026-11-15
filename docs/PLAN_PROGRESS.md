@@ -6,6 +6,14 @@ Slutför verkligt användarprov av hela affärsresan; välj och aktivera separat
 
 Arkivering och separata synliga knappar för arkivering/radering på affärskorten är rättade. Se [arkiverings- och raderingsrapporten](DEAL_ARCHIVE_REMOVE_20261115.md). De återstående planpunkterna ovan kvarstår.
 
+## Webbansökan, tangentbord och ekonomiexport — 15 november 2026
+
+Webbansökan använder samma normalisering av organisationsnummer i webbläsaren och på servern. Stödda mellanslag och 16-prefix kan klistras in; ogiltig kontrollsiffra stoppas innan anropet. Inloggning, lösenordsåterställning och ursprungskontroller klarade regressionen utan ytterligare källändringar.
+
+Kontobunden signering kan nu ritas av användaren med tangentbord: piltangenter flyttar/ritar, mellanslag eller Enter styr pennan, Escape lyfter den och Tab går vidare. Samma befintliga validering och uttryckliga avtalsbekräftelse gäller; namn eller fokus skapar ingen namnteckning. Cookieinställningarnas stängning återställer fokus till den ursprungliga knappen, och glömd bekräftelse lämnar fokus kvar i informationen utan att ändra inloggningscookies.
+
+CSV-export av rättelser skyddar också formelprefix som föregås av osynliga Unicode-tecken, med samma skydd som betalningsexporten. Rättelseunderlag, belopp och kontrollsummor ändras inte. Isolerade tester, inga riktiga ansökningar, lösenordsmejl eller signeringar skapades.
+
 ## Fakturamejl, kreditering, rättelser och unik annonsavgift — 15 november 2026
 
 Fakturamejl, kreditfakturor och rättelser av låst månadsunderlag rapporterar nu egna pågående och obekräftade åtgärder genom överordnade paneler. Betalning, mejl, kredit och rättelse använder separata skyddskällor; konkurrerande paneler skyddas utan att den aktiva kontrollen låses. Samma granskade underlag och begäran återanvänds. Ett obekräftat utskick kontrolleras genom en ny statusläsning utan automatisk omsändning. Känd framgång med misslyckad efterläsning orsakar inte en ny skrivning.

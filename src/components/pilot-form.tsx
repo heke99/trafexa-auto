@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowUpRight, Check } from 'lucide-react';
 import { LEGAL_POLICY_VERSION } from '../lib/privacy/policy-version';
+import { normalizeApplicationOrganisationNumber } from '../lib/web-applications/validation';
 
 const seekingOptions = [['system', 'Trafexa-systemet'], ['purchase_finance', 'Inköpsfinansiering'], ['stock_finance', 'Lagerfinansiering'], ['dealer_network', 'Handlarnätverk'], ['advertising', 'Annonsering'], ['other', 'Annat']] as const;
 
@@ -17,6 +18,12 @@ export function PilotForm() {
     event.preventDefault();
     const form = event.currentTarget;
     if (!ready || inFlight.current || !form.reportValidity()) return;
+    const organisationNumber = form.elements.namedItem('organisationNumber') as HTMLInputElement;
+    try { organisationNumber.setCustomValidity(''); organisationNumber.value = normalizeApplicationOrganisationNumber(organisationNumber.value); }
+    catch (error) {
+      const text = error instanceof Error ? error.message : 'Kontrollera organisationsnumret.';
+      organisationNumber.setCustomValidity(text); organisationNumber.reportValidity(); setMessage(text); setStatus('error'); return;
+    }
     const formData = new FormData(form);
     const seeking = formData.getAll('seeking').map(String).sort();
     if (!seeking.length) { setMessage('Välj minst ett område som ansökan gäller.'); setStatus('error'); return; }
@@ -54,7 +61,7 @@ export function PilotForm() {
     <p>Ansök om tillgång till Trafexa. Vi granskar ansökan och skickar en kontoinbjudan efter godkännande.</p>
     <div className="field-pair"><label>Företag<input name="company" autoComplete="organization" placeholder="Din bilfirma" required maxLength={160}/></label><label>Ditt namn<input name="name" autoComplete="name" placeholder="För- och efternamn" required maxLength={160}/></label></div>
     <div className="field-pair"><label>Mejladress<input name="email" autoComplete="email" type="email" placeholder="namn@bilfirma.se" required maxLength={254}/></label><label>Telefon<input name="phone" autoComplete="tel" type="tel" placeholder="070 000 00 00" required minLength={7} maxLength={40}/></label></div>
-    <label>Organisationsnummer<input name="organisationNumber" placeholder="556123-4567" inputMode="numeric" required pattern="[0-9]{6}-?[0-9]{4}" maxLength={11}/></label>
+    <label>Organisationsnummer<input name="organisationNumber" placeholder="556123-4567" inputMode="numeric" required maxLength={30} onChange={event=>event.currentTarget.setCustomValidity('')}/></label>
     <fieldset style={{ border: 0, padding: 0, margin: 0 }}><legend>Vad söker ni? (välj minst ett område)</legend><div style={{ display: 'grid', gap: 10, marginTop: 12 }}>{seekingOptions.map(([value, label]) => <label key={value} style={{ display: 'flex', alignItems: 'center', gap: 10 }}><input style={{ width: 'auto' }} type="checkbox" name="seeking" value={value}/>{label}</label>)}</div></fieldset>
     <label>Beskriv vad ni söker<textarea name="message" rows={3} placeholder="Berätta om ditt fordonslager, ditt team och vilka funktioner du vill se." required minLength={2} maxLength={2000}/></label>
     <div className="honeypot" aria-hidden="true"><label>Webbplats<input name="website" tabIndex={-1} autoComplete="off"/></label></div>

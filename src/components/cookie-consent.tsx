@@ -4,28 +4,29 @@ import { COOKIE_NOTICE_NAME, COOKIE_NOTICE_VALUE, COOKIE_NOTICE_MAX_AGE, COOKIE_
 import './cookie-consent.css';
 
 export function CookieSettingsButton() {
-  return <button type="button" className="cookie-settings-link" onClick={() => window.dispatchEvent(new Event(COOKIE_SETTINGS_EVENT))}>Cookieinställningar</button>;
+  return <button type="button" className="cookie-settings-link" onClick={event => window.dispatchEvent(new CustomEvent(COOKIE_SETTINGS_EVENT,{detail:{trigger:event.currentTarget}}))}>Cookieinställningar</button>;
 }
 
 export function CookieConsent() {
   const [visible, setVisible] = useState(false);
   const [settings, setSettings] = useState(false);
-  const heading = useRef<HTMLHeadingElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null), opener = useRef<HTMLElement|null>(null);
   useEffect(() => {
     const acknowledged = document.cookie.split(';').some(entry => entry.trim() === `${COOKIE_NOTICE_NAME}=${COOKIE_NOTICE_VALUE}`);
     setVisible(!acknowledged);
-    function reopen() { setSettings(true); setVisible(true); }
+    function reopen(event:Event) { const trigger=event instanceof CustomEvent?event.detail?.trigger:null;const active=trigger instanceof HTMLElement?trigger:document.activeElement;opener.current=active instanceof HTMLElement&&active!==document.body?active:null;setSettings(true);setVisible(true); }
     window.addEventListener(COOKIE_SETTINGS_EVENT, reopen);
     return () => window.removeEventListener(COOKIE_SETTINGS_EVENT, reopen);
   }, []);
   useEffect(() => { if (visible && settings) heading.current?.focus(); }, [visible, settings]);
+  useEffect(()=>{if(!visible&&opener.current){const target=opener.current;opener.current=null;if(target.isConnected)target.focus({preventScroll:true});}},[visible]);
   function acknowledge() {
     document.cookie = `${COOKIE_NOTICE_NAME}=${COOKIE_NOTICE_VALUE}; Path=/; Max-Age=${COOKIE_NOTICE_MAX_AGE}; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
     setVisible(false); setSettings(false);
   }
   function forget() {
     document.cookie = `${COOKIE_NOTICE_NAME}=; Path=/; Max-Age=0; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
-    setSettings(false); setVisible(true);
+    setSettings(false); setVisible(true); heading.current?.focus({preventScroll:true});
   }
   if (!visible) return null;
   return <section className="cookie-notice" aria-labelledby="cookie-notice-title"><div>
