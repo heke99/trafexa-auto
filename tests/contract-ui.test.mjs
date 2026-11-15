@@ -66,3 +66,34 @@ test('unknown draft creation retains reviewed offer and template while parent st
   await page.getByRole('button',{name:'Bekräfta och skapa osignerat utkast'}).click();await expect(page.getByRole('button',{name:'Uppdatera avtalsunderlag'})).toBeEnabled();const calls=await page.evaluate(()=>window.fixture.calls.filter(call=>call.kind==='draft'));assert.equal(calls.length,3);assert.deepEqual(calls[0].input,calls[1].input);assert.deepEqual(calls[0].input,calls[2].input);assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),false);
  }finally{await page.close();}
 });
+
+for(const operation of ['create','approve','retire'])for(const failure of ['transport','unavailable'])test(`ambiguous template ${operation} ${failure} freezes review and retries the same request`,async()=>{
+ const statusOperation=operation!=='create',kind=statusOperation?'approve':'create';
+ const page=await setup({templates:[{...template,status:operation==='approve'?'draft':'approved'}],responses:{[kind]:[failure==='transport'?{throw:true}:{ok:false,code:'unavailable',message:'Resultatet behöver kontrolleras.'}]}});
+ try{
+  if(!statusOperation){await page.getByLabel('Mallnamn',{exact:true}).fill('Granskad mall');await page.getByLabel('Avtalsvillkor',{exact:true}).fill('Villkor {{customer.name}}');await page.getByRole('button',{name:'Granska ny mallversion'}).click();}
+  else {await page.getByRole('button',{name:operation==='approve'?/Granska och godkänn/:/Granska och avsluta/}).click();await page.getByLabel('Anledning till beslutet',{exact:true}).fill('Granskad motivering');}
+  const ack=page.getByRole('checkbox').last();await ack.check();
+  const confirm=page.getByRole('button',{name:operation==='create'?'Bekräfta och spara mallutkast':operation==='approve'?'Bekräfta godkännande':'Bekräfta avslut',exact:true});await confirm.click();
+  await expect(page.getByText('Resultatet är oklart.',{exact:false})).toBeVisible();assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await expect(page.getByRole('button',{name:'Tillbaka och ändra',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Uppdatera avtalsmallar',exact:true})).toBeDisabled();await expect(ack).toBeDisabled();
+  if(statusOperation)await expect(page.getByLabel('Anledning till beslutet',{exact:true})).toBeDisabled();
+  const count=await page.evaluate(()=>window.fixture.calls.filter(c=>c.kind==='templates').length);
+  await confirm.click();await expect(page.getByText('Resultatet är oklart.',{exact:false})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Uppdatera avtalsmallar',exact:true})).toBeEnabled();assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),false);
+  const calls=await page.evaluate(kind=>window.fixture.calls.filter(c=>c.kind===kind),kind);assert.equal(calls.length,2);assert.deepEqual(calls[0].input,calls[1].input);
+  assert.ok(await page.evaluate(count=>window.fixture.calls.filter(c=>c.kind==='templates').length>count,count));
+ }finally{await page.close();}
+});
+
+test('successful template mutation followed by a failed reload cannot enable another write',async()=>{
+ const page=await setup();try{
+  await page.getByLabel('Mallnamn',{exact:true}).fill('Granskat original');await page.getByLabel('Avtalsvillkor',{exact:true}).fill('Villkor {{customer.name}}');await page.getByRole('button',{name:'Granska ny mallversion'}).click();await page.getByLabel('Jag har granskat mallnamnet').check();
+  await page.evaluate(()=>window.fixture.responses.templates=[{throw:true}]);
+  await page.getByRole('button',{name:'Bekräfta och spara mallutkast'}).click();await expect(page.getByRole('alert')).toContainText('Avtalsmallarna kunde inte hämtas');
+  await expect(page.getByRole('button',{name:'Granska ny mallversion'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Bekräfta och spara mallutkast'})).toHaveCount(0);
+  assert.equal(await page.evaluate(()=>window.fixture.calls.filter(c=>c.kind==='create').length),1);assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),false);
+  await page.getByRole('button',{name:'Uppdatera avtalsmallar'}).click();await expect(page.getByRole('button',{name:'Granska ny mallversion'})).toBeVisible();
+  assert.equal(await page.evaluate(()=>window.fixture.calls.filter(c=>c.kind==='create').length),1);
+ }finally{await page.close();}
+});

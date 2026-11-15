@@ -29,8 +29,8 @@ before(async()=>{
 });
 after(async()=>{await browser?.close();if(directory)await rm(directory,{recursive:true,force:true});assert.equal(audit.httpPosts,0);assert.deepEqual(audit.uncaught,[]);});
 
-async function setup({props={},fixture={},width=375,integrated=false}={}){
- const page=await browser.newPage({viewport:{width,height:1000}});page.on('pageerror',error=>audit.uncaught.push(error.message));page.on('request',request=>{if(request.method()==='POST')audit.httpPosts++;});await page.route('**/*',route=>route.request().isNavigationRequest()?route.fulfill({contentType:'text/html',body:'<html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><main style="padding:12px;min-width:0"><div id="root"></div></main></html>'}):route.abort());await page.goto('http://localhost/trafexa-contract-archive-qa');await page.addStyleTag({content:css});
+async function setup({props={},fixture={},width=375,integrated=false,timezoneId='Europe/Stockholm'}={}){
+ const page=await browser.newPage({viewport:{width,height:1000},timezoneId});page.on('pageerror',error=>audit.uncaught.push(error.message));page.on('request',request=>{if(request.method()==='POST')audit.httpPosts++;});await page.route('**/*',route=>route.request().isNavigationRequest()?route.fulfill({contentType:'text/html',body:'<html lang="sv"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><main style="padding:12px;min-width:0"><div id="root"></div></main></html>'}):route.abort());await page.goto('http://localhost/trafexa-contract-archive-qa');await page.addStyleTag({content:css});
  await page.evaluate(({fixture,defaultRead,defaultWrite,defaultVerify,defaultPackage,row})=>{
   window.fixture={calls:[],signingCalls:[],signings:[row],responses:{read:[],archive:[],verify:[]},pending:{},packageCalls:[],packageResponses:[],packageSignals:[],objectUrls:{created:[],revoked:[]},defaultPackage,defaultRead,defaultWrite,defaultVerify,manual:false,...fixture};
   window.fixture.call=async(kind,input)=>{const current=window.fixture,id=current.calls.length;current.calls.push({id,kind,input});if(current.manual)return new Promise((resolve,reject)=>{current.pending[id]={resolve,reject};});const answer=current.responses[kind]?.shift()??(kind==='read'?current.defaultRead:kind==='verify'?current.defaultVerify:current.defaultWrite);if(answer?.throw)throw Error('Mocked response lost after a possible commit.');return answer;};
@@ -148,8 +148,8 @@ const checked=(archive=stored,override={})=>({...success(archive),checkedAt:'202
 test('file integrity is explicit read-only, binds actual metadata and clears its timestamp on every status read',async()=>{
  const page=await setup({fixture:{defaultRead:success(stored)}});try{
   assert.deepEqual(await calls(page),[]);await open(page);await expect(checkFiles(page)).toBeEnabled();await expect(verified(page)).toHaveCount(0);assert.deepEqual((await calls(page)).map(c=>c.kind),['read']);
-  await checkFiles(page).focus();await page.keyboard.press('Enter');await expect(verified(page)).toBeVisible();await expect(page.locator('time')).toHaveText(/18 okt\. 2026.*12:12/);assert.deepEqual((await calls(page)).map(c=>c.kind),['read','verify']);assert.deepEqual((await calls(page))[1].input,{signingId:SIGNING,companyId:COMPANY});
-  await page.getByRole('button',{name:'Kontrollera arkivstatus',exact:true}).click();await expect(checkFiles(page)).toBeEnabled();await expect(verified(page)).toHaveCount(0);await expect(page.locator('time')).toHaveCount(0);assert.deepEqual((await calls(page)).map(c=>c.kind),['read','verify','read']);
+  await checkFiles(page).focus();await page.keyboard.press('Enter');await expect(verified(page)).toBeVisible();await expect(page.locator('time[datetime="2026-10-18T10:12:00.000Z"]')).toHaveText(/18 okt\. 2026.*12:12/);assert.deepEqual((await calls(page)).map(c=>c.kind),['read','verify']);assert.deepEqual((await calls(page))[1].input,{signingId:SIGNING,companyId:COMPANY});
+  await page.getByRole('button',{name:'Kontrollera arkivstatus',exact:true}).click();await expect(checkFiles(page)).toBeEnabled();await expect(verified(page)).toHaveCount(0);await expect(page.locator('time[datetime="2026-10-18T10:12:00.000Z"]')).toHaveCount(0);assert.deepEqual((await calls(page)).map(c=>c.kind),['read','verify','read']);
  }finally{await page.close();}
 });
 for(const role of ['admin','finance','customer'])test(`${role} explicitly checks original files within existing read scope`,async()=>{
@@ -232,4 +232,21 @@ test('archive-package90second timeout aborts transport, releases all controls an
 });
 test('archive-package offline failure clears private claims and a later explicit status read restores retry without auto-download',async()=>{
  const page=await setup({fixture:{defaultRead:success(stored),packageResponses:[{throw:true}]}});try{await open(page);await packageButton(page).click();await expect(page.getByRole('alert')).toContainText('kunde inte hämtas');await expect(packageButton(page)).toHaveCount(0);await expect(page.getByRole('link')).toHaveCount(0);await page.getByRole('button',{name:'Kontrollera arkivstatus',exact:true}).click();await expect(packageButton(page)).toBeEnabled();assert.equal(await page.evaluate(()=>window.fixture.packageCalls.length),1);assert.deepEqual(await page.evaluate(()=>window.fixture.objectUrls.created),[]);const downloaded=page.waitForEvent('download');await packageButton(page).click();await downloaded;await expect(packageNotice(page)).toBeVisible();}finally{await page.close();}
+});
+
+
+test('original archive dates show explicit Stockholm time across client timezones and daylight saving',async()=>{
+ for(const [archivedAt,expected]of [['2026-11-14T23:30:00.000Z','2026-11-15 00:30:00'],['2026-06-14T22:30:00.000Z','2026-06-15 00:30:00']]){
+  for(const timezoneId of ['America/Los_Angeles','Asia/Tokyo']){
+   const page=await setup({timezoneId,fixture:{defaultRead:success({...stored,archivedAt})}});
+   try{
+    await open(page);
+    const timestamp=panel(page).locator('time').first();
+    await expect(timestamp).toHaveAttribute('dateTime',archivedAt);
+    await expect(timestamp).toHaveText(expected);
+    await expect(panel(page).getByRole('status')).toContainText('(svensk tid)');
+    assert.deepEqual((await calls(page)).map(call=>call.kind),['read']);
+   }finally{await page.close();}
+  }
+ }
 });

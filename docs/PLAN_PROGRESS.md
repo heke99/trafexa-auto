@@ -6,6 +6,12 @@ Slutför verkligt användarprov av hela affärsresan; välj och aktivera separat
 
 Arkivering och separata synliga knappar för arkivering/radering på affärskorten är rättade. Se [arkiverings- och raderingsrapporten](DEAL_ARCHIVE_REMOVE_20261115.md). De återstående planpunkterna ovan kvarstår.
 
+## Avstämningskvitton, mallgranskning och arkivtid — 15 november 2026
+
+Ett ogiltigt kvitto efter avstämningens databasanrop behandlas som obekräftat resultat, inte som felaktigt användarunderlag. Granskad betalning och samma begäran behålls för kontroll. Isolerad databasverifiering visar att samma betalning registreras en gång och att leveransens återförsök återger samma leveransidentitet.
+
+Mallgranskning behåller motivering, godkännande och exakt begäran efter obekräftat svar. Nya underlag och konkurrerande åtgärder skyddas tills utfallet har kontrollerats. Arkivets registreringstid visas uttryckligen i svensk tid även för användare med annan tidszon, med verifiering över både vinter- och sommartid. Inga riktiga betalningar, underskrifter, malländringar eller mejl skapades under verifieringen.
+
 ## Webbansökan, tangentbord och ekonomiexport — 15 november 2026
 
 Webbansökan använder samma normalisering av organisationsnummer i webbläsaren och på servern. Stödda mellanslag och 16-prefix kan klistras in; ogiltig kontrollsiffra stoppas innan anropet. Inloggning, lösenordsåterställning och ursprungskontroller klarade regressionen utan ytterligare källändringar.

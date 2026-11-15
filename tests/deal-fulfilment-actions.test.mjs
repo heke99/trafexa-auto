@@ -30,3 +30,15 @@ test('fulfilment RPC binds company/deal/payload and invalidates only a verified 
 test('fulfilment typed conflicts/access/validation failures and unknown diagnostics stay private',async()=>{
  for(const [code,expected]of[['40001','conflict'],['23505','conflict'],['42501','access_denied'],['22023','invalid_input'],['22008','invalid_input'],['XX000','unavailable']]){const h=await setup({error:{code,message:'secret diagnostic'}});const r=await h.actions.mutateDealFulfilmentAction(payment);assert.equal(r.code,expected);assert.doesNotMatch(r.message,/secret/);assert.equal(h.invalidations.length,0);}
 });
+
+test('malformed post-write receipt remains uncertain instead of inviting a new payment',async()=>{
+ for(const patch of[{version:'bad'},{registeredOre:'1.5'},{delivery:{id:requestId,deliveredAt:'bad',actorLabel:'Du',note:'Levererad'}}]){
+  const h=await setup({data:{...base,...patch}});
+  const result=await h.actions.mutateDealFulfilmentAction(payment);
+  assert.equal(h.calls.length,1);
+  assert.equal(result.ok,false);
+  assert.equal(result.code,'unavailable');
+  assert.match(result.message,/samma granskade begäran/);
+  assert.deepEqual(h.invalidations,[]);
+ }
+});
