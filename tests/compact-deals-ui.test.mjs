@@ -63,3 +63,38 @@ test('known archive and restore receipts move the same deal between active and a
   await page.getByRole('button',{name:'Radera affär',exact:true}).click();assert.equal(await page.evaluate(()=>window.fixture.archiveOperation),'delete');await page.evaluate(result=>{window.fixture.defaults.register=result;window.fixture.archiveCompleted();},registerPage({kind:'deals',rows:[],total:0,filtered:0,counts:counts(0,0)}));await expect(page.locator('.compact-deal')).toHaveCount(0);await page.getByRole('combobox',{name:'Affärsstatus'}).selectOption('archived');await expect(page.locator('.compact-deal')).toHaveCount(0);await page.getByRole('combobox',{name:'Affärsstatus'}).selectOption('all');await expect(page.locator('.compact-deal')).toHaveCount(0);
  }finally{await page.close();}
 });
+
+for(const operation of ['direct','paper','delivery','cancellation'])test(`verified ${operation} completion reloads the deal register without waiting for a server snapshot`,async()=>{
+ const page=await setup(390);
+ try{
+  await page.getByRole('button',{name:'Öppna affär',exact:true}).first().click();
+  if(operation==='paper')await page.getByRole('button',{name:'Pappersavtal',exact:true}).click();
+  if(['delivery','cancellation'].includes(operation))await page.getByRole('button',{name:'Fler alternativ',exact:true}).click();
+  const before=await page.evaluate(()=>window.fixture.requests.filter(row=>row.kind==='register').length);
+  await page.evaluate(operation=>{
+   const previous=window.fixture.defaults.register;
+   window.fixture.defaults.register={...previous,page:{...previous.page,rows:previous.page.rows.map((row,index)=>index===0?{...row,status:operation==='cancellation'?'cancelled':'completed'}:row)}};
+   const done=operation==='direct'?window.fixture.directCompleted:operation==='paper'?window.fixture.paperCompleted:operation==='cancellation'?window.fixture.cancelCompleted:window.fixture.fulfilmentDelivered;
+   done();
+  },operation);
+  await page.waitForFunction(before=>window.fixture.requests.filter(row=>row.kind==='register').length>before,before);
+  await expect(page.locator('.compact-deal-row').first().getByText(operation==='cancellation'?'Avbruten':'Avslutad',{exact:true})).toBeVisible();
+ }finally{await page.close();}
+});
+
+test('unknown cancellation protects the enclosing deal until the reviewed operation is resolved',async()=>{
+ const page=await setup(390);
+ try{
+  await page.getByRole('button',{name:'Öppna affär',exact:true}).first().click();
+  await page.getByRole('button',{name:'Fler alternativ',exact:true}).click();
+  await page.locator('summary').filter({hasText:'Avbryt affären'}).click();
+  await expect(page.getByTestId('cancellation-boundary')).toBeVisible();
+  await page.evaluate(()=>window.fixture.cancelBusy(true));
+  await expect(page.getByRole('button',{name:'Stäng',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Ladda upp PDF',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Öppna affär',exact:true}).first()).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Uppdatera',exact:true})).toBeDisabled();
+  await page.evaluate(()=>window.fixture.cancelBusy(false));
+  await expect(page.getByRole('button',{name:'Stäng',exact:true})).toBeEnabled();
+ }finally{await page.close();}
+});

@@ -956,3 +956,25 @@ test('switching verified administrator identity immediately discards prior priva
 test('company status review restores keyboard focus to its original row action when cancelled',async()=>{const page=await setup();try{const trigger=page.getByRole('button',{name:/Hantera status/});await trigger.focus();await page.keyboard.press('Enter');await expect(page.getByRole('heading',{name:'Ändra företagsstatus'})).toBeFocused();await page.getByRole('button',{name:'Avbryt',exact:true}).click();await expect(trigger).toBeFocused();}finally{await page.close();}});
 
 test('known main-admin receipts clear stale source after failed readback and release navigation without a second mutation',async()=>{const companyPage=await setup({listResponses:[{ok:false,code:'unavailable',message:'Aktuell företagslista kunde inte verifieras.'}]});try{await companyPage.getByRole('button',{name:/Hantera status/}).click();await companyPage.getByLabel('Motivering (obligatorisk)').fill('Företaget har granskats.');await companyPage.getByRole('button',{name:'Granska ändring',exact:true}).click();await companyPage.getByRole('button',{name:'Bekräfta avstängning',exact:true}).click();await expect(companyPage.getByRole('alert')).toContainText('Aktuell företagslista');await expect(companyPage.getByRole('row').filter({hasText:'Fixture AB'})).toHaveCount(0);await expect(companyPage.getByRole('button',{name:'Konton',exact:true})).toBeEnabled();await companyPage.getByRole('button',{name:'Sök',exact:true}).click();await expect(companyPage.getByRole('cell',{name:'Avstängt',exact:true})).toBeVisible();assert.equal(await companyPage.evaluate(()=>window.fixture.statusCalls.length),1);}finally{await companyPage.close();}const applicationPage=await setup({application:invitationApplication,contactResponses:[{ok:true,requests:[invitationApplication],nextPageKey:null}],detailResponses:[{ok:true,application:invitationApplication,audit:[]},{ok:false,code:'unavailable',message:'Aktuell ansökan kunde inte verifieras.'}]});try{await applicationPage.getByRole('button',{name:'Inkomna ansökningar',exact:true}).click();await applicationPage.getByRole('button',{name:/Visa ansökan/}).click();await applicationPage.getByLabel('Ny handläggningsstatus').selectOption('in_review');await applicationPage.getByLabel('Motivering för handläggning').fill('Granskning pågår.');await applicationPage.getByRole('button',{name:'Granska handläggningsstatus',exact:true}).click();await applicationPage.getByRole('button',{name:'Bekräfta handläggningsstatus',exact:true}).click();await expect(applicationPage.getByRole('alert')).toContainText('Aktuell ansökan');await expect(applicationPage.getByRole('heading',{name:'Ansökan från Invited Person'})).toHaveCount(0);await expect(applicationPage.getByText('invited@example.test',{exact:true})).toHaveCount(0);await expect(applicationPage.getByRole('button',{name:'Företag',exact:true})).toBeEnabled();assert.equal(await applicationPage.evaluate(()=>window.fixture.applicationStatusCalls.length),1);}finally{await applicationPage.close();}});
+
+
+test('returning to overview after a company decision revalidates totals and clears stale figures on read failure', async () => {
+  const page = await setup({ overviewTab: true });
+  try {
+    await expect(page.getByText('10 aktiva · 2 avstängda', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Företag', exact: true }).click();
+    await page.getByRole('button', { name: /Hantera status/ }).click();
+    await page.getByLabel('Motivering (obligatorisk)').fill('Granskat företagsåtkomst');
+    await page.getByRole('button', { name: 'Granska ändring', exact: true }).click();
+    await page.getByRole('button', { name: 'Bekräfta avstängning', exact: true }).click();
+    await expect(page.getByRole('cell', { name: 'Avstängt', exact: true })).toBeVisible();
+    await page.evaluate(() => window.fixture.overviewResponses.push({ ok: false, code: 'unavailable', message: 'Aktuella totalsiffror kunde inte verifieras.' }));
+    await page.getByRole('button', { name: 'Översikt', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('Aktuella totalsiffror kunde inte verifieras.');
+    await expect(page.getByText('10 aktiva · 2 avstängda', { exact: true })).toHaveCount(0);
+    assert.equal(await page.evaluate(() => window.fixture.overviewCalls.length), 2);
+    await page.getByRole('button', { name: 'Uppdatera statistik', exact: true }).click();
+    await expect(page.getByText('10 aktiva · 2 avstängda', { exact: true })).toBeVisible();
+    assert.equal(await page.evaluate(() => window.fixture.overviewCalls.length), 3);
+  } finally { await page.close(); }
+});
