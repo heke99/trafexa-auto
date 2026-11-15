@@ -111,3 +111,23 @@ test('team ownership panel stays closed with zero ownership reads until explicit
 test('Strict Mode replay remains usable and performs no mutation',async()=>{
  const p=await setup(state(),{},{demo:true});try{await p.evaluate(({companyId,userId})=>window.mountOwnershipStrict({companyId,userId,companyRole:'owner'}),{companyId:COMPANY,userId:ACTOR});await expect(p.getByLabel('Ny innehavare av ägarrollen')).toBeVisible();await expect(p.getByText('Verifierar ägarrollen…')).toHaveCount(0);assert.equal(await p.evaluate(()=>window.fixture.requestCalls.length),0);}finally{await p.close();}
 });
+
+test('unknown ownership request freezes parent, reason and back while preserving the exact reviewed request',async()=>{
+ const p=await setup(state(),{requestResponses:[{defer:true}]});try{
+  await reviewRequest(p);await ack(p);await p.getByRole('button',{name:'Skicka förfrågan om ägarroll'}).click();await p.waitForFunction(()=>typeof window.fixture.resolve==='function');assert.equal(await p.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await p.evaluate(()=>window.fixture.resolve({ok:false,code:'unavailable',message:'Obekräftat resultat'}));await expect(p.getByRole('alert')).toContainText('Obekräftat');await expect(p.getByLabel('Motivering för överlåtelse')).toBeDisabled();await expect(p.getByRole('button',{name:'Avbryt granskning'})).toBeDisabled();await expect(p.getByRole('button',{name:'Uppdatera ägarrollen'})).toBeDisabled();assert.equal(await p.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await p.getByRole('button',{name:'Skicka förfrågan om ägarroll'}).click();await expect(p.getByRole('status')).toContainText('registrerat');const calls=await p.evaluate(()=>window.fixture.requestCalls);assert.deepEqual(calls[0],calls[1]);assert.equal(await p.evaluate(()=>window.fixture.busyEvents.at(-1)),false);
+ }finally{await p.close();}
+});
+test('nested ownership write cannot be closed or compete with team controls after unknown result',async()=>{
+ const p=await setup(state(),{requestResponses:[{throw:true}]},{demo:true});try{
+  await p.evaluate(({companyId,userId})=>window.mountOwnershipTeam({companyId,userId,companyRole:'owner'}),{companyId:COMPANY,userId:ACTOR});await p.getByRole('button',{name:'Hantera ägarroll',exact:true}).click();await reviewRequest(p);await ack(p);await p.getByRole('button',{name:'Skicka förfrågan om ägarroll'}).click();await expect(p.getByRole('alert')).toContainText('okänt');
+  await expect(p.getByRole('button',{name:'Stäng ägarroll',exact:true})).toBeDisabled();await expect(p.getByRole('button',{name:'Uppdatera teamet',exact:true})).toBeDisabled();await expect(p.getByLabel('Kollegans e-postadress')).toBeDisabled();assert.equal(await p.evaluate(()=>window.fixture.teamBusyEvents.at(-1)),true);
+  await p.getByRole('button',{name:'Skicka förfrågan om ägarroll'}).click();await expect(p.getByRole('button',{name:'Stäng ägarroll',exact:true})).toBeEnabled();assert.equal(await p.evaluate(()=>window.fixture.teamBusyEvents.at(-1)),false);
+ }finally{await p.close();}
+});
+for(const readFailure of [{ok:false,code:'unavailable',message:'Underlaget kunde inte läsas'},{throw:true}])test(`known ownership receipt with failed readback invalidates parent without repeating the mutation ${JSON.stringify(readFailure)}`,async()=>{
+ const p=await setup(state(),{getResponses:[{ok:true,...state()},readFailure]});try{
+  await reviewRequest(p);await ack(p);await p.getByRole('button',{name:'Skicka förfrågan om ägarroll'}).click();await expect(p.getByRole('alert')).toContainText(readFailure.throw?'registrerad':'Underlaget kunde inte läsas');assert.equal(await p.evaluate(()=>window.fixture.parentRefreshes),1);assert.equal(await p.evaluate(()=>window.fixture.requestCalls.length),1);assert.equal(await p.evaluate(()=>window.fixture.busyEvents.at(-1)),false);await expect(p.getByRole('button',{name:'Skicka förfrågan om ägarroll'})).toHaveCount(0);
+ }finally{await p.close();}
+});

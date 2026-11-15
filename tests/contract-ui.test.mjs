@@ -56,3 +56,13 @@ test('nested contract email holds draft controls and enclosing busy signal throu
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  }finally{await page.close();}
 });
+
+test('unknown draft creation retains reviewed offer and template while parent stays protected through exact retry',async()=>{
+ const page=await setup({drafts:[draft],responses:{draft:[{defer:true,result:{ok:false,code:'unavailable',message:'Obekräftat utkast'}}]}},{deal:true},320);try{
+  await page.getByLabel('Godkänd avtalsmall',{exact:true}).selectOption(template.id);await page.getByRole('button',{name:'Granska avtalsutkast'}).click();await page.getByLabel('Jag har granskat kund, fordon').check();await page.getByRole('button',{name:'Bekräfta och skapa osignerat utkast'}).click();
+  await page.waitForFunction(()=>typeof window.fixture.release==='function');assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await page.evaluate(()=>window.fixture.release());await expect(page.getByRole('alert')).toContainText('Obekräftat utkast');await expect(page.getByRole('button',{name:'Tillbaka och ändra'})).toBeDisabled();await expect(page.getByRole('button',{name:'Uppdatera avtalsunderlag'})).toBeDisabled();await expect(page.getByLabel('Jag har granskat kund, fordon')).toBeDisabled();
+  await page.evaluate(draft=>window.fixture.responses.draft=[{ok:true,draft:{...draft,dealId:'another-deal'}}],draft);await page.getByRole('button',{name:'Bekräfta och skapa osignerat utkast'}).click();await expect(page.getByRole('alert')).toContainText('kunde inte bekräftas');assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await page.getByRole('button',{name:'Bekräfta och skapa osignerat utkast'}).click();await expect(page.getByRole('button',{name:'Uppdatera avtalsunderlag'})).toBeEnabled();const calls=await page.evaluate(()=>window.fixture.calls.filter(call=>call.kind==='draft'));assert.equal(calls.length,3);assert.deepEqual(calls[0].input,calls[1].input);assert.deepEqual(calls[0].input,calls[2].input);assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),false);
+ }finally{await page.close();}
+});

@@ -17,21 +17,23 @@ export async function getMyInvitationsAction(input) {
 export async function updateCompanyMemberAction(input) {
   window.fixture.updateCalls.push({ ...input });
   const next = response(window.fixture.updateResponses);
+  if(next?.hold)return new Promise(resolve=>window.fixture.teamWritePending=resolve);
   if (next) return next;
   window.fixture.team.members = window.fixture.team.members.map(member => member.id === input.membershipId ? { ...member, role: input.role, status: input.status, version: member.version + 1 } : member);
   return { ok: true, receipt: { historical: true } };
 }
 export async function inviteCompanyMemberAction(input) {
   window.fixture.inviteCalls.push({ ...input });
-  return response(window.fixture.inviteResponses) ?? { ok: true, receipt: { historical: true } };
+  const next=response(window.fixture.inviteResponses);if(next?.hold)return new Promise(resolve=>window.fixture.teamWritePending=resolve);return next ?? { ok: true, receipt: { historical: true } };
 }
 export async function cancelCompanyInvitationAction(input) {
   window.fixture.cancelCalls.push({ ...input });
-  return response(window.fixture.cancelResponses) ?? { ok: true, receipt: { historical: true } };
+  const next=response(window.fixture.cancelResponses);if(next?.hold)return new Promise(resolve=>window.fixture.teamWritePending=resolve);return next ?? { ok: true, receipt: { historical: true } };
 }
 export async function acceptCompanyInvitationAction(input) {
   window.fixture.acceptCalls.push({ ...input });
   const next = response(window.fixture.acceptResponses);
+  if(next?.hold)return new Promise(resolve=>window.fixture.teamWritePending=resolve);
   if (next) return next;
   window.fixture.myInvitations = window.fixture.myInvitations.filter(item => item.id !== input.invitationId);
   return { ok: true, companyId: window.fixture.team.companyId, role: 'sales' };

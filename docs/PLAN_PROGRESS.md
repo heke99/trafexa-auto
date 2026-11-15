@@ -6,6 +6,10 @@ Slutför verkligt användarprov av hela affärsresan; välj och aktivera separat
 
 Arkivering och separata synliga knappar för arkivering/radering på affärskorten är rättade. Se [arkiverings- och raderingsrapporten](DEAL_ARCHIVE_REMOVE_20261115.md). De återstående planpunkterna ovan kvarstår.
 
+## Signeringens egna åtgärder och personalhantering — 15 november 2026
+
+Signering, signeringsbegäran och skapande av avtalsutkast behåller nu exakt granskning och begärans identitet vid obekräftat svar. Samma kontrollförsök är åtkomligt medan nya underlag, manuella omläsningar och navigering skyddas; även kundens länk tillbaka till avtalslistan skyddas. Personalinbjudan, medlemsändringar och överlåtelse av appens ägarroll har motsvarande skydd med separata källor för team och ägarroll. Känd framgång följd av misslyckad listuppdatering orsakar inte en upprepad ändring. Granskningen av filialernas koppling till offentlig butik visade ingen datamässig koppling och ingen sådan ändring behövs. Isolerade tester, inga verkliga signeringar, inbjudningar eller behörighetsändringar.
+
 ## Avtalshistorik, fordonsbilder och butiksinställningar — 15 november 2026
 
 Mejl- och länkåtgärder i avtalshistoriken skyddar nu hela den öppnade affären via avtalsutkast och signeringsvyn. Inbjudnings- och färdigmejl hålls isär, och den aktiva kontrollen kan användas utan att konkurrerande åtgärder öppnas. Bilbilder behåller samma fil, bildidentitet och begäran vid obekräftad uppladdning eller borttagning; efterföljande läsfel ändrar inte ett redan bekräftat sparande till ett nytt skrivförsök. Butiksprofil, offentlig butik och filialer skyddar pågående/obekräftade ändringar mot navigering och nya underlag. Bekräftad butiksprofil uppdaterar den offentliga butikens underlag; pågående granskning bevaras och behöver uttryckligen läsas om före en ny publicering. Isolerade tester, inga riktiga mejl, bilder eller butiksändringar i granskningen.
