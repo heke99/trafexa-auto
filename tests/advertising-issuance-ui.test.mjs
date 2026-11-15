@@ -147,3 +147,30 @@ test('own issuance protects parent and preserves exact reviewed dates and nonce 
   await expect.poll(()=>page.evaluate(()=>window.issuanceBusyEvents.at(-1))).toBe(false);const writes=await page.evaluate(()=>window.issuanceCalls.filter(row=>row.kind==='issue'));assert.equal(writes.length,2);assert.deepEqual(writes[0],writes[1]);
  }finally{await page.close();}
 });
+
+test('nested invoice email queue protects issuance and keeps the exact queue retry reachable',async()=>{
+ const page=await setup();try{
+  await page.evaluate(()=>{
+   const invoice=window.issuedInvoice;
+   window.issuancePage={...window.issuancePage,invoice:window.issuanceSummary,preview:null,canIssue:false};
+   window.emailCalls=[];window.emailResponses=[];window.emailSendResponses=[];window.emailQueueResponses=[{hold:true}];window.emailConfiguration={ok:true,configured:false};
+   window.emailPage={companyId:invoice.companyId,actorUserId:window.issuancePage.actorUserId,actorRole:'platform_admin',documentKind:'invoice',documentId:invoice.id,documentSourceHash:invoice.sourceHash,documentNumber:invoice.invoiceNumber,currency:'SEK',netTotalOre:'10000',vatTotalOre:'2500',grossTotalOre:'12500',recipient:'isolated@example.invalid',email:null,preview:{reviewToken:'b'.repeat(64),canonicalSnapshot:'review'},blockers:[],canQueue:true};
+   window.emailFixture={id:'10000000-0000-4000-8000-000000000090',...window.emailPage,status:'pending',attempts:0,createdAt:'2026-10-15T12:00:00Z',nextAttemptAt:null,acceptedAt:null,deliveredAt:null,bouncedAt:null,complainedAt:null};
+  });
+  await page.getByRole('button',{name:'Uppdatera fakturering',exact:true}).click();await page.getByRole('button',{name:'Visa den utfärdade fakturan',exact:true}).click();
+  await page.getByRole('button',{name:'Visa fakturans mejlutskick',exact:true}).click();
+  await page.getByRole('button',{name:'Granska mejlutskick',exact:true}).click();
+  await page.getByRole('checkbox',{name:'Jag har granskat mottagaren, dokumentet och beloppet och godkänner detta förberedda mejlutskick.'}).check();
+  const confirm=page.getByRole('button',{name:'Bekräfta och förbered mejlet',exact:true});await confirm.click();
+  await page.waitForFunction(()=>typeof window.releaseEmailQueue==='function');
+  await expect(page.getByRole('button',{name:'Dölj fakturans mejlutskick',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Uppdatera fakturering',exact:true})).toBeDisabled();
+  assert.equal(await page.evaluate(()=>window.issuanceBusyEvents.at(-1)),true);
+  await page.evaluate(()=>window.releaseEmailQueue({ok:false,code:'unavailable',message:'Obekräftad köläggning'}));
+  await expect(confirm).toBeEnabled();assert.equal(await confirm.evaluate(node=>Boolean(node.closest('[inert]'))),false);
+  await expect(page.getByRole('button',{name:'Visa kreditering av fakturan',exact:true})).toBeDisabled();
+  await confirm.click();await expect(page.getByRole('button',{name:'Dölj fakturans mejlutskick',exact:true})).toBeEnabled();
+  const writes=await page.evaluate(()=>window.emailCalls.filter(row=>row.kind==='queue'));assert.deepEqual(writes[0],writes[1]);
+  assert.equal(await page.evaluate(()=>window.emailCalls.filter(row=>row.kind==='send').length),0);assert.equal(await page.evaluate(()=>window.issuanceBusyEvents.at(-1)),false);
+ }finally{await page.close();}
+});

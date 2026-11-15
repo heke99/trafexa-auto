@@ -68,6 +68,39 @@ test('revoked access after historical correction receipt cannot restore private 
 test('late read after month and original switch cannot expose previous original',async()=>{const page=await setup();try{
  await page.evaluate(()=>window.correctionResponses.push({hold:true}));await page.getByRole('button',{name:'Uppdatera rättelseunderlag'}).click();await page.waitForFunction(()=>typeof window.releaseCorrection==='function');await page.evaluate(()=>window.mountCorrections({companyId:window.corrections.companyId,userId:window.corrections.actorUserId,role:'platform_admin',superadmin:true,month:'2026-08',originalId:'10000000-0000-4000-8000-000000000099'}));await expect(page.getByRole('alert')).toContainText('månadsunderlaget eller din behörighet har ändrats');await page.evaluate(()=>window.releaseCorrection({ok:true,page:window.corrections}));await expect(page.getByText('Låst original, exkl. moms')).toHaveCount(0);
 }finally{await page.close();}});
-test('wrong company mutation receipt is denied and clears the review and amounts',async()=>{const page=await setup();try{
- await prepare(page);await page.getByRole('checkbox',{name:acknowledgment}).check();await page.evaluate(()=>window.correctionMutationResponses.push({ok:true,page:window.corrections,receipt:{id:'10000000-0000-4000-8000-000000000060',companyId:'10000000-0000-4000-8000-000000000099',actorUserId:window.corrections.actorUserId,requestId:'20000000-0000-4000-8000-000000000001'}}));await page.getByRole('button',{name:'Bekräfta och spara reduktionen'}).click();await expect(page.getByRole('alert')).toContainText('aktuellt företag och användare');await expect(page.getByRole('region',{name:'Granska rättelse'})).toHaveCount(0);await expect(page.getByText('Låst original, exkl. moms')).toHaveCount(0);
+test('wrong company mutation receipt remains unknown and retains the exact review for corrected replay',async()=>{const page=await setup();try{
+ await prepare(page);await page.getByRole('checkbox',{name:acknowledgment}).check();await page.evaluate(()=>window.correctionMutationResponses.push({ok:true,page:window.corrections,receipt:{id:'10000000-0000-4000-8000-000000000060',companyId:'10000000-0000-4000-8000-000000000099',actorUserId:window.corrections.actorUserId,requestId:'20000000-0000-4000-8000-000000000001'}}));
+ await page.getByRole('button',{name:'Bekräfta och spara reduktionen'}).click();await expect(page.getByRole('alert')).toContainText('aktuellt företag och användare');await expect(page.getByRole('region',{name:'Granska rättelse'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Ändra reduktionen'})).toBeDisabled();assert.equal(await page.evaluate(()=>window.correctionBusyEvents.at(-1)),true);
+ await page.getByRole('button',{name:'Bekräfta och spara reduktionen'}).click();await expect(page.getByText('Reduktionen är sparad som ett separat rättelseunderlag.',{exact:false})).toBeVisible();
+ const calls=await page.evaluate(()=>window.correctionCalls.filter(c=>c.kind==='create'));assert.deepEqual(calls[0],calls[1]);await expect.poll(()=>page.evaluate(()=>window.correctionBusyEvents.at(-1))).toBe(false);
 }finally{await page.close();}});
+
+test('pending and unavailable correction keep parent protected through exact retry and authoritative readback',async()=>{
+ const page=await setup();try{
+  await prepare(page);await page.getByRole('checkbox',{name:acknowledgment}).check();await page.evaluate(()=>window.correctionMutationResponses.push({hold:true}));
+  await page.getByRole('button',{name:'Bekräfta och spara reduktionen'}).click();await page.waitForFunction(()=>typeof window.releaseCorrectionMutation==='function');
+  assert.equal(await page.evaluate(()=>window.correctionBusyEvents.at(-1)),true);
+  await expect(page.getByRole('button',{name:'Ändra reduktionen'})).toBeDisabled();
+  await page.evaluate(()=>window.releaseCorrectionMutation({ok:false,code:'unavailable',message:'Obekräftat rättelsesvar'}));
+  await expect(page.getByRole('alert')).toContainText('Obekräftat');
+  await expect(page.getByRole('button',{name:'Uppdatera rättelseunderlag'})).toBeDisabled();await expect(page.getByRole('checkbox',{name:acknowledgment})).toBeDisabled();
+  assert.equal(await page.evaluate(()=>window.correctionBusyEvents.at(-1)),true);
+  await page.evaluate(()=>window.correctionResponses.push({hold:true}));await page.getByRole('button',{name:'Bekräfta och spara reduktionen'}).click();
+  await page.waitForFunction(()=>typeof window.releaseCorrection==='function');assert.equal(await page.evaluate(()=>window.correctionBusyEvents.at(-1)),true);
+  await page.evaluate(()=>window.releaseCorrection({ok:true,page:window.corrections}));
+  await expect.poll(()=>page.evaluate(()=>window.correctionBusyEvents.at(-1))).toBe(false);
+  const calls=await page.evaluate(()=>window.correctionCalls.filter(c=>c.kind==='create'));assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);
+ }finally{await page.close();}
+});
+
+test('known correction followed by failed readback releases protection without a second write',async()=>{
+ const page=await setup();try{
+  await prepare(page);await page.getByRole('checkbox',{name:acknowledgment}).check();await page.evaluate(()=>window.correctionResponses.push({throw:true}));
+  await page.getByRole('button',{name:'Bekräfta och spara reduktionen'}).click();
+  await expect(page.getByText('Reduktionen är sparad som ett separat rättelseunderlag.',{exact:false})).toBeVisible();await expect(page.getByRole('alert')).toContainText('Rättelseunderlaget kunde inte verifieras');
+  await expect.poll(()=>page.evaluate(()=>window.correctionBusyEvents.at(-1))).toBe(false);await expect(page.getByRole('region',{name:'Granska rättelse'})).toHaveCount(0);
+  await page.getByRole('button',{name:'Uppdatera rättelseunderlag'}).click();await expect(page.getByLabel('Reduktion, kronor exkl. moms')).toBeVisible();
+  assert.equal(await page.evaluate(()=>window.correctionCalls.filter(c=>c.kind==='create').length),1);
+ }finally{await page.close();}
+});
