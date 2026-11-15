@@ -251,3 +251,40 @@ test('known team receipt followed by readback failure releases parent without re
   await expect(page.getByRole('alert')).toContainText('registrerats');assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),false);assert.equal(await page.evaluate(()=>window.fixture.updateCalls.length),1);await expect(page.getByRole('button',{name:'Bekräfta behörighetsändring'})).toHaveCount(0);await page.getByRole('button',{name:'Uppdatera teamet',exact:true}).click();await expect(page.getByRole('cell',{name:'Avstängd',exact:true})).toBeVisible();assert.equal(await page.evaluate(()=>window.fixture.updateCalls.length),1);
  }finally{await page.close();}
 });
+
+test('standalone acceptance keeps exact unknown attempt and guards header navigation until confirmed',async()=>{
+ const page=await setup({invitations:true,myInvitations:[invitation()],acceptResponses:[{hold:true}]});
+ try{
+  await page.getByRole('button',{name:/Granska inbjudan från/}).click();await page.getByRole('button',{name:'Fortsätt till bekräftelse'}).click();await page.getByRole('button',{name:'Acceptera inbjudan',exact:true}).click();
+  await page.waitForFunction(()=>typeof window.fixture.teamWritePending==='function');
+  await expect(page.getByRole('button',{name:'Uppdatera inbjudningar',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Avbryt',exact:true})).toBeDisabled();
+  async function headerGuards(){return page.evaluate(()=>{
+   const link=document.createElement('a'),form=document.createElement('form');link.href='/dashboard';document.body.append(link,form);let click=false,submit=false;
+   link.addEventListener('click',event=>{click=event.defaultPrevented;event.preventDefault();});form.addEventListener('submit',event=>{submit=event.defaultPrevented;event.preventDefault();});
+   link.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));link.remove();form.remove();return{click,submit};
+  });}
+  assert.deepEqual(await headerGuards(),{click:true,submit:true});
+  await page.evaluate(()=>window.fixture.teamWritePending({ok:false,code:'unavailable',message:'Kontrollera samma begäran.'}));
+  await expect(page.getByRole('button',{name:'Acceptera inbjudan',exact:true})).toBeEnabled();await expect(page.getByRole('button',{name:'Avbryt',exact:true})).toBeDisabled();await expect(page.getByRole('button',{name:'Uppdatera inbjudningar',exact:true})).toBeDisabled();
+  assert.deepEqual(await headerGuards(),{click:true,submit:true});
+  await page.getByRole('button',{name:'Acceptera inbjudan',exact:true}).click();await expect(page.getByRole('link',{name:'Öppna företaget',exact:true})).toHaveAttribute('aria-disabled','false');
+  const calls=await page.evaluate(()=>window.fixture.acceptCalls);assert.deepEqual(calls[0],calls[1]);assert.deepEqual(await headerGuards(),{click:false,submit:false});
+ }finally{await page.close();}
+});
+test('wrong company acceptance proof stays unknown and actor scope change discards old reviewed data',async()=>{
+ const page=await setup({invitations:true,myInvitations:[invitation()],acceptResponses:[{ok:true,companyId:id(88),role:'sales'}]});
+ try{
+  await page.getByRole('button',{name:/Granska inbjudan från/}).click();await page.getByRole('button',{name:'Fortsätt till bekräftelse'}).click();await page.getByRole('button',{name:'Acceptera inbjudan',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('samma begäran');await expect(page.getByRole('link',{name:'Öppna företaget'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Avbryt',exact:true})).toBeDisabled();
+  await page.evaluate(props=>{window.fixture.myInvitations=[];window.mountTeamFixture({...props,invitations:true});},{companyId:COMPANY,companyRole:'owner',userId:id(99)});
+  await expect(page.getByRole('heading',{name:'Inga väntande inbjudningar'})).toBeVisible();await expect(page.getByRole('heading',{name:'Bekräfta anslutning'})).toHaveCount(0);assert.equal(await page.evaluate(()=>window.fixture.acceptCalls.length),1);
+ }finally{await page.close();}
+});
+test('known invitation acceptance with failed readback keeps known result without another acceptance',async()=>{
+ const page=await setup({invitations:true,myInvitations:[invitation()]});
+ try{
+  await page.evaluate(()=>window.fixture.myResponses=[{throw:true}]);await page.getByRole('button',{name:/Granska inbjudan från/}).click();await page.getByRole('button',{name:'Fortsätt till bekräftelse'}).click();await page.getByRole('button',{name:'Acceptera inbjudan',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('har accepterats');await expect(page.getByRole('link',{name:'Öppna företaget',exact:true})).toHaveAttribute('aria-disabled','false');await expect(page.getByRole('button',{name:'Uppdatera inbjudningar',exact:true})).toBeEnabled();await expect(page.getByRole('button',{name:'Acceptera inbjudan',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Uppdatera inbjudningar',exact:true}).click();await expect(page.getByRole('heading',{name:'Inga väntande inbjudningar'})).toBeVisible();assert.equal(await page.evaluate(()=>window.fixture.acceptCalls.length),1);
+ }finally{await page.close();}
+});

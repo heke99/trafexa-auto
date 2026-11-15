@@ -21,7 +21,7 @@ function draft(input, existing = null) {
 }
 export async function createAdvertisingListingAction(input) {
   window.fixture.createCalls.push({ ...input });
-  return take(window.fixture.createResponses) ?? draft(input);
+  const next=take(window.fixture.createResponses);if(next?.hold)return new Promise(resolve=>window.fixture.releaseCreate=resolve);return next??draft(input);
 }
 export async function saveAdvertisingListingAction(input) {
   window.fixture.saveCalls.push({ ...input });

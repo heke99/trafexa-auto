@@ -121,3 +121,15 @@ test('saved version-two details describe allocated total VAT without claiming in
   await expect(selected).not.toContainText('varje rads moms avrundas separat');
  }finally{await page.close();}
 });
+
+test('financial assessment keeps parent held and exact tokens until unknown result resolves',async()=>{
+ const page=await setup();try{
+  await ready(page);await page.getByRole('button',{name:'Granska fakturaunderlag med moms'}).click();await page.getByRole('checkbox',{name:assessmentAck}).check();
+  await page.evaluate(()=>window.financialMutationResponses.push({hold:true}));await page.getByRole('button',{name:'Bekräfta och spara granskat underlag'}).click();
+  await page.waitForFunction(()=>typeof window.releaseFinancialMutation==='function');assert.equal(await page.evaluate(()=>window.financialBusyEvents.at(-1)),true);
+  await page.evaluate(()=>window.releaseFinancialMutation({ok:false,code:'unavailable',message:'Obekräftat underlag'}));await expect(page.getByRole('alert')).toContainText('Obekräftat underlag');
+  await expect(page.getByRole('button',{name:'Uppdatera moms- och betalningsunderlag'})).toBeDisabled();await expect(page.getByRole('button',{name:'Avbryt granskning',exact:true})).toBeDisabled();await expect(page.getByRole('checkbox',{name:assessmentAck})).toBeDisabled();
+  await page.getByRole('button',{name:'Bekräfta och spara granskat underlag'}).click();await expect(page.getByText('Ett granskat fakturaunderlag med moms är sparat.',{exact:false})).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>window.financialBusyEvents.at(-1))).toBe(false);const writes=await page.evaluate(()=>window.financialCalls.filter(row=>row.kind==='create'));assert.equal(writes.length,2);assert.deepEqual(writes[0],writes[1]);
+ }finally{await page.close();}
+});

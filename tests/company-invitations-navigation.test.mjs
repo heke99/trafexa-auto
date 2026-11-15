@@ -77,7 +77,7 @@ test('verified recipients without a company render the invitation view and GET p
   const tree = await loader.load('./src/app/invitations/page.tsx').default();
   const views = elements(tree, node => node.type?.name === 'CompanyInvitations');
   assert.equal(views.length, 1);
-  assert.deepEqual(views[0].props, {});
+  assert.deepEqual(views[0].props, {userId:user.id});
   assert.deepEqual(calls, [['getUser']]);
 });
 

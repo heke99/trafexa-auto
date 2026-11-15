@@ -4,6 +4,6 @@ import { flushSync } from 'react-dom';
 import { AdvertisingWorkspace } from '../../../src/components/advertising-workspace';
 const root = createRoot(document.getElementById('root'));
 window.mountAdvertisingFixture = ({ strict = false, ...props }) => {
-  const component = React.createElement(AdvertisingWorkspace, props);
+  const component = React.createElement(AdvertisingWorkspace,{...props,onBusyChange:value=>(window.fixture.busyEvents??=[]).push(value)});
   flushSync(() => root.render(strict ? React.createElement(React.StrictMode, null, component) : component));
 };

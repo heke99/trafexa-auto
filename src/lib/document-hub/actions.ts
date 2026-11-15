@@ -8,7 +8,7 @@ export async function loadDealerDocumentHub(input: HubInput): Promise<HubResult>
  try {
   const before=await requireInternalFinanceContext(companyId);
   const db=before.db as unknown as {rpc(name:string,input:Record<string,unknown>):Promise<{data:unknown;error:{code?:string}|null}>};
-  const result=await db.rpc('dealer_document_hub_page',{p_company_id:companyId,p_query:query,p_kind:kind,p_cursor:cursor});
+  const result=await db.rpc('dealer_document_hub_page_v2',{p_company_id:companyId,p_query:query,p_kind:kind,p_cursor:cursor});
   if(result.error)throw result.error;
   const page=parseHubPage(result.data,{companyId,actorId:before.userId,role:before.role,query,kind});
   const after=await requireInternalFinanceContext(companyId);

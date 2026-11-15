@@ -116,3 +116,25 @@ test('invoice parent loads financial settings only on request, remounts for sele
   assert.equal(await page.evaluate(()=>window.invoiceCalls.some(call=>!['read','detail'].includes(call.kind))),false);
  }finally{await page.close();}
 });
+
+test('buyer save protects its parent through unknown exact retry and known receipt readback failure',async()=>{
+ const page=await setup({actorRole:'owner',canEditSeller:false},{role:'owner',superadmin:false});try{
+  await page.getByRole('button',{name:'Visa moms- och betalningsunderlag',exact:true}).click();
+  await expect(page.locator('section[aria-label="Moms och betalningsunderlag"]')).toHaveCount(1);
+  await page.getByRole('button',{name:'Ändra köparens faktureringsuppgifter'}).click();
+  await page.getByRole('region',{name:'Redigera faktureringsuppgifter'}).getByLabel('Fakturaepost').fill('kontrollerad@example.com');
+  await page.getByRole('button',{name:'Granska faktureringsuppgifterna',exact:true}).click();await page.getByRole('checkbox',{name:profileAck}).check();
+  await page.evaluate(()=>window.invoiceMutationResponses.push({hold:true}));await page.getByRole('button',{name:'Bekräfta och spara uppgifterna'}).click();
+  await page.waitForFunction(()=>typeof window.releaseInvoiceMutation==='function');assert.equal(await page.evaluate(()=>window.invoiceBusyEvents.at(-1)),true);
+  await expect(page.getByRole('button',{name:'Uppdatera faktureringsuppgifter',exact:true})).toBeDisabled();
+  await page.evaluate(()=>window.releaseInvoiceMutation({ok:false,code:'unavailable',message:'Obekräftad ändring'}));
+  await expect(page.getByRole('alert').filter({hasText:'Obekräftad ändring'})).toHaveText('Obekräftad ändring');await expect(page.getByRole('checkbox',{name:profileAck})).toBeDisabled();
+  assert.equal(await page.locator('section[aria-label="Moms och betalningsunderlag"]').evaluate(node=>Boolean(node.closest('[inert]'))),true);
+  await expect(page.getByRole('button',{name:'Avbryt granskning',exact:true})).toBeDisabled();assert.equal(await page.evaluate(()=>window.invoiceBusyEvents.at(-1)),true);
+  await page.evaluate(()=>window.invoiceResponses.push({hold:true}));await page.getByRole('button',{name:'Bekräfta och spara uppgifterna'}).click();
+  await page.waitForFunction(()=>typeof window.releaseInvoices==='function');assert.equal(await page.evaluate(()=>window.invoiceBusyEvents.at(-1)),true);
+  await page.evaluate(()=>window.releaseInvoices({ok:false,code:'unavailable',message:'Efterläsningen saknas'}));await expect(page.getByRole('alert')).toContainText('Efterläsningen saknas');
+  assert.equal(await page.evaluate(()=>window.invoiceBusyEvents.at(-1)),false);const calls=await page.evaluate(()=>window.invoiceCalls.filter(row=>row.kind==='buyer'));assert.equal(calls.length,2);assert.deepEqual(calls[0],calls[1]);
+  await expect(page.getByRole('button',{name:'Bekräfta och spara uppgifterna'})).toHaveCount(0);
+ }finally{await page.close();}
+});

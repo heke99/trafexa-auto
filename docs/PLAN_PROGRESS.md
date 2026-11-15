@@ -6,6 +6,12 @@ Slutför verkligt användarprov av hela affärsresan; välj och aktivera separat
 
 Arkivering och separata synliga knappar för arkivering/radering på affärskorten är rättade. Se [arkiverings- och raderingsrapporten](DEAL_ARCHIVE_REMOVE_20261115.md). De återstående planpunkterna ovan kvarstår.
 
+## Dokumentöversikt, inbjudningsaccept och annonsfakturering — 15 november 2026
+
+Dokumentöversiktens nya v2-RPC tar även med färdigsignerade uppladdade PDF-avtal med lagrat original och bevis. Dokumentfilter, sökning och paginering stöder båda avtalstyperna; hämtning använder befintliga skyddade vägar och datum visas i Stockholmstid. Uppladdade original behåller befintlig ägar-/adminbehörighet, medan finansrollen behåller åtkomsten till native-avtal. Den gamla RPC:n lämnas oförändrad för säker övergång.
+
+Accept av företagsinbjudan behåller samma granskningsunderlag och begäran vid obekräftat svar, med mottagarens användarscope och skydd för sidhuvudets navigering. Annonseringens pris-, avgifts- och fakturaflöden rapporterar egna skrivningar genom fakturautkast, momsunderlag och utfärdande till överordnad vy. Samma återförsök förblir åtkomligt och ett redan bekräftat resultat upprepas inte efter misslyckad efterläsning. Statistiken över annonsutkast klarade granskningen utan en räknarändring. Isolerade tester; inga riktiga accepter, annonseringar, fakturor, betalningar eller mejl skapades under granskningen.
+
 ## Signeringens egna åtgärder och personalhantering — 15 november 2026
 
 Signering, signeringsbegäran och skapande av avtalsutkast behåller nu exakt granskning och begärans identitet vid obekräftat svar. Samma kontrollförsök är åtkomligt medan nya underlag, manuella omläsningar och navigering skyddas; även kundens länk tillbaka till avtalslistan skyddas. Personalinbjudan, medlemsändringar och överlåtelse av appens ägarroll har motsvarande skydd med separata källor för team och ägarroll. Känd framgång följd av misslyckad listuppdatering orsakar inte en upprepad ändring. Granskningen av filialernas koppling till offentlig butik visade ingen datamässig koppling och ingen sådan ändring behövs. Isolerade tester, inga verkliga signeringar, inbjudningar eller behörighetsändringar.

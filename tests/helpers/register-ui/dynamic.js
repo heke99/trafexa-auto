@@ -1,6 +1,7 @@
 import React from 'react';
 export default function dynamic(loader){
  const source=String(loader);
+ if(source.includes('AdvertisingWorkspace'))return function AdvertisingBoundary(props){window.fixture.advertisingBusy=props.onBusyChange;window.fixture.advertisingDenied=props.onAccessDenied;return React.createElement('div',{'data-testid':'advertising-boundary'},'Annonseringens komponentgräns');};
  if(source.includes('VehiclePhotoGallery'))return function PhotoBoundary(props){window.fixture.photoBusy=props.onBusyChange;window.fixture.photoDenied=props.onAccessDenied;return React.createElement('div',{'data-testid':'photo-boundary'},'Bildhanteringens komponentgräns');};
  for(const [name,kind] of [['CompanyStoreProfile','store'],['CompanyPublicStore','public-store'],['CompanyBranches','branches'],['CompanyTeam','team']])if(source.includes(name))return function SettingBoundary(props){window.fixture[kind+'Changed']=props.onChanged;window.fixture[kind+'Busy']=props.onBusyChange;window.fixture[kind+'Denied']=props.onAccessDenied;return React.createElement('div',{'data-testid':kind+'-boundary','data-revision':props.refreshToken??0},'Inställningarnas komponentgräns');};
  if(source.includes('PurchaseCondition'))return function PurchaseBoundary(props){window.fixture.purchaseBusy=props.onBusyChange;window.fixture.purchaseDenied=props.onAccessDenied;return React.createElement('div',{'data-testid':'purchase-boundary'},'Inköpsunderlagets komponentgräns');};

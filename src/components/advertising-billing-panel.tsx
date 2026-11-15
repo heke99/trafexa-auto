@@ -1,7 +1,7 @@
 'use client';
 
 import { AdvertisingStoreFeeReview } from './advertising-store-fee-review';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {useDescendantBusy} from './use-descendant-busy';
 import { listAdvertisingBillingAction, getPlatformAdvertisingBillingAction, saveAdvertisingChannelRateAction, reconcileAdvertisingBillingAction, lockAdvertisingBillingPeriodAction } from '@/lib/advertising/billing-actions';
@@ -20,6 +20,11 @@ type Props = { companyId: string; userId: string; role?: string; superadmin?: bo
 
 export function AdvertisingBillingPanel(props: Props) { return <Billing key={`${props.companyId}:${props.userId}:${props.role}:${props.superadmin}`} {...props}/>; }
 function Billing({ companyId, userId, role = 'platform_admin', superadmin = false, onDenied, onBusyChange }: Props) {
+  const sources=useRef(new Set<string>()),busyCallback=useRef(onBusyChange);busyCallback.current=onBusyChange;
+  const report=useCallback((source:string,value:boolean)=>{if(value)sources.current.add(source);else sources.current.delete(source);busyCallback.current?.(sources.current.size>0);},[]);
+  const reportDescendant=useCallback((value:boolean)=>report('descendant',value),[report]);
+  const [unknown,setUnknown]=useState(false);
+  const exact=useRef<{review:Review;input:Record<string,unknown>;requestId:string}|null>(null);
   const [month, setMonth] = useState(previousMonth);
   const [showCorrections, setShowCorrections] = useState(false);
   const [showInvoices, setShowInvoices] = useState(false);
@@ -34,18 +39,19 @@ function Billing({ companyId, userId, role = 'platform_admin', superadmin = fals
   const [operationBusy, setBusy] = useState(false);
   const [denied, setDenied] = useState(false);
   const [refresh, setRefresh] = useState(0);
-  const descendant = useDescendantBusy(onBusyChange);
-  const busy = operationBusy || descendant.busy;
+  const descendant = useDescendantBusy(reportDescendant),childSources=useRef(new Set<string>());
+  const reportChild=useCallback((id:string,value:boolean)=>{if(value)childSources.current.add(id);else childSources.current.delete(id);descendant.report(childSources.current.size>0);},[descendant.report]);
+  const busy = operationBusy || descendant.busy || unknown;
   const generation = useRef(0), alive = useRef(true), inFlight = useRef(false);
   const requests = useRef(new Map<string, string>());
   const deniedCallback = useRef(onDenied); deniedCallback.current = onDenied;
   const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; ++generation.current; }; }, []);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; ++generation.current; sources.current.clear();busyCallback.current?.(false); }; }, []);
   useEffect(() => { if (review) heading.current?.focus(); }, [review?.kind]);
-  function failure(result: { code?: string; message: string }) {
-    setError(result.message); setReview(null);
+  function failure(result: { code?: string; message: string }, preserve=false) {
+    setError(result.message); if(!preserve)setReview(null);
     if (result.code === 'access_denied' || result.code === 'unauthenticated') {
-      ++generation.current; setPage(null); setDenied(true); setPrice(''); setReason(''); setNotice(''); deniedCallback.current?.(result.message);
+      exact.current=null;setUnknown(false);report('own',false);++generation.current; setPage(null); setDenied(true); setPrice(''); setReason(''); setNotice(''); deniedCallback.current?.(result.message);
     }
   }
   function scoped(result: AdvertisingBillingPage) { return result.companyId === companyId && result.actorUserId === userId && result.actorRole === (superadmin ? 'platform_admin' : role) && result.month === month; }
@@ -74,28 +80,29 @@ function Billing({ companyId, userId, role = 'platform_admin', superadmin = fals
   async function confirm() {
     if (!superadmin || !page || !review?.confirmed || descendant.busyRef.current || inFlight.current || denied || loading || (review.kind === 'lock' && page.coverage === 'partial' && !review.coverageConfirmed)) return;
     const revision = generation.current;
-    const input = review.kind === 'rate'
-      ? { companyId, channel: review.channel, unitPriceOre: review.unitPriceOre, expectedVersion: page.rates.find(rate => rate.channel === review.channel)?.version ?? 0 }
-      : review.kind === 'reconcile'
-        ? { companyId, month, channel: review.channel, unitPriceOre: review.unitPriceOre, expectedReviewToken: page.reviewToken, reason: review.reason, reviewAcknowledged: true as const }
-        : { companyId, month, expectedReviewToken: page.reviewToken, reviewAcknowledged: true as const, partialCoverageAcknowledged: review.kind === 'lock' && review.coverageConfirmed };
-    const fingerprint = `${review.kind}:${JSON.stringify(input)}`;
+    const selected=exact.current?.review??review;
+    const input = exact.current?.input??(selected.kind === 'rate'
+      ? { companyId, channel: selected.channel, unitPriceOre: selected.unitPriceOre, expectedVersion: page.rates.find(rate => rate.channel === selected.channel)?.version ?? 0 }
+      : selected.kind === 'reconcile'
+        ? { companyId, month, channel: selected.channel, unitPriceOre: selected.unitPriceOre, expectedReviewToken: page.reviewToken, reason: selected.reason, reviewAcknowledged: true as const }
+        : { companyId, month, expectedReviewToken: page.reviewToken, reviewAcknowledged: true as const, partialCoverageAcknowledged: selected.kind === 'lock' && selected.coverageConfirmed });
+    const fingerprint = `${selected.kind}:${JSON.stringify(input)}`;
     if (!requests.current.has(fingerprint)) requests.current.set(fingerprint, crypto.randomUUID());
-    const requestId = requests.current.get(fingerprint)!;
-    inFlight.current = true; setBusy(true); setError(''); setNotice('');
+    const requestId = exact.current?.requestId??requests.current.get(fingerprint)!;exact.current={review:selected,input,requestId};
+    inFlight.current = true;report('own',true);setBusy(true); setError(''); setNotice('');
     try {
-      const result = review.kind === 'rate'
+      const result = selected.kind === 'rate'
         ? await saveAdvertisingChannelRateAction({ ...input, requestId } as Parameters<typeof saveAdvertisingChannelRateAction>[0])
-        : review.kind === 'reconcile'
+        : selected.kind === 'reconcile'
           ? await reconcileAdvertisingBillingAction({ ...input, requestId } as Parameters<typeof reconcileAdvertisingBillingAction>[0])
           : await lockAdvertisingBillingPeriodAction({ ...input, requestId } as Parameters<typeof lockAdvertisingBillingPeriodAction>[0]);
       if (!alive.current || generation.current !== revision) return;
-      if (!result.ok) { failure(result); if (result.code === 'conflict') { setPage(null); setRefresh(value => value + 1); } return; }
-      setReview(null); setPrice(''); setReason(''); setPage(null);
-      setNotice(review.kind === 'rate' ? 'Det nya kanalpriset är sparat för kommande publiceringar.' : review.kind === 'reconcile' ? 'Priset för de granskade publiceringarna är sparat.' : 'Månadsunderlaget är låst. Ingen faktura har skickats.');
+      if (!result.ok) { const ambiguous=result.code==='unavailable';setUnknown(ambiguous);if(!ambiguous)exact.current=null;failure(result,ambiguous); if (result.code === 'conflict') { setPage(null); setRefresh(value => value + 1); } return; }
+      exact.current=null;setUnknown(false);setReview(null); setPrice(''); setReason(''); setPage(null);
+      setNotice(selected.kind === 'rate' ? 'Det nya kanalpriset är sparat för kommande publiceringar.' : selected.kind === 'reconcile' ? 'Priset för de granskade publiceringarna är sparat.' : 'Månadsunderlaget är låst. Ingen faktura har skickats.');
       setRefresh(value => value + 1);
-    } catch { if (alive.current && generation.current === revision) setError('Åtgärdens resultat kunde inte verifieras. Läs in underlaget igen innan du försöker på nytt.'); }
-    finally { inFlight.current = false; if (alive.current) setBusy(false); }
+    } catch { if (alive.current && generation.current === revision) {setUnknown(true);setError('Åtgärdens resultat kunde inte verifieras. Kontrollera samma granskade begäran innan du lämnar underlaget.');} }
+    finally { inFlight.current = false; if (alive.current) {setBusy(false);report('own',exact.current!==null);} }
   }
   return <section className="surface advertising-financial-flow" style={{ marginTop: 24 }} aria-label="Kanalpriser och månadsavstämning"><div className="panel-heading"><h2>Kanalpriser och månadsavstämning</h2></div><div className="advertising-financial-body" style={{ padding: 20, minWidth: 0 }}>
     <p>Debitering per unik publicerad annons och kanal. Alla belopp är i SEK exklusive moms. Underlaget är ingen faktura.</p>
@@ -120,19 +127,19 @@ function Billing({ companyId, userId, role = 'platform_admin', superadmin = fals
       <div className="table-scroll"><table className="data-table"><caption>Publiceringar i prisunderlaget för {page.month}</caption><thead><tr><th scope="col">Annons-ID</th><th scope="col">Kanal</th><th scope="col">Publicerad</th><th scope="col">Pris exkl. moms</th><th scope="col">Prisgrund</th></tr></thead><tbody>{(page.locked?.items ?? page.items).map(item => <tr key={item.publicationId}><th scope="row" style={{ overflowWrap: 'anywhere' }}>{item.listingId}</th><td>{names[item.channel]}</td><td>{date(item.publishedAt)}</td><td>{item.unitPriceOre === null ? 'Pris saknas' : formatOre(item.unitPriceOre)}</td><td>{item.priceSource === 'program' ? `Butiksavtal ${item.program?.storeName} · revision ${item.program?.version}` : item.priceSource === 'review' ? 'Granskat pris' : item.priceSource === 'rate' ? 'Kanalpris vid publicering' : 'Ej prissatt'}</td></tr>)}</tbody></table></div>
       {(page.locked?.storeFees??page.storeFees??[]).map(fee=><div className="surface" style={{padding:16,marginBlock:12,overflowWrap:'anywhere'}} key={fee.feeId}><strong>Butiksavgift · {fee.storeName}: {formatOre(fee.unitPriceOre)} exklusive moms</strong><p>Avtal {fee.agreementReference}, revision {fee.programVersion}. Tjänstedag {fee.serviceDate}.</p>{fee.programMonthlyFeeOre!==undefined&&<p>Avtalets månadspris: {formatOre(fee.programMonthlyFeeOre)} exklusive moms. Särskilt månadsbeslut: {fee.amountOverrideAcknowledged?'Uttryckligen godkänt':'Nej'}.</p>}{fee.programBasis&&<ul>{fee.programBasis.map(period=><li key={period.periodId}>Avtal {period.agreementReference}, revision {period.version}.</li>)}</ul>}<p>Granskning: {fee.reason}</p></div>)}
       {page.feeReviewRequired&&!page.locked&&<p role="status">Butiksavgifterna behöver granskas innan månadsunderlaget kan låsas.</p>}
-      {superadmin&&!page.locked&&!review&&(page.storeFeeCandidates??[]).filter((c,index,rows)=>!c.reviewed&&rows.findIndex(other=>other.storeId===c.storeId)===index).map(candidate=><AdvertisingStoreFeeReview key={`${page.month}:${candidate.storeId}:${candidate.periodId}:${candidate.programVersion}`} companyId={companyId} month={page.month} candidate={candidate} onBusyChange={descendant.report} onDenied={message=>failure({code:'access_denied',message})} onSaved={next=>{if(scoped(next)){setPage(next);setNotice('Butiksavgiften är granskad och fryst.');}else failure({code:'access_denied',message:'Företagets behörighet kunde inte verifieras.'});}}/>)}
+      {superadmin&&!page.locked&&!review&&(page.storeFeeCandidates??[]).filter((c,index,rows)=>!c.reviewed&&rows.findIndex(other=>other.storeId===c.storeId)===index).map(candidate=><AdvertisingStoreFeeReview key={`${page.month}:${candidate.storeId}:${candidate.periodId}:${candidate.programVersion}`} companyId={companyId} month={page.month} candidate={candidate} disabled={operationBusy||unknown||(descendant.busy&&!childSources.current.has(`fee:${candidate.storeId}`))} onBusyChange={value=>reportChild(`fee:${candidate.storeId}`,value)} onDenied={message=>failure({code:'access_denied',message})} onSaved={next=>{if(scoped(next)){setPage(next);setNotice('Butiksavgiften är granskad och fryst.');}else failure({code:'access_denied',message:'Företagets behörighet kunde inte verifieras.'});}}/>)}
       {!(page.locked?.items ?? page.items).length && <p>Inga verifierade publiceringar för vald månad.</p>}
       {superadmin && !page.locked && !review && <button type="button" className="button button-green" style={{ marginTop: 16 }} disabled={page.feeReviewRequired || !page.ended || page.unpricedCount > 0 || busy || Date.parse(page.periodEnd) <= Date.parse(page.trackingStartedAt)} onClick={() => { setError(''); setNotice(''); setReview({ kind: 'lock', confirmed: false, coverageConfirmed: false }); }}>Granska och lås månadsunderlag</button>}
       {review && <section className="workspace-form surface" style={{ padding: 18, marginTop: 20 }} aria-label="Granska ändring"><h3 ref={heading} tabIndex={-1}>{review.kind === 'lock' ? 'Granska låsning av månadsunderlag' : review.kind === 'rate' ? 'Granska nytt kanalpris' : 'Granska pris för tidigare publiceringar'}</h3>
         {review.kind === 'lock' ? <p>{page.month}: {page.count} publiceringar, {page.totalOre === null ? 'Pris saknas' : formatOre(page.totalOre)} exklusive moms. Ett låst underlag kan inte ändras. Ingen faktura skickas.</p> : <p>{names[review.channel]}: {formatOre(review.unitPriceOre)} exklusive moms per unik publicerad annons.{review.kind === 'rate' ? ' Gäller kommande publiceringar från när priset sparas.' : ` Gäller ${page.items.filter(item => item.channel === review.channel && item.unitPriceOre === null).length} publiceringar utan pris under ${page.month}.`} {review.kind === 'reconcile' && <>Motivering: {review.reason}</>}</p>}
         <label style={{ display: 'flex', alignItems: 'start', gap: 10 }}><input type="checkbox" checked={review.confirmed} disabled={busy} style={{ width: 'auto' }} onChange={event => setReview({ ...review, confirmed: event.target.checked })}/><span>Jag har granskat företaget, kanalen, perioden och prisöverenskommelsen.</span></label>
         {review.kind === 'lock' && page.coverage === 'partial' && <label style={{ display: 'flex', alignItems: 'start', gap: 10 }}><input type="checkbox" checked={review.coverageConfirmed} disabled={busy} style={{ width: 'auto' }} onChange={event => setReview({ ...review, coverageConfirmed: event.target.checked })}/><span>Jag har granskat den ofullständiga historiken och godkänner att låsa det registrerade underlaget.</span></label>}
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><button type="button" className="button button-green" disabled={busy || !review.confirmed || (review.kind === 'lock' && page.coverage === 'partial' && !review.coverageConfirmed)} onClick={() => void confirm()}>{review.kind === 'lock' ? 'Bekräfta och lås underlaget' : 'Bekräfta och spara priset'}</button><button type="button" className="button button-outline" disabled={busy} onClick={() => setReview(null)}>Avbryt granskning</button></div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}><button type="button" className="button button-green" disabled={operationBusy || descendant.busy || !review.confirmed || (review.kind === 'lock' && page.coverage === 'partial' && !review.coverageConfirmed)} onClick={() => void confirm()}>{review.kind === 'lock' ? 'Bekräfta och lås underlaget' : 'Bekräfta och spara priset'}</button><button type="button" className="button button-outline" disabled={busy} onClick={() => setReview(null)}>Avbryt granskning</button></div>
       </section>}
       {page.locked && !review && <button type="button" className="button button-outline" style={{ marginTop: 20 }} disabled={busy} aria-expanded={showCorrections} onClick={() => setShowCorrections(value => !value)}>{showCorrections ? 'Dölj rättelser' : 'Visa rättelser av låst underlag'}</button>}
-      {page.locked && showCorrections && <AdvertisingBillingCorrectionsPanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={page.month} originalId={page.locked.id} onDenied={message => failure({ code: 'access_denied', message })}/>}
+      {page.locked && showCorrections && <div inert={operationBusy||unknown}><AdvertisingBillingCorrectionsPanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={page.month} originalId={page.locked.id} onDenied={message => failure({ code: 'access_denied', message })}/></div>}
       {!review && <button type="button" className="button button-outline" style={{ marginTop: 20 }} disabled={busy} aria-expanded={showInvoices} onClick={() => setShowInvoices(value => !value)}>{showInvoices ? 'Dölj faktureringsuppgifter och utkast' : 'Visa faktureringsuppgifter och utkast'}</button>}
-      {showInvoices && <AdvertisingInvoicePanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={page.month} onBusyChange={descendant.report} onDenied={message => failure({ code: 'access_denied', message })}/>}
+      {showInvoices && <div inert={operationBusy||unknown}><AdvertisingInvoicePanel companyId={companyId} userId={userId} role={role} superadmin={superadmin} month={page.month} onBusyChange={value=>reportChild('invoices',value)} onDenied={message => failure({ code: 'access_denied', message })}/></div>}
     </>}
   </div></section>;
 }
