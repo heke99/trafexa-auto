@@ -6,6 +6,10 @@ Slutför verkligt användarprov av hela affärsresan; välj och aktivera separat
 
 Arkivering och separata synliga knappar för arkivering/radering på affärskorten är rättade. Se [arkiverings- och raderingsrapporten](DEAL_ARCHIVE_REMOVE_20261115.md). De återstående planpunkterna ovan kvarstår.
 
+## Import, mejlstatus och inköps-/kalkylunderlag — 15 november 2026
+
+Lagerimport skyddar fil och kolumnmappning medan resultatet är pågående eller obekräftat, och kontrollerar samma import med samma begäran även efter en lageruppdatering. Kända avvisningar skiljs från okända transportresultat och nekad åtkomst. Importerat lager läses uttryckligen om efter bekräftelse. Mejlinbjudningarnas utskicks- och länkåtgärder rapporterar skydd till offertgranskningen; ett obekräftat mejlförsök stäms av genom statusläsning utan automatisk omsändning. Inköps-/skickunderlag behåller granskad version vid återförsök. Ett obekräftat kalkylsparande kräver ett nytt verifierat underlag före nästa ändring, utan att ändringen skickas igen automatiskt. Egna kontrollknappar är åtkomliga medan dialog och andra åtgärder skyddas. Isolerade tester; inga verkliga importer, mejl eller ekonomiska underlag ändrade.
+
 ## Lager-, offert- och inbytesflödets kontinuitet — 15 november 2026
 
 Bilregistrering och prisändring skyddar dialog och navigering medan serveråtgärden pågår. Kostnadsregistrering behåller obekräftade uppgifter och samma begäran; återförsöket är nåbart medan övrig navigering skyddas, och bakgrundsläsningar pausas. Offertversioner, offertarkivering, kundens offertgranskning, inbytesunderlag och faktiskt inbytesköp skyddar pågående och obekräftade skrivningar. Underlaget och begärans identitet behålls tills samma återförsök fått ett känt resultat. Separata skyddskällor hindrar att en avslutad åtgärd låser upp en annan pågående åtgärd. Verifiering sker med isolerade underlag; inga verkliga affärer, lagerrader eller utskick ändras i granskningen.

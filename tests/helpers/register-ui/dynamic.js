@@ -1,6 +1,7 @@
 import React from 'react';
 export default function dynamic(loader){
  const source=String(loader);
+ if(source.includes('PurchaseCondition'))return function PurchaseBoundary(props){window.fixture.purchaseBusy=props.onBusyChange;window.fixture.purchaseDenied=props.onAccessDenied;return React.createElement('div',{'data-testid':'purchase-boundary'},'Inköpsunderlagets komponentgräns');};
  if(source.includes('CompanyFollowups'))return function FollowupsBoundary(props){return React.createElement('div',{'data-testid':'followups-boundary','data-revision':props.refreshToken??0});};
  if(source.includes('CustomerContactLog'))return function CustomerContactBoundary(props){const [draft,setDraft]=React.useState('');window.fixture.contactBusy=props.onBusyChange;window.fixture.contactChanged=props.onChanged;return React.createElement('section',{'data-testid':'customer-contact-boundary','data-customer':props.customerId},React.createElement('label',null,'Anteckningsutkast',React.createElement('input',{value:draft,onChange:event=>setDraft(event.target.value)})),React.createElement('button',{type:'button',onClick:props.onAccessDenied},'Neka kontaktåtkomst'));};
 
@@ -12,5 +13,5 @@ export default function dynamic(loader){
  if(source.includes('DealContracts'))return function ContractsBoundary(props){window.fixture.contractsReadOnly=!!props.readOnly;return React.createElement('div',{'data-testid':'contracts-history-boundary'},props.readOnly?'Avtal i läsläge':'Avtalshistorik');};
  if(source.includes('DirectDealForm'))return function DirectDealBoundary(props){window.fixture.directCompleted=props.onCompleted;window.fixture.directBusy=props.onBusyChange;window.fixture.directSigningChanged=props.onSigningStatusChange;window.fixture.directDenied=props.onAccessDenied;window.fixture.directScope={companyId:props.companyId,dealId:props.dealId??null,demo:!!props.demo};return React.createElement('div',{'data-testid':'direct-deal-boundary'},'Direktavtalets komponentgräns');};
  if(source.includes('UploadedPdfSigning'))return function PdfBoundary(props){window.fixture.pdfBusy=props.onBusyChange;window.fixture.pdfSigningChanged=props.onSigningStatusChange;window.fixture.pdfReadOnly=!!props.readOnly;return React.createElement('div',{'data-testid':'uploaded-pdf-boundary'},'PDF-signeringens komponentgräns');};
- return function LazyUnrelated(props){if(Array.isArray(props.costs))window.fixture.calculationDenied=props.onDenied;return Array.isArray(props.costs)?React.createElement('div',{'data-testid':'calculation-consumer'},`Verifierade kostnadsposter: ${props.costs.length}`):null;};
+ return function LazyUnrelated(props){if(Array.isArray(props.costs)){window.fixture.calculationDenied=props.onDenied;window.fixture.calculationBusy=props.onBusyChange;}return Array.isArray(props.costs)?React.createElement('div',{'data-testid':'calculation-consumer'},`Verifierade kostnadsposter: ${props.costs.length}`):null;};
 }

@@ -5,7 +5,7 @@ import { listStockPurchaseConditionsAction, createPurchaseConditionVersionAction
 import { formatOre, kronorToOre } from '@/lib/calculations/vehicle-calculation';
 import type { Conditions, ConditionKey, ConditionStatus, CreatePurchaseConditionInput, PurchaseCondition as SavedCondition, PurchaseConditionPage } from '@/lib/purchase-condition/types';
 
-export type PurchaseConditionProps={companyId:string;stockItemId:string;userId:string;role:string;demo?:boolean};
+export type PurchaseConditionProps={companyId:string;stockItemId:string;userId:string;role:string;demo?:boolean;onBusyChange?:(busy:boolean)=>void;onAccessDenied?:(message:string)=>void};
 const labels:Record<ConditionKey,string>={body:'Kaross',interior:'Interiör',engine:'Motor',transmission:'Växellåda',tyres:'Däck',service:'Servicehistorik'};
 const keys=Object.keys(labels) as ConditionKey[];
 const statuses:Record<ConditionStatus,string>={unassessed:'Ej bedömt',good:'Utan anmärkning enligt kontrollen',issues:'Anmärkning'};
@@ -16,27 +16,28 @@ function ScopedCondition(props:PurchaseConditionProps){
   const permitted=['owner','admin','finance'].includes(props.role);
   return <details style={{marginTop:16,minWidth:0}} onToggle={event=>{if(event.currentTarget.open)setOpened(true);}}><summary><strong>Inköps- och skickunderlag</strong></summary>{permitted?opened?<ConditionPanel {...props}/>:null:<p className="muted" style={{paddingTop:12}}>Inköps- och leverantörsuppgifter visas för företagets ägare, administratör och ekonomiansvarig. Kontakta en administratör om du behöver hjälp med underlaget.</p>}</details>;
 }
-function ConditionPanel({companyId,stockItemId,demo=false}:PurchaseConditionProps){
+function ConditionPanel({companyId,stockItemId,demo=false,onBusyChange,onAccessDenied}:PurchaseConditionProps){
+  const [unknown,setUnknown]=useState(false),uncertain=useRef(false),busyCallback=useRef(onBusyChange);busyCallback.current=onBusyChange;
   const field=useId(),alive=useRef(false),reads=useRef(0),locked=useRef(false),retries=useRef(new Map<string,string>()),heading=useRef<HTMLHeadingElement>(null);
   const [page,setPage]=useState<PurchaseConditionPage|null>(null),[rows,setRows]=useState<SavedCondition[]>([]),[loading,setLoading]=useState(!demo),[busy,setBusy]=useState(false),[blocked,setBlocked]=useState(false);
   const [error,setError]=useState(''),[message,setMessage]=useState('');
   const [supplierKind,setSupplierKind]=useState<'person'|'business'>('business'),[supplierName,setSupplierName]=useState(''),[supplierOrg,setSupplierOrg]=useState(''),[acquiredOn,setAcquiredOn]=useState(''),[reference,setReference]=useState('');
   const [checkedOn,setCheckedOn]=useState(''),[mileage,setMileage]=useState(''),[conditions,setConditions]=useState<Conditions>(blankConditions),[estimateKnown,setEstimateKnown]=useState(false),[estimate,setEstimate]=useState('');
   const [review,setReview]=useState<Omit<CreatePurchaseConditionInput,'requestId'|'reviewAcknowledged'>|null>(null),[ack,setAck]=useState(false);
-  function clearPrivate(){reads.current++;setPage(null);setRows([]);setReview(null);setAck(false);setBlocked(true);setLoading(false);setSupplierName('');setSupplierOrg('');setAcquiredOn('');setReference('');setCheckedOn('');setMileage('');setConditions(blankConditions());setEstimateKnown(false);setEstimate('');retries.current.clear();}
+  function clearPrivate(){uncertain.current=false;setUnknown(false);reads.current++;setPage(null);setRows([]);setReview(null);setAck(false);setBlocked(true);setLoading(false);setSupplierName('');setSupplierOrg('');setAcquiredOn('');setReference('');setCheckedOn('');setMileage('');setConditions(blankConditions());setEstimateKnown(false);setEstimate('');retries.current.clear();}
   async function load(older=false){
     const request=++reads.current;setLoading(true);
     try{
       const result=await listStockPurchaseConditionsAction({companyId,stockId:stockItemId,...(older&&page?.nextBeforeVersion?{beforeVersion:page.nextBeforeVersion}:{})});
       if(!alive.current||request!==reads.current)return;
-      if(!result.ok){clearPrivate();setError(result.message);return;}
-      if(result.companyId!==companyId||result.stockId!==stockItemId){clearPrivate();setError('Underlagets företag och lagerbil kunde inte verifieras.');return;}
+      if(!result.ok){clearPrivate();if(result.code==='access_denied'||result.code==='unauthenticated')onAccessDenied?.(result.message);setError(result.message);return;}
+      if(result.companyId!==companyId||result.stockId!==stockItemId){clearPrivate();onAccessDenied?.('Underlagets företag och lagerbil kunde inte verifieras.');setError('Underlagets företag och lagerbil kunde inte verifieras.');return;}
       setPage(result);setBlocked(false);setRows(current=>older?[...current,...result.versions].filter((row,index,all)=>all.findIndex(other=>other.id===row.id)===index):result.versions);
       setAcquiredOn(current=>current||result.businessDate);setCheckedOn(current=>current||result.businessDate);setMileage(current=>current||String(result.basis.vehicle.mileageKm));
     }catch{if(alive.current&&request===reads.current){clearPrivate();setError('Inköps- och skickunderlaget kunde inte hämtas. Försök igen.');}}
     finally{if(alive.current&&request===reads.current)setLoading(false);}
   }
-  useEffect(()=>{alive.current=true;if(!demo)void load();return()=>{alive.current=false;reads.current++;};},[]); // Parent key resets all state when access scope changes.
+  useEffect(()=>{alive.current=true;if(!demo)void load();return()=>{alive.current=false;reads.current++;busyCallback.current?.(false);};},[]); // Parent key resets all state when access scope changes.
   useEffect(()=>{if(review)heading.current?.focus();},[review]);
   function updateCondition(key:ConditionKey,patch:Partial<Conditions[ConditionKey]>){setConditions(current=>({...current,[key]:{...current[key],...patch}}));}
   function prepare(event:FormEvent<HTMLFormElement>){
@@ -57,13 +58,14 @@ function ConditionPanel({companyId,stockItemId,demo=false}:PurchaseConditionProp
     if(!review||!ack||demo||blocked||!page?.canCreate||locked.current)return;
     const values={...review,reviewAcknowledged:true},fingerprint=JSON.stringify(values);
     let requestId=retries.current.get(fingerprint);if(!requestId){requestId=crypto.randomUUID();retries.current.set(fingerprint,requestId);}
-    locked.current=true;setBusy(true);setError('');
+    locked.current=true;setBusy(true);busyCallback.current?.(true);setError('');
     try{
       const result=await createPurchaseConditionVersionAction({...values,requestId});if(!alive.current)return;
-      if(!result.ok){if(result.code==='access_denied'||result.code==='unauthenticated')clearPrivate();else if(result.code==='conflict'){setReview(null);setAck(false);await load();}setError(result.message);return;}
-      retries.current.delete(fingerprint);setReview(null);setAck(false);setMessage('Inköps- och skickunderlaget är sparat.');await load();
-    }catch{if(alive.current)setError('Sparandet kunde inte bekräftas. Försök igen med samma granskade underlag.');}
-    finally{locked.current=false;if(alive.current)setBusy(false);}
+      if(!result.ok){uncertain.current=result.code==='unavailable';setUnknown(uncertain.current);if(result.code==='access_denied'||result.code==='unauthenticated'){clearPrivate();onAccessDenied?.(result.message);}else if(result.code==='conflict'){setReview(null);setAck(false);await load();}setError(result.message);return;}
+      if(!result.purchaseCondition||result.purchaseCondition.companyId!==companyId||result.purchaseCondition.stockId!==stockItemId||result.purchaseCondition.supplierName!==review.supplierName||result.purchaseCondition.basis.purchasePriceOre!==review.expectedPurchasePriceOre)throw Error('invalid receipt');
+      uncertain.current=false;setUnknown(false);retries.current.delete(fingerprint);setReview(null);setAck(false);setMessage('Inköps- och skickunderlaget är sparat.');await load();
+    }catch{if(alive.current){uncertain.current=true;setUnknown(true);setError('Sparandet kunde inte bekräftas. Kontrollera samma granskade underlag innan du lämnar bilen.');}}
+    finally{locked.current=false;if(alive.current){setBusy(false);busyCallback.current?.(uncertain.current);}}
   }
   return <section className="purchase-condition-panel" aria-labelledby={`${field}-title`} style={{paddingTop:16,minWidth:0,overflowWrap:'anywhere'}}>
     <h3 id={`${field}-title`}>Inköps- och skickunderlag</h3>
@@ -88,10 +90,10 @@ function ConditionPanel({companyId,stockItemId,demo=false}:PurchaseConditionProp
       {estimateKnown?<><label htmlFor={`${field}-estimate`}>Uppskattad reparationskostnad (kr)<input id={`${field}-estimate`} inputMode="decimal" value={estimate} onChange={event=>setEstimate(event.target.value)} required maxLength={22} disabled={busy}/></label><p className="muted">Ange 0 om ingen reparationskostnad uppskattas. Uppskattningen registrerar ingen faktisk kostnad.</p></>:<p className="inline-note">Reparationskostnaden är okänd tills en uppskattning anges.</p>}
       <button className="button button-green" disabled={busy||loading}>Granska nytt inköps- och skickunderlag</button>
     </form>:null}
-    {review&&page?<section aria-labelledby={`${field}-review`} className="workspace-form surface" style={{padding:18,marginBlock:18,minWidth:0}}><h4 id={`${field}-review`} ref={heading} tabIndex={-1}>Granska inköps- och skickunderlaget</h4><p><strong>{page.basis.vehicle.registration} · {page.basis.vehicle.make} {page.basis.vehicle.model}</strong><br/>Inköpspris: {formatOre(review.expectedPurchasePriceOre)}</p><ReviewFields {...review}/><p className="muted">Manuellt registrerat underlag. Uppgifterna och det registrerade inköpspriset sparas som en ny oföränderlig version. Reparationsuppskattningen ändrar inte bilens kostnader eller moms.</p><label style={{display:'flex',flexDirection:'row',alignItems:'flex-start',gap:10}}><input type="checkbox" checked={ack} onChange={event=>setAck(event.target.checked)} disabled={busy} style={{width:'auto'}}/><span>Jag har granskat leverantören, inköpsuppgifterna, bilens identitet och inköpspris, skickbedömningen och reparationsuppskattningens status.</span></label><div style={{display:'flex',gap:10,flexWrap:'wrap'}}><button className="button button-green" disabled={!ack||busy||loading} onClick={()=>void confirm()}>Bekräfta och spara underlaget</button><button className="button button-outline" disabled={busy} onClick={()=>{setReview(null);setAck(false);setError('');}}>Ändra uppgifter</button></div></section>:null}
+    {review&&page?<section aria-labelledby={`${field}-review`} className="workspace-form surface" style={{padding:18,marginBlock:18,minWidth:0}}><h4 id={`${field}-review`} ref={heading} tabIndex={-1}>Granska inköps- och skickunderlaget</h4><p><strong>{page.basis.vehicle.registration} · {page.basis.vehicle.make} {page.basis.vehicle.model}</strong><br/>Inköpspris: {formatOre(review.expectedPurchasePriceOre)}</p><ReviewFields {...review}/><p className="muted">Manuellt registrerat underlag. Uppgifterna och det registrerade inköpspriset sparas som en ny oföränderlig version. Reparationsuppskattningen ändrar inte bilens kostnader eller moms.</p><label style={{display:'flex',flexDirection:'row',alignItems:'flex-start',gap:10}}><input type="checkbox" checked={ack} onChange={event=>setAck(event.target.checked)} disabled={busy||unknown} style={{width:'auto'}}/><span>Jag har granskat leverantören, inköpsuppgifterna, bilens identitet och inköpspris, skickbedömningen och reparationsuppskattningens status.</span></label><div style={{display:'flex',gap:10,flexWrap:'wrap'}}><button className="button button-green" disabled={!ack||busy||loading} onClick={()=>void confirm()}>Bekräfta och spara underlaget</button><button className="button button-outline" disabled={busy||unknown} onClick={()=>{setReview(null);setAck(false);setError('');}}>Ändra uppgifter</button></div></section>:null}
     {!demo&&!loading&&page&&!rows.length?<p className="muted">Inga sparade inköps- och skickunderlag.</p>:null}
     {rows.length?<><h4>Sparade versioner</h4><ol style={{paddingLeft:20}}>{rows.map(row=><li key={row.id} style={{marginBlock:20}}><strong>Version {row.version} · {row.basis.vehicle.registration} · {row.basis.vehicle.make} {row.basis.vehicle.model}</strong><p>Inköpspris enligt versionen: {formatOre(row.basis.purchasePriceOre)}<br/>Sparad av {row.actorLabel} · {new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Stockholm',dateStyle:'short',timeStyle:'short'}).format(new Date(row.createdAt))}</p><ReviewFields {...row}/><a href={`/api/purchase-condition/${stockItemId}/${row.version}/pdf`} download>Hämta inköps- och skickunderlag · version {row.version}</a></li>)}</ol></>:null}
-    {!demo?<div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:16}}><button className="button button-outline" disabled={loading||busy} onClick={()=>{setReview(null);setAck(false);setError('');void load();}}>Uppdatera inköps- och skickunderlaget</button>{page?.nextBeforeVersion&&!blocked?<button className="button button-outline" disabled={loading||busy||!!review} onClick={()=>void load(true)}>Visa äldre underlag</button>:null}</div>:null}
+    {!demo?<div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:16}}><button className="button button-outline" disabled={loading||busy||unknown} onClick={()=>{setReview(null);setAck(false);setError('');void load();}}>Uppdatera inköps- och skickunderlaget</button>{page?.nextBeforeVersion&&!blocked?<button className="button button-outline" disabled={loading||busy||unknown||!!review} onClick={()=>void load(true)}>Visa äldre underlag</button>:null}</div>:null}
   </section>;
 }
 function ReviewFields({supplierKind,supplierName,supplierOrganisationNumber,acquiredOn,documentReference,checkedOn,mileageKm,conditions,repairEstimateOre}:Pick<CreatePurchaseConditionInput,'supplierKind'|'supplierName'|'supplierOrganisationNumber'|'acquiredOn'|'documentReference'|'checkedOn'|'mileageKm'|'conditions'|'repairEstimateOre'>){

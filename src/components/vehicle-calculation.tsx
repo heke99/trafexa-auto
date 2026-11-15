@@ -10,7 +10,9 @@ const NORMAL_SOURCE = 'https://www.skatteverket.se/foretagorganisationer/moms/sa
 function kronor(ore: string | null) { if (ore === null) return ''; const value = BigInt(ore); return `${value / 100n},${(value % 100n).toString().padStart(2, '0')}`; }
 function demoOre(value: number | null) { if (value === null || !Number.isSafeInteger(value) || value < 0) throw new Error(); return String(value); }
 
-export function VehicleCalculation({ item, costs, canEdit, demo, onDenied }: { item: InventoryItem; costs: VehicleCost[]; canEdit: boolean; demo: boolean; onDenied?: () => void }) {
+type Props={item:InventoryItem;costs:VehicleCost[];canEdit:boolean;demo:boolean;onDenied?:()=>void;onBusyChange?:(busy:boolean)=>void;expectedCompanyId?:string};
+export function VehicleCalculation(props:Props){return <CalculationPanel key={`${props.expectedCompanyId}:${props.item.id}:${props.canEdit}:${props.demo}`} {...props}/>;}
+function CalculationPanel({ item, costs, canEdit, demo, onDenied, onBusyChange, expectedCompanyId }:Props) {
   const fieldId = useId();
   const [source, setSource] = useState<VehicleCalculationSource | null>(null);
   const [purchaseVat, setPurchaseVat] = useState('');
@@ -20,7 +22,11 @@ export function VehicleCalculation({ item, costs, canEdit, demo, onDenied }: { i
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(true);
   const [pending, startTransition] = useTransition();
-  const generation = useRef(0);
+  const generation = useRef(0),alive=useRef(true),protectedWrite=useRef(false),busyCallback=useRef(onBusyChange);busyCallback.current=onBusyChange;
+  const [unknown,setUnknown]=useState(false);
+  const uncertainCompany=useRef<string|null>(null);
+  function report(value:boolean){protectedWrite.current=value;busyCallback.current?.(value);}
+  useEffect(()=>{alive.current=true;return()=>{alive.current=false;++generation.current;busyCallback.current?.(false);};},[]);
   const saving = useRef(false);
   const deniedCallback = useRef(onDenied); deniedCallback.current = onDenied;
   // Snapshot numbers only invalidate reads. They never feed a live calculation.
@@ -30,45 +36,47 @@ export function VehicleCalculation({ item, costs, canEdit, demo, onDenied }: { i
     setCostVat(Object.fromEntries(next.costs.map(cost => [cost.id, kronor(cost.deductibleVatOre)])));
   }
   function erase() { setSource(null); setPurchaseVat(''); setCostVat({}); setConfirmed(false); setNotice(''); }
-  function deny() { ++generation.current; erase(); setLoading(false); deniedCallback.current?.(); }
-  async function load(scope: number) {
-    setLoading(true); erase(); setError('');
+  function deny() { report(false);setUnknown(false);uncertainCompany.current=null;++generation.current; erase(); setLoading(false); deniedCallback.current?.(); }
+  async function load(scope: number,reconcile=false) {
+    setLoading(true); if(!reconcile)erase(); setError('');
     try {
       if (demo) {
         const next: VehicleCalculationSource = { companyId: '00000000-0000-4000-8000-000000000001', stockItemId: item.id, version: '1', purchaseGrossOre: demoOre(item.purchase_price_ore), saleGrossOre: demoOre(item.asking_price_ore), vatScheme: 'unknown', purchaseVatOre: null, vatBasisConfirmed: false,
           costs: costs.map(cost => ({ id: cost.id, description: cost.description, grossOre: demoOre(cost.amount_ore), deductibleVatOre: null })) };
         if (generation.current === scope) accept(next);
       } else {
-        const result = await getVehicleCalculationAction({ stockItemId: item.id });
-        if (generation.current !== scope) return;
-        if (!result.ok || result.source.stockItemId !== item.id) { setError(result.ok ? 'Kalkylen hör till ett annat lagerobjekt.' : result.message); if (!result.ok && result.code === 'access_denied') deny(); return; }
+        const result = await getVehicleCalculationAction({ stockItemId: item.id,...(expectedCompanyId?{companyId:expectedCompanyId}:{}) });
+        if (!alive.current||generation.current !== scope) return;
+        if (!result.ok || result.source.stockItemId !== item.id || (expectedCompanyId&&result.source.companyId!==expectedCompanyId) || (reconcile&&result.source.companyId!==uncertainCompany.current)) { setError(result.ok ? 'Kalkylens företag och lagerbil kunde inte verifieras.' : result.message); if ((!result.ok && result.code === 'access_denied') || (result.ok&&!reconcile))deny(); return; }
         accept(result.source);
+        if(reconcile){setUnknown(false);uncertainCompany.current=null;report(false);setNotice('Aktuellt momsunderlag har lästs in. Kontrollera uppgifterna innan du gör en ny ändring.');}
       }
     } catch { if (generation.current === scope) setError('Kalkylen kunde inte verifieras. Läs in underlaget igen.'); }
     finally { if (generation.current === scope) setLoading(false); }
   }
   // Fresh snapshot objects also trigger verification when their numeric fields
   // have rounded two different bigint prices to the same JavaScript number.
-  useEffect(() => { const scope = ++generation.current; void load(scope); return () => { ++generation.current; }; }, [basis, demo, item, costs]);
-  const calculation = source ? calculateVehicle(source) : null;
+  useEffect(() => { if(protectedWrite.current)return;const scope = ++generation.current; void load(scope); return () => { if(!protectedWrite.current)++generation.current; }; }, [basis, demo, item, costs]);
+  const calculation = source&&!unknown ? calculateVehicle(source) : null;
   function save() {
-    if (!source || !canEdit || demo || pending || loading || saving.current) return;
+    if (!source || !canEdit || demo || pending || loading || saving.current || protectedWrite.current) return;
     const current = source, scope = generation.current;
     let payload;
     try { payload = { stockItemId: current.stockItemId, companyId: current.companyId, expectedVersion: current.version,
       purchaseVatOre: current.vatScheme === 'vmb' ? null : kronorToOre(purchaseVat), vatBasisConfirmed: current.vatScheme === 'vmb' && confirmed,
       costVat: current.costs.map(cost => ({ costId: cost.id, deductibleVatOre: kronorToOre(costVat[cost.id] ?? '') })) }; }
     catch { setError('Ange avdragsgill moms i kronor med högst två decimaler, eller lämna fältet tomt om underlag saknas.'); return; }
-    saving.current = true;
+    saving.current = true;report(true);
+    function unknownResult(){uncertainCompany.current=current.companyId;setUnknown(true);}
     startTransition(async () => {
       setError(''); setNotice('');
       try {
         const result = await saveVehicleCalculationMetadataAction(payload);
-        if (generation.current !== scope) return;
-        if (!result.ok) { setError(result.message); if (result.code === 'access_denied') deny(); else if (result.conflict || result.code !== 'invalid_input') { ++generation.current; erase(); } return; }
-        if (result.source.companyId !== current.companyId || result.source.stockItemId !== current.stockItemId) { ++generation.current; erase(); setError('Det sparade underlaget kunde inte verifieras.'); return; }
-        accept(result.source); setNotice('Momsunderlaget har sparats för aktuell kalkyl.');
-      } catch { if (generation.current === scope) { ++generation.current; erase(); setError('Sparandet kunde inte verifieras. Läs in aktuellt underlag igen.'); } }
+        if (!alive.current||generation.current !== scope) return;
+        if (!result.ok) { setError(result.message); if (result.code === 'access_denied') deny(); else if (result.conflict || result.code==='conflict') { report(false);++generation.current;erase(); } else if(result.code==='invalid_input')report(false);else unknownResult();return; }
+        if (result.source.companyId !== current.companyId || result.source.stockItemId !== current.stockItemId) { unknownResult();setError('Det sparade underlaget kunde inte verifieras.');return; }
+        report(false);accept(result.source); setNotice('Momsunderlaget har sparats för aktuell kalkyl.');
+      } catch { if (alive.current&&generation.current === scope) { unknownResult();setError('Sparandet kunde inte verifieras. Kontrollera aktuellt underlag innan du lämnar bilen.'); } }
       finally { saving.current = false; }
     });
   }
@@ -91,7 +99,8 @@ export function VehicleCalculation({ item, costs, canEdit, demo, onDenied }: { i
       </form>}
       {source.vatScheme === 'unknown' && <p className="muted">Momsmodellen behöver klassificeras innan resultat efter moms kan beräknas.</p>}
     </>}
-    {!demo && <button className="text-link" type="button" disabled={pending || loading} onClick={() => { void load(++generation.current); }}>Läs in kalkylen igen</button>}
+    {unknown?<><p role="status">Sparandets resultat är obekräftat. De granskade momsuppgifterna behålls. En kontroll läser aktuellt underlag och skickar ingen ny ändring.</p><button className="button button-outline" type="button" disabled={pending||loading} onClick={()=>void load(++generation.current,true)}>Kontrollera sparandet</button></>:null}
+    {!demo&&!unknown && <button className="text-link" type="button" disabled={pending || loading} onClick={() => { void load(++generation.current); }}>Läs in kalkylen igen</button>}
     {demo && <p className="muted">Demonstration i läsläge. Ingen moms har antagits för exempelunderlaget.</p>}
     {notice && <p role="status">{notice}</p>}{error && <p role="alert">{error}</p>}
     <p className="muted"><a href={VMB_SOURCE} target="_blank" rel="noreferrer">Skatteverkets regler för VMB</a> · <a href={NORMAL_SOURCE} target="_blank" rel="noreferrer">Bilar och moms</a></p>

@@ -44,3 +44,29 @@ test('ordinary review read failure removes stale actions while allowing a fresh 
   await page.getByRole('button',{name:'Uppdatera kundgranskningar'}).click();await expect(page.getByRole('button',{name:'Återkalla kundgranskning'})).toBeVisible();assert.equal(await page.evaluate(()=>window.fixture.calls.filter(c=>['publish','withdraw'].includes(c.kind)).length),0);
  }finally{await page.close();}
 });
+
+test('nested email ambiguity holds offer review navigation until verified status without resending',async()=>{
+ const page=await setup({deliveryResponse:{ok:true,delivery:{status:'pending',transport:'configured'}},customerEmailRetries:[{hold:true}]},{role:'owner'});
+ try{
+  await page.getByRole('button',{name:'Granska nytt utskicksförsök',exact:true}).click();
+  await page.getByRole('checkbox',{name:'Jag har granskat mottagaren och vill försöka skicka den väntande mejlinbjudan igen.'}).check();
+  await page.getByRole('button',{name:'Försök skicka mejlet igen',exact:true}).click();
+  await page.waitForFunction(()=>typeof window.fixture.releaseCustomerEmailRetry==='function');
+  assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await expect(page.getByRole('button',{name:'Återkalla kundgranskning',exact:true})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Uppdatera kundgranskningar',exact:true})).toBeDisabled();
+  await page.evaluate(()=>window.fixture.releaseCustomerEmailRetry({ok:false,code:'unavailable',message:'Obekräftat mejlförsök'}));
+  await expect(page.getByRole('button',{name:'Uppdatera mejlinbjudans status',exact:true})).toBeEnabled();
+  await expect(page.getByRole('button',{name:'Återkalla kundgranskning',exact:true})).toBeDisabled();
+  await page.evaluate(()=>window.fixture.customerEmailReads=[{throw:true}]);
+  await page.getByRole('button',{name:'Uppdatera mejlinbjudans status',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('Mejlstatus kunde inte hämtas');
+  assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),true);
+  await page.evaluate(()=>window.fixture.customerEmailReads=[{ok:true,delivery:{status:'accepted',transport:'configured'}}]);
+  await page.getByRole('button',{name:'Uppdatera mejlinbjudans status',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Återkalla kundgranskning',exact:true})).toBeEnabled();
+  assert.equal(await page.evaluate(()=>window.fixture.busyEvents.at(-1)),false);
+  assert.equal(await page.evaluate(()=>window.fixture.customerEmailCalls.filter(row=>row.kind==='retry').length),1);
+  assert.equal(await page.evaluate(()=>window.fixture.calls.filter(row=>row.kind==='withdraw').length),0);
+ }finally{await page.close();}
+});

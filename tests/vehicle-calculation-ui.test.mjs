@@ -19,9 +19,9 @@ before(async () => {
   directory = await mkdtemp(resolve(tmpdir(), 'trafexa-calculation-ui-'));
   const loader = resolve(directory, 'swc.cjs'), entry = resolve(directory, 'entry.js'), actions = resolve(directory, 'actions.js');
   await writeFile(loader, `const swc=require(${JSON.stringify(require.resolve('next/dist/build/swc'))}); module.exports=function(source){const done=this.async();swc.loadBindings().then(()=>done(null,swc.transformSync(source,{filename:this.resourcePath,jsc:{parser:{syntax:'typescript',tsx:this.resourcePath.endsWith('.tsx')},target:'es2022',transform:{react:{runtime:'automatic'}}},module:{type:'es6'}}).code),done);};`);
-  await writeFile(entry, `import React from 'react';import {createRoot} from 'react-dom/client';import {flushSync} from 'react-dom';import {VehicleCalculation} from ${JSON.stringify(resolve(repo, 'src/components/vehicle-calculation.tsx'))};const root=createRoot(document.getElementById('root'));window.mount=props=>flushSync(()=>root.render(React.createElement(VehicleCalculation,{...props,onDenied:()=>window.fixture.denials++})));`);
+  await writeFile(entry, `import React from 'react';import {createRoot} from 'react-dom/client';import {flushSync} from 'react-dom';import {VehicleCalculation} from ${JSON.stringify(resolve(repo, 'src/components/vehicle-calculation.tsx'))};const root=createRoot(document.getElementById('root'));window.mount=props=>flushSync(()=>root.render(React.createElement(VehicleCalculation,{...props,onDenied:()=>window.fixture.denials++,onBusyChange:value=>window.fixture.parentBusy=value})));`);
   await writeFile(actions, `export async function getVehicleCalculationAction(input){window.fixture.reads.push(input);if(window.fixture.readResult)return window.fixture.readResult;const source=structuredClone(window.fixture.source);if(window.fixture.deferRead){window.fixture.deferRead=false;return new Promise(resolve=>window.fixture.deferredReads.push(()=>resolve({ok:true,source})));}return {ok:true,source};}
-  export async function saveVehicleCalculationMetadataAction(input){window.fixture.saves.push(input);if(window.fixture.saveResult)return window.fixture.saveResult;if(window.fixture.conflict)return {ok:false,conflict:true,message:'Underlaget har ändrats. Läs in igen.'};const source={...window.fixture.source,purchaseVatOre:input.purchaseVatOre,vatBasisConfirmed:input.vatBasisConfirmed,version:(BigInt(input.expectedVersion)+1n).toString(),costs:window.fixture.source.costs.map(cost=>({...cost,deductibleVatOre:input.costVat.find(row=>row.costId===cost.id).deductibleVatOre}))};window.fixture.source=source;return {ok:true,source};}`);
+  export async function saveVehicleCalculationMetadataAction(input){window.fixture.saves.push(input);if(window.fixture.deferSave){window.fixture.deferSave=false;await new Promise(resolve=>window.fixture.releaseSave=resolve);}if(window.fixture.throwSave)throw Error('Unknown transport');if(window.fixture.saveResult)return window.fixture.saveResult;if(window.fixture.conflict)return {ok:false,conflict:true,message:'Underlaget har ändrats. Läs in igen.'};const source={...window.fixture.source,purchaseVatOre:input.purchaseVatOre,vatBasisConfirmed:input.vatBasisConfirmed,version:(BigInt(input.expectedVersion)+1n).toString(),costs:window.fixture.source.costs.map(cost=>({...cost,deductibleVatOre:input.costVat.find(row=>row.costId===cost.id).deductibleVatOre}))};window.fixture.source=source;return {ok:true,source};}`);
   bundle = resolve(directory, 'fixture.js');
   await new Promise((done, reject) => {
     const compiler = webpack({ mode: 'development', target: 'web', devtool: false, context: repo, entry, output: { path: directory, filename: 'fixture.js' },
@@ -147,4 +147,38 @@ test('read-only users have no metadata form and demo performs no actions', async
     await expect(demo.getByText('Kalkylresultat efter moms', { exact: true })).toHaveCount(0);
     assert.equal(await demo.evaluate(() => window.fixture.reads.length + window.fixture.saves.length), 0);
   } finally { await demo.close(); }
+});
+
+test('pending metadata save holds parent and survives snapshot revalidation until its scoped result arrives',async()=>{
+ const page=await pageFixture();
+ try{
+  await page.getByLabel('Avdragsgill inköpsmoms enligt underlag, kr').fill('20000,00');
+  await page.evaluate(()=>window.fixture.deferSave=true);await page.getByRole('button',{name:'Spara momsunderlag',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>typeof window.fixture.releaseSave)).toBe('function');
+  assert.equal(await page.evaluate(()=>window.fixture.parentBusy),true);
+  await page.evaluate(input=>window.mount({...input,item:{...input.item},costs:[...input.costs]}),props);
+  assert.equal(await page.evaluate(()=>window.fixture.reads.length),1);
+  await expect(page.getByLabel('Avdragsgill inköpsmoms enligt underlag, kr')).toHaveValue('20000,00');
+  await page.evaluate(()=>window.fixture.releaseSave());
+  await expect(page.getByText('Momsunderlaget har sparats för aktuell kalkyl.',{exact:true})).toBeVisible();assert.equal(await page.evaluate(()=>window.fixture.parentBusy),false);
+ }finally{await page.close();}
+});
+test('unknown metadata save requires authoritative reconciliation; read failure keeps hold and never repeats mutation',async()=>{
+ const page=await pageFixture({input:{...props,expectedCompanyId:company}});
+ try{
+  await page.getByLabel('Avdragsgill inköpsmoms enligt underlag, kr').fill('20000,00');
+  await page.evaluate(()=>window.fixture.throwSave=true);await page.getByRole('button',{name:'Spara momsunderlag',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Kontrollera sparandet',exact:true})).toBeVisible();assert.equal(await page.evaluate(()=>window.fixture.parentBusy),true);
+  await expect(page.getByText('Inköp inklusive moms',{exact:true})).toHaveCount(0);
+  await page.evaluate(()=>window.fixture.readResult={ok:false,code:'unavailable',message:'Tillfälligt läsfel'});
+  await page.getByRole('button',{name:'Kontrollera sparandet',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Tillfälligt läsfel');assert.equal(await page.evaluate(()=>window.fixture.parentBusy),true);
+  await page.evaluate(()=>window.fixture.readResult={ok:true,source:{...window.fixture.source,companyId:'10000000-0000-4000-8000-000000000099'}});
+  await page.getByRole('button',{name:'Kontrollera sparandet',exact:true}).click();await expect(page.getByRole('alert')).toContainText('kunde inte verifieras');assert.equal(await page.evaluate(()=>window.fixture.parentBusy),true);
+  await page.evaluate(()=>{delete window.fixture.readResult;window.fixture.source={...window.fixture.source,version:'2',purchaseVatOre:'2000000'};});
+  await page.getByRole('button',{name:'Kontrollera sparandet',exact:true}).click();
+  await expect(page.getByText('Aktuellt momsunderlag har lästs in.',{exact:false})).toBeVisible();
+  assert.equal(await page.evaluate(()=>window.fixture.parentBusy),false);assert.equal(await page.evaluate(()=>window.fixture.saves.length),1);
+  await expect(page.getByLabel('Avdragsgill inköpsmoms enligt underlag, kr')).toHaveValue('20000,00');
+  assert.equal(await page.evaluate(()=>window.fixture.reads.every(row=>row.companyId===window.fixture.source.companyId)),true);
+ }finally{await page.close();}
 });
