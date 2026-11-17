@@ -4,8 +4,8 @@
 
 Miljöpaket, browser-/PDF-kontroll och isolerad körning beskrivs i [testmiljöguiden](docs/TEST_ENVIRONMENT.md).
 
-Kör `npm ci`, därefter `npm run test:setup` och `npm test -- --test-concurrency=2`.
-Flat-sviten använder databasfixturerna i `tests/crm-db` och `tests/company-team-db`.
+Kör `npm ci`, därefter `npm run test:setup` och `npm test`.
+Testinstallationen hämtar samtliga låsta paket direkt under `tests/`, så även de separata databas- och signeringssviterna får sina faktiska beroenden.
 `pretest` kontrollerar beroendena och packar upp testwebbläsaren före parallella
 testprocesser. Separata native PostgreSQL-sviter kräver sin dokumenterade Docker-miljö.
 Systemgranskningen 23 oktober finns i [granskningsrapporten](docs/E2E_REVIEW_20261023.md).
@@ -121,24 +121,18 @@ Användaren godkände att den gamla webbplatsen skulle ersättas och att handlar
 
 ## Köra lokalt
 
-Använd Node.js `24.x` och projektets låsta beroenden. Den lokala verifieringsmaskinen kör `24.19.0`. Majorversionen är låst i `package.json` och lockfilen för att undvika en framtida automatisk majoruppgradering på Vercel:
+Följ [lokalstarten](docs/LOCAL_SETUP.md) för en ren, isolerad Supabase med Auth, privata bucketar och riktiga migrationsjobb. `.env.example` väljer loopback och alla externa utskick är avstängda. Ingen produktionsnyckel behövs.
 
-```bash
-npm ci
-cp .env.example .env.local
+```sh
+npm ci --ignore-scripts
+npm run test:setup
+npm run local:start
+npm run local:bootstrap
+npm run local:verify
 npm run dev
 ```
 
-Konfigurera de publika miljövariablerna för avsedd utvecklingsmiljö. Värden dokumenteras inte här.
-
-| Variabel | Användning |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase-projektets publika URL |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publik klientnyckel; åtkomsten styrs även av databasbehörigheter och RLS |
-| `NEXT_PUBLIC_SITE_URL` | Ursprung för den publika webbplatsen och demoformulärets tillåtna ursprung |
-| `NEXT_PUBLIC_APP_URL` | Ursprung för handlarappens inloggningsbekräftelse och lösenordsåterställning |
-
-`/demo` använder tydligt fiktiva exempel och tillåter inte produktionsåtgärder. Ett riktigt företagsflöde kräver Supabase-konfiguration, verifierad autentisering och ett aktivt företagsmedlemskap.
+Bootstrap använder en uttryckligen syntetisk lokal admin och skriver bara en ny `.env.local`; befintlig fil skrivs inte över. För en redan konfigurerad fristående testmiljö kan `.env.example` kopieras manuellt och dess tomma nycklar fyllas från just den miljön. `NODE_ENV=production` är ett byggläge, inte tillstånd att ansluta till Trafexas produktion. Se guiden för driftmål, serverhemligheter, första betrodda superadmin och typgenerering.
 
 ## Kontroller
 

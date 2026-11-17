@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { WorkspaceSnapshot } from '@/lib/data/workspace';
 import { DealerWorkspace, type WorkspaceSection } from '@/components/dealer-workspace';
+import { publicSiteUrl } from '@/lib/public-site-origin';
 
 export const metadata: Metadata = { title: 'Demonstration | Trafexa', robots: { index: false, follow: false } };
 const organization={id:'demo-company',name:'Exempel Bilhandel',organisation_number:'Fiktivt företag'};
@@ -29,5 +30,5 @@ export default async function DemoPage({searchParams}:{searchParams:Promise<{sec
   const params=await searchParams;
   const sections:WorkspaceSection[]=['dashboard','inventory','customers','deals','finance','network','documents','settings','advertising'];
   const section=sections.includes(params.section as WorkspaceSection)?params.section as WorkspaceSection:'dashboard';
-  return <DealerWorkspace snapshot={snapshot} section={section} demo/>;
+  return <DealerWorkspace snapshot={snapshot} section={section} demo demoContactUrl={publicSiteUrl('/#kontakt')}/>;
 }

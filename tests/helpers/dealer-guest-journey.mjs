@@ -5,7 +5,7 @@ import {asRole} from '../crm-db/helpers.mjs';
 import {fixture,id,U,C,D,S,EMAIL,strokes} from '../guest-customer-db/helpers.mjs';
 
 const BUCKET='native-contract-originals';
-const env={CONTRACT_EMAIL_ENABLED:'true',TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED:'true',RESEND_API_KEY:'synthetic-dealer-journey-provider',SUPABASE_SECRET_KEY:'sb_secret_synthetic_dealer_journey_only',NEXT_PUBLIC_SUPABASE_URL:'https://buqdtssxrotkzndublrt.supabase.co',NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_synthetic_dealer_journey_only'};
+const env={CONTRACT_EMAIL_ENABLED:'true',TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED:'true',RESEND_API_KEY:'synthetic-dealer-journey-provider',SUPABASE_SECRET_KEY:'sb_secret_synthetic_dealer_journey_only',NEXT_PUBLIC_SUPABASE_URL:'https://synthetic-trafexa.supabase.co',NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_synthetic_dealer_journey_only'};
 const USER_TOKEN=`${Buffer.from('{"alg":"HS256"}').toString('base64url')}.${Buffer.from(JSON.stringify({role:'authenticated',sub:U})).toString('base64url')}.synthetic_signature`;
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const success=(result,label)=>{assert.equal(result.ok,true,label+': '+JSON.stringify(result));return result;};
@@ -81,7 +81,7 @@ export async function journey(t,order){
  const beforeDelivery=await originals();
  const beforeStock=await h.call('authenticated','inventory_dashboard_totals',{p_company_id:C});
  assert.equal(beforeStock.activeStockCount,'1');assert.equal(beforeStock.availableStockCount,'1');assert.equal(beforeStock.purchaseValueOre,'100');
- const reserve=new FormData();reserve.set('deal_id',D);await assert.rejects(a.legacy.reserveVehicleAction(reserve),error=>{assert.ok(error.digest?.startsWith('NEXT_REDIRECT;'));assert.ok(error.path.startsWith('/deals?success='),decodeURIComponent(error.path));return true;});
+ const reserve=new FormData();reserve.set('deal_id',D);reserve.set('expected_company_id',C);await assert.rejects(a.legacy.reserveVehicleAction(reserve),error=>{assert.ok(error.digest?.startsWith('NEXT_REDIRECT;'));assert.ok(error.path.startsWith('/deals?success='),decodeURIComponent(error.path));return true;});
  const reservedStock=await h.call('authenticated','inventory_dashboard_totals',{p_company_id:C});
  assert.equal(reservedStock.activeStockCount,'1');assert.equal(reservedStock.availableStockCount,'0');assert.equal(reservedStock.purchaseValueOre,'100','Reservation retains inventory purchase value');
  let reconciliation=success(await a.fulfil.getDealFulfilmentAction({companyId:C,dealId:D}),'read reconciliation').page;assert.equal(reconciliation.blockedReason,null);assert.equal(reconciliation.source.archiveId,archived.id);

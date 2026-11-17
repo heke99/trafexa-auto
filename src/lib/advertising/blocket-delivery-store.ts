@@ -3,7 +3,9 @@ import type { AdvertisingWorkerJob, BlocketDelivery, BlocketProviderOutcome } fr
 
 export interface BlocketDeliveryStore {
   get(jobId: string): Promise<BlocketDelivery | null>;
-  begin(job: AdvertisingWorkerJob, claimToken: string, payloadSha256: string): Promise<{ job: AdvertisingWorkerJob; delivery: BlocketDelivery; replayed: boolean }>;
+  reserve(job: AdvertisingWorkerJob, token: string): Promise<{ expiresAt: string; providerAdId: string | null } | null>;
+  finishPreparation(job: AdvertisingWorkerJob, token: string, outcome: { status: 'rejected' | 'retryable'; errorCode: string }): Promise<AdvertisingWorkerJob>;
+  begin(job: AdvertisingWorkerJob, claimToken: string, payloadSha256: string, providerAdId: string | null): Promise<{ job: AdvertisingWorkerJob; delivery: BlocketDelivery; replayed: boolean }>;
   record(jobId: string, delivery: BlocketDelivery, claimToken: string | null, outcome: BlocketProviderOutcome): Promise<BlocketDelivery>;
 }
 export type BlocketServiceRpc = { rpc(name: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }> };
@@ -37,9 +39,24 @@ export function createBlocketDeliveryStore(client: BlocketServiceRpc): BlocketDe
   }
   return {
     async get(jobId) { uuid(jobId); const data = await call('get_blocket_delivery', { p_job_id: jobId }); return data === null ? null : parseBlocketDelivery(data); },
-    async begin(job, claimToken, payloadSha256) {
+    async reserve(job, token) {
+      uuid(job.id); uuid(token);
+      const data = await call('reserve_blocket_preparation', { p_job_id: job.id, p_expected_job_version: job.version, p_token: token });
+      if (data === null) return null;
+      const r = object(data);
+      if (Object.keys(r).length !== 3 || r.token !== token || typeof r.expiresAt !== 'string' || !Number.isFinite(Date.parse(r.expiresAt))
+        || r.providerAdId !== null && (typeof r.providerAdId !== 'string' || !/^[0-9]{1,30}$/.test(r.providerAdId))) throw Error('invalid_blocket_preparation');
+      return { expiresAt: r.expiresAt, providerAdId: r.providerAdId as string | null };
+    },
+    async finishPreparation(job, token, outcome) {
+      uuid(job.id); uuid(token);
+      return object(await call('finish_blocket_preparation', { p_job_id: job.id, p_expected_job_version: job.version, p_token: token,
+        p_status: outcome.status, p_error_code: outcome.errorCode })) as unknown as AdvertisingWorkerJob;
+    },
+    async begin(job, claimToken, payloadSha256, providerAdId) {
       uuid(job.id); uuid(claimToken); if (!/^[a-f0-9]{64}$/.test(payloadSha256)) throw Error('invalid_blocket_delivery');
-      const r = object(await call('begin_blocket_delivery', { p_job_id: job.id, p_expected_job_version: job.version, p_claim_token: claimToken, p_payload_sha256: payloadSha256 }));
+      const r = object(await call('begin_prepared_blocket_delivery', { p_job_id: job.id, p_expected_job_version: job.version,
+        p_claim_token: claimToken, p_payload_sha256: payloadSha256, p_expected_provider_ad_id: providerAdId }));
       if (Object.keys(r).length !== 3 || !Object.hasOwn(r, 'job') || typeof r.replayed !== 'boolean') throw Error('invalid_blocket_delivery');
       return { job: object(r.job) as unknown as AdvertisingWorkerJob, delivery: parseBlocketDelivery(r.delivery), replayed: r.replayed };
     },

@@ -1,3 +1,4 @@
+import {configuredSupabaseProjectUrl,isSupabaseProjectConfigured} from '@/lib/runtime/environment';
 import { createClient } from '@supabase/supabase-js';
 import { verifyAdvertisingInvoiceEmailWebhook } from '@/lib/email/advertising-invoice-webhook';
 
@@ -24,13 +25,13 @@ async function rawBody(request: Request) {
 }
 export async function POST(request: Request) {
   const secret = process.env.RESEND_WEBHOOK_SECRET, key = process.env.SUPABASE_SECRET_KEY;
-  if (!secret || !key || process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://buqdtssxrotkzndublrt.supabase.co') return reply(503);
+  if (!secret || !key || !isSupabaseProjectConfigured()) return reply(503);
   let event;
   try { event = verifyAdvertisingInvoiceEmailWebhook(await rawBody(request), request.headers, secret); }
   catch { return reply(400); }
   if (event === null) return reply(200);
   try {
-    const db = createClient('https://buqdtssxrotkzndublrt.supabase.co', key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+    const db = createClient(configuredSupabaseProjectUrl(), key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
     const result = await db.rpc('apply_advertising_invoice_email_event', {
       p_event_id: event.eventId, p_provider_id: event.providerId, p_event_type: event.eventType,
       p_event_at: event.eventAt, p_recipient_hash: event.recipientHash, p_email_id: event.emailId,

@@ -48,6 +48,22 @@ test('deal relations are returned from real related rows beyond an old 500-recor
   assert.equal(result.page.rows[0].stockItem.vehicles.registration_number, 'REG3000');
 });
 
+test('dashboard fetches open statuses directly and returns the latest four across both', async () => {
+  const { module, calls, contexts } = await actions({ response(args) {
+    const items=args.p_status==='draft'?[1,3,5]:[2,4,6];
+    return { ...page(args), rows:items.map(n=>({...deal(),id:uuid(n+100),status:args.p_status,
+      created_at:`2026-10-15T08:30:0${n}.123456+00:00`,reservationId:args.p_status==='reserved'?uuid(n+600):null})),
+      totalCount:610,filteredCount:3,counts:{all:609,draft:3,reserved:3,cancelled:3,completed:600,archived:1}};
+  }});
+  const result=await module.loadDashboardDeals(COMPANY);
+  assert.deepEqual(result.rows.map(row=>row.id),[106,105,104,103].map(uuid));
+  assert.equal(result.rows[0].reservationId,uuid(606));
+  assert.equal(result.activeDealCount,'6');
+  assert.equal(result.reservedDealCount,'3');
+  assert.deepEqual(calls.map(([,args])=>args.p_status),['draft','reserved']);
+  assert.deepEqual(contexts,[COMPANY,COMPANY]);
+});
+
 test('all established reading roles including finance and viewer retain register and option access', async () => {
   for (const role of ['owner', 'admin', 'sales', 'finance', 'viewer']) {
     const { module } = await actions({ role });
@@ -148,3 +164,8 @@ test('database details and malformed responses produce a safe error rather than 
   }
 });
 test('deal contract progress is optional for rollout, verified when present, and independent from physical lifecycle',async()=>{const progress={status:'completed',source:'native',companySigned:true,customerSigned:true,signedAt:'2026-11-14T12:00:00Z',invitationStatus:'completed'};const make=summary=>actions({response:args=>{const p=page(args);p.rows[0].contractProgress=summary;return p;}});const good=await make(progress),r=await good.module.loadDealerRegisterPage(input({kind:'deals'}));assert.equal(r.ok,true);assert.equal(r.page.rows[0].status,'draft');assert.deepEqual(r.page.rows[0].contractProgress,progress);for(const malformed of[{...progress,customerSigned:false},{...progress,signedAt:null},{...progress,signedAt:'2026-02-30T12:00:00Z'},{...progress,source:null},{...progress,token:'must-not-release'}]){const bad=await make(malformed);assert.equal((await bad.module.loadDealerRegisterPage(input({kind:'deals'}))).ok,false);}const legacy=await actions();assert.equal((await legacy.module.loadDealerRegisterPage(input({kind:'deals'}))).ok,true);});
+test('legacy overlong vehicle label is isolated to flagged row while tenant boundaries still fail closed',async()=>{
+ const {module}=await actions({response:args=>{const result=page(args);result.rows[0].vehicles.model='M'.repeat(161);return result;}});
+ const r=await module.loadDealerRegisterPage(input());assert.equal(r.ok,true);assert.equal(r.page.rows[0].vehicles.model.length,160);assert.match(r.page.rows[0].vehicles.dataIssue,/granskas/);
+ const other=await actions({response:args=>{const result=page(args);result.rows[0].vehicles.model='M'.repeat(161);result.rows[0].vehicles.company_id=FOREIGN;return result;}});assert.equal((await other.module.loadDealerRegisterPage(input())).ok,false);
+});

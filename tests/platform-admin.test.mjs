@@ -66,7 +66,7 @@ test('missing, anonymous and unverified users never reach private session RPC', 
 test('mismatched allowlist UID, revoked admin and missing RPC fail closed', async () => {
   for (const options of [{ sessionUserId: NEXT }, { admin: false }, { sessionError: { code: 'PGRST202', message: 'secret backend error' } }]) {
     const { context, actions, calls } = await fixture(options);
-    assert.equal(await context.getPlatformAdminContext(), null);
+    if(options.sessionError)await assert.rejects(context.getPlatformAdminContext(),e=>e.code==='unavailable');else assert.equal(await context.getPlatformAdminContext(), null);
     const result = await actions.listPlatformCompaniesAction({});
     assert.equal(result.ok, false);
     assert.equal(JSON.stringify(result).includes('secret'), false);

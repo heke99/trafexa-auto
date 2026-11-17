@@ -12,7 +12,9 @@ export async function listCompanyTeamAction(input) {
 }
 export async function getMyInvitationsAction(input) {
   window.fixture.myCalls.push({ ...input });
-  return response(window.fixture.myResponses) ?? { ok: true, invitations: window.fixture.myInvitations, nextPageKey: window.fixture.nextPageKey ?? null };
+  const next=response(window.fixture.myResponses);
+  if(next?.hold)return new Promise(resolve=>{window.fixture.myPending=resolve;});
+  return next ?? { ok: true, actorUserId:window.fixture.team.actorUserId, invitations: window.fixture.myInvitations, nextPageKey: window.fixture.nextPageKey ?? null };
 }
 export async function updateCompanyMemberAction(input) {
   window.fixture.updateCalls.push({ ...input });
@@ -36,5 +38,5 @@ export async function acceptCompanyInvitationAction(input) {
   if(next?.hold)return new Promise(resolve=>window.fixture.teamWritePending=resolve);
   if (next) return next;
   window.fixture.myInvitations = window.fixture.myInvitations.filter(item => item.id !== input.invitationId);
-  return { ok: true, companyId: window.fixture.team.companyId, role: 'sales' };
+  return { ok: true, actorUserId:window.fixture.team.actorUserId, companyId: window.fixture.team.companyId, role: 'sales' };
 }

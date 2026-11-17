@@ -1,7 +1,10 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFile, readdir } from 'node:fs/promises';
 
-export async function createDatabase({ includeSigningArchive=true, approveEstablishedFixtures=true, throughMigration=null }={}) {
+export async function createDatabase({ includeSigningArchive=true, approveEstablishedFixtures=true, throughMigration=null, profile='legacy' }={}) {
+ if(!['legacy','migrations','established','historical'].includes(profile))throw Error('Unknown database test profile');
+ if(profile==='historical'&&!throughMigration)throw Error('Historical profile requires throughMigration');
+ if(profile!=='legacy'&&includeSigningArchive===false&&!throughMigration)throw Error('Use an explicit migration checkpoint instead of includeSigningArchive');
  const db=new PGlite();
  await db.exec(`
   create role anon nologin;
@@ -46,14 +49,14 @@ export async function createDatabase({ includeSigningArchive=true, approveEstabl
  }
  // Established-fixture approval is TEST ONLY. The dedicated approval suite opts out.
  // Production migrations deliberately contain neither this trigger nor a backfill.
- if(approveEstablishedFixtures)await db.exec(`
+ if(profile==='established'||profile==='legacy'&&approveEstablishedFixtures)await db.exec(`
  create function auth.approve_established_test_fixture() returns trigger language plpgsql as $$
  begin insert into private.account_approvals(user_id,status,updated_by) values(new.id,'approved',new.id); return new; end $$;
  create trigger approved_established_test_fixture after insert on auth.users for each row execute function auth.approve_established_test_fixture();
  `);
  // Preserve the existing privileged worker contract without granting the archive
  // table or private storage catalogs to ordinary authenticated users.
- await db.exec('grant select,insert,update,delete on public.documents to service_role');
+ if(profile==='established'||profile==='legacy')await db.exec('grant select,insert,update,delete on public.documents to service_role');
  return db;
 }
 export async function asRole(db,role,userId,callback) {

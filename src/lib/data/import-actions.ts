@@ -52,15 +52,17 @@ export async function importStockAction(form: FormData): Promise<StockImportResu
     const { db, company, role } = await getActiveCompanyContext();
     if (!canManageStockIntake(role)) return { ok: false, code: 'access_denied', message: 'Endast företagets ägare och administratörer kan importera lagerinköp.' };
     if (company.toLowerCase() !== expectedCompany.toLowerCase()) return { ok: false, code: 'access_denied', message: 'Det aktiva företaget har ändrats. Öppna lagerimporten igen.' };
-    const registrations = checked.rows.map((row) => row.registration_number);
-    const { data: existing, error: lookupError } = await db.rpc('stock_import_duplicate_registrations', { company, registrations });
-    if (lookupError) return { ok: false, code: 'unavailable', message: 'Befintligt lager och tidigare importresultat kunde inte kontrolleras. Kontrollera samma import igen.' };
-    const duplicateReview = validateStockRows(parsed, mapping, existing ?? []);
     // The RPC checks its receipt before duplicates, so a lost successful response can
     // be retried with the same UUID and normalized payload even after stock exists.
     const { data, error } = await db.rpc('import_stock_batch', { company, submission, payload: checked.rows });
     if (error) {
-      if (error.code === '23505') return { ok: false, code: 'rejected', message: 'Ett registreringsnummer finns redan i lagret. Hela importen avvisades.', issues: duplicateReview.issues.length ? duplicateReview.issues : [{ row: null, field: 'registration_number', message: 'Lagret ändrades under importen. Förhandsgranska filen igen.' }] };
+      if (error.code === '23505') {
+        // Explain a confirmed rejection only. Preflight availability must never
+        // prevent the RPC from returning its immutable successful receipt.
+        let issues:ImportIssue[]=[];
+        try { const lookup=await db.rpc('stock_import_duplicate_registrations',{company,registrations:checked.rows.map(row=>row.registration_number)});if(!lookup.error)issues=validateStockRows(parsed,mapping,lookup.data??[]).issues; } catch { /* Rejection remains verified even if its explanation cannot be loaded. */ }
+        return {ok:false,code:'rejected',message:'Ett registreringsnummer finns redan i lagret. Hela importen avvisades.',issues:issues.length?issues:[{row:null,field:'registration_number',message:'Lagret ändrades under importen. Förhandsgranska filen igen.'}]};
+      }
       if (error.code === '42501') return { ok: false, code: 'access_denied', message: 'Du har inte längre behörighet att importera till företaget.' };
       if (error.message === 'Import submission payload changed') return { ok: false, code: 'rejected', message: 'Importunderlaget har ändrats. Välj filen igen för att starta en ny import.' };
       if (error.message === 'Import limit reached') return { ok: false, code: 'rejected', message: 'För många importer på kort tid. Försök igen senare.' };

@@ -1,6 +1,6 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
-import type { AdvertisingProvider, AdvertisingProviderOutcome, AdvertisingPublicPayload, BlocketDelivery, BlocketProviderOutcome } from './provider-contract';
+import type { AdvertisingProvider, AdvertisingProviderOutcome, AdvertisingPublicPayload, BlocketDelivery, BlocketDeliveryIdentity, BlocketPreparation, BlocketProviderOutcome } from './provider-contract';
 
 /** Verified official contract: https://api.blocket.se/pro-import-api/docs/client-documentation */
 const BASE = 'https://api.blocket.se/pro-import-api/v4';
@@ -45,15 +45,19 @@ export function createBlocketV5Provider(options: Options): AdvertisingProvider {
     return fetcher(`https://api.blocket.se/pro-import-api/v5${path}`, { method, redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(15000),
       headers: { 'X-Auth-Token': options.token, Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
   }
-  function bound(payload: Pick<AdvertisingPublicPayload, 'sourceId' | 'listingVersion' | 'accountReference'>, delivery: BlocketDelivery | undefined): delivery is BlocketDelivery {
+  type PayloadIdentity = Pick<AdvertisingPublicPayload, 'sourceId' | 'listingVersion' | 'accountReference'>;
+  function boundIdentity(payload: PayloadIdentity, delivery: BlocketDeliveryIdentity) {
     const binding = options.verifiedBinding;
-    return !!delivery && uuid.test(delivery.id) && delivery.companyId === binding.companyId && delivery.connectionId === binding.connectionId
+    return delivery.companyId === binding.companyId && delivery.connectionId === binding.connectionId
       && delivery.connectionVersion === binding.connectionVersion && delivery.dealerCode === binding.accountReference && payload.accountReference === binding.accountReference
       && delivery.sourceId === payload.sourceId && delivery.listingId === payload.sourceId && uuid.test(delivery.sourceId) && delivery.listingVersion === payload.listingVersion
-      && Number.isSafeInteger(delivery.revision) && delivery.revision > 0 && (delivery.operation === 'create' || delivery.operation === 'update')
-      && (delivery.operation !== 'update' || remoteId(delivery.providerAdId));
+      && (delivery.operation === 'create' || delivery.operation === 'update' && remoteId(delivery.providerAdId));
   }
-  function identity(data: Record<string, unknown>, delivery: BlocketDelivery) {
+  function bound(payload: PayloadIdentity, delivery: BlocketDelivery | undefined): delivery is BlocketDelivery {
+    return !!delivery && uuid.test(delivery.id) && Number.isSafeInteger(delivery.revision) && delivery.revision > 0
+      && boundIdentity(payload, delivery);
+  }
+  function identity(data: Record<string, unknown>, delivery: BlocketDeliveryIdentity) {
     return data.source_id === delivery.sourceId && data.dealer_code === delivery.dealerCode && (data.category_id === 1020 || data.category_id === '1020')
       && data.api_version === 'v5' && data.state === 'created' && (delivery.providerAdId === null || data.blocket_ad_id === delivery.providerAdId);
   }
@@ -66,7 +70,7 @@ export function createBlocketV5Provider(options: Options): AdvertisingProvider {
       return { request_id: row.request_id, action: row.action, state: String(row.state), created: row.created };
     });
   }
-  async function read(delivery: BlocketDelivery) {
+  async function read(delivery: BlocketDeliveryIdentity) {
     const response = await request(`/car/${encodeURIComponent(delivery.sourceId)}?include=log`, 'GET');
     if (!response.ok) throw Error('blocket_verification_unavailable');
     const data = await boundedJson(response);
@@ -92,50 +96,67 @@ export function createBlocketV5Provider(options: Options): AdvertisingProvider {
     if (exactNames.length !== 1) throw Error('blocket_taxonomy_selection_required');
     return exactNames[0].id;
   }
+  async function prepareBlocket(payload: AdvertisingPublicPayload, delivery: BlocketDeliveryIdentity): Promise<BlocketPreparation> {
+    if (!boundIdentity(payload, delivery) || delivery.operation === 'create' && delivery.providerAdId !== null) return { status: 'rejected', errorCode: 'blocket_delivery_required' };
+    if (!payload.registrationNumber || !/^[A-Z0-9]{6}$/.test(payload.registrationNumber)) return { status: 'rejected', errorCode: 'blocket_registration_required' };
+    if (!Number.isInteger(payload.year) || payload.year < 1900 || payload.year > 2100 || !Number.isSafeInteger(payload.mileageKm) || payload.mileageKm < 0
+      || typeof payload.description !== 'string' || payload.description.length > 10000 || !Array.isArray(payload.photos) || payload.photos.length < 1 || payload.photos.length > 20
+      || payload.photos.some(photo => !['image/jpeg','image/png'].includes(photo.contentType))) return { status: 'rejected', errorCode: 'blocket_payload_invalid' };
+    // Decimal SEK support remains unverified; never round the dealer's advertised price.
+    if (!/^[1-9]\d{0,14}$/.test(payload.priceGrossOre) || !payload.priceGrossOre.endsWith('00')) return { status: 'rejected', errorCode: 'blocket_decimal_price_unverified' };
+    const amount = Number(BigInt(payload.priceGrossOre) / BigInt(100));
+    if (!Number.isSafeInteger(amount)) return { status: 'rejected', errorCode: 'blocket_price_invalid' };
+    try {
+      // Group credentials can reach several dealers: verify the existing owner before PUT.
+      const baseline = delivery.operation === 'update' ? await read(delivery) : null;
+      const oldRequests = new Set(baseline?.log.map(row => row.request_id) ?? []);
+      if (typeof payload.make !== 'string' || !payload.make || typeof payload.model !== 'string' || !payload.model || typeof payload.fuel !== 'string'
+        || !['manual','automatic','sequential'].includes(payload.transmission) || ['hybrid','other'].includes(payload.fuel)) return { status: 'rejected', errorCode: 'blocket_taxonomy_selection_required' };
+      const brand = await taxonomy('/vehicles/car/brand', payload.make);
+      const [model, fuel] = await Promise.all([
+        taxonomy(`/vehicles/car/models?brand=${encodeURIComponent(brand)}`, payload.model),
+        taxonomy('/vehicles/car/fuel', ({ petrol: 'petrol', diesel: 'diesel', electric: 'electricity' } as Record<string,string>)[payload.fuel] ?? payload.fuel),
+      ]);
+      const body = { ...(delivery.operation === 'create' ? { source_id: delivery.sourceId, dealer_code: delivery.dealerCode } : {}),
+        body: payload.description, visible: true, dont_publish_on_failed_images: true,
+        price: [{ type: 'list', amount, currency: 'SEK' }], image_urls: payload.photos.map(photo => photo.url),
+        // Resolve exact IDs or unique exact labels against V5; never guess taxonomy slugs.
+        category_fields: { brand, model, model_year: payload.year, ...(delivery.operation === 'create' ? { registration_number: payload.registrationNumber } : {}),
+          powertrain: { fuel, transmission: payload.transmission }, condition: { mileage: { unit: 'km', value: payload.mileageKm } } } };
+      if (delivery.operation === 'create') {
+        const validation = await request('/car/validate', 'POST', body);
+        if (!validation.ok) return { status: validation.status === 400 || validation.status === 401 || validation.status === 403 ? 'rejected' : 'retryable', errorCode: 'blocket_validation_unavailable' };
+      }
+      let submitted = false;
+      return {
+        status: 'ready',
+        async send(intent) {
+          if (submitted || !bound(payload, intent) || intent.operation !== delivery.operation || intent.providerAdId !== delivery.providerAdId
+            || intent.status !== 'dispatching' || intent.providerRequestId !== null) return { status: 'outcome_unknown', errorCode: 'blocket_delivery_required' };
+          submitted = true;
+          try {
+            const response = await request(intent.operation === 'create' ? '/car' : `/car/${encodeURIComponent(intent.sourceId)}`, intent.operation === 'create' ? 'POST' : 'PUT', body);
+            if ([400,401,403].includes(response.status)) return { status: 'rejected', errorCode: `blocket_http_${response.status}` };
+            if (response.status !== (intent.operation === 'create' ? 201 : 200)) return { status: 'outcome_unknown', errorCode: 'blocket_submission_unknown' };
+            const data = await boundedJson(response);
+            if (!identity(data, intent)) return { status: 'outcome_unknown', errorCode: 'blocket_evidence_mismatch' };
+            const candidates = new Set(logs(data).filter(row => row.action === intent.operation && !oldRequests.has(row.request_id)).map(row => row.request_id));
+            // No guessed response header or client-chosen idempotency key: only the documented body log.
+            if (candidates.size !== 1) return { status: 'outcome_unknown', errorCode: 'blocket_request_correlation_missing' };
+            return { status: 'submitted', providerRequestId: [...candidates][0], ...(remoteId(data.blocket_ad_id) ? { providerAdId: data.blocket_ad_id } : {}) };
+          } catch { return { status: 'outcome_unknown', errorCode: 'blocket_submission_unknown' }; }
+        },
+      };
+    } catch (error) { return error instanceof Error && error.message === 'blocket_taxonomy_selection_required'
+      ? { status: 'rejected', errorCode: 'blocket_taxonomy_selection_required' } : { status: 'retryable', errorCode: 'blocket_preparation_unavailable' }; }
+  }
   return {
     channel: 'blocket', deliveryProtocol: 'blocket-v5', dispatcherId: options.dispatcherId, verifiedBinding: { ...options.verifiedBinding },
+    prepareBlocket,
     async submit(payload, delivery): Promise<BlocketProviderOutcome> {
       if (!bound(payload, delivery) || delivery.status !== 'dispatching' || delivery.providerRequestId !== null) return { status: 'outcome_unknown', errorCode: 'blocket_delivery_required' };
-      if (!payload.registrationNumber || !/^[A-Z0-9]{6}$/.test(payload.registrationNumber)) return { status: 'rejected', errorCode: 'blocket_registration_required' };
-      if (!Number.isInteger(payload.year) || payload.year < 1900 || payload.year > 2100 || !Number.isSafeInteger(payload.mileageKm) || payload.mileageKm < 0
-        || typeof payload.description !== 'string' || payload.description.length > 10000 || !Array.isArray(payload.photos) || payload.photos.length < 1 || payload.photos.length > 20
-        || payload.photos.some(photo => !['image/jpeg','image/png'].includes(photo.contentType))) return { status: 'rejected', errorCode: 'blocket_payload_invalid' };
-      // Decimal SEK support remains unverified; never round the dealer's advertised price.
-      if (!/^[1-9]\d{0,14}$/.test(payload.priceGrossOre) || !payload.priceGrossOre.endsWith('00')) return { status: 'rejected', errorCode: 'blocket_decimal_price_unverified' };
-      const amount = Number(BigInt(payload.priceGrossOre) / BigInt(100));
-      if (!Number.isSafeInteger(amount)) return { status: 'rejected', errorCode: 'blocket_price_invalid' };
-      try {
-        // Group credentials can reach several dealers: verify the existing owner before PUT.
-        const baseline = delivery.operation === 'update' ? await read(delivery) : null;
-        const oldRequests = new Set(baseline?.log.map(row => row.request_id) ?? []);
-        if (typeof payload.make !== 'string' || !payload.make || typeof payload.model !== 'string' || !payload.model || typeof payload.fuel !== 'string'
-          || !['manual','automatic','sequential'].includes(payload.transmission) || ['hybrid','other'].includes(payload.fuel)) return { status: 'rejected', errorCode: 'blocket_taxonomy_selection_required' };
-        const brand = await taxonomy('/vehicles/car/brand', payload.make);
-        const [model, fuel] = await Promise.all([
-          taxonomy(`/vehicles/car/models?brand=${encodeURIComponent(brand)}`, payload.model),
-          taxonomy('/vehicles/car/fuel', ({ petrol: 'petrol', diesel: 'diesel', electric: 'electricity' } as Record<string,string>)[payload.fuel] ?? payload.fuel),
-        ]);
-        const body = { ...(delivery.operation === 'create' ? { source_id: delivery.sourceId, dealer_code: delivery.dealerCode } : {}),
-          body: payload.description, visible: true, dont_publish_on_failed_images: true,
-          price: [{ type: 'list', amount, currency: 'SEK' }], image_urls: payload.photos.map(photo => photo.url),
-          // Resolve exact IDs or unique exact labels against V5; never guess taxonomy slugs.
-          category_fields: { brand, model, model_year: payload.year, ...(delivery.operation === 'create' ? { registration_number: payload.registrationNumber } : {}),
-            powertrain: { fuel, transmission: payload.transmission }, condition: { mileage: { unit: 'km', value: payload.mileageKm } } } };
-        if (delivery.operation === 'create') {
-          const validation = await request('/car/validate', 'POST', body);
-          if (!validation.ok) return { status: validation.status === 400 || validation.status === 401 || validation.status === 403 ? 'rejected' : 'outcome_unknown', errorCode: 'blocket_validation_unavailable' };
-        }
-        const response = await request(delivery.operation === 'create' ? '/car' : `/car/${encodeURIComponent(delivery.sourceId)}`, delivery.operation === 'create' ? 'POST' : 'PUT', body);
-        if ([400,401,403].includes(response.status)) return { status: 'rejected', errorCode: `blocket_http_${response.status}` };
-        if (response.status !== (delivery.operation === 'create' ? 201 : 200)) return { status: 'outcome_unknown', errorCode: 'blocket_submission_unknown' };
-        const data = await boundedJson(response);
-        if (!identity(data, delivery)) return { status: 'outcome_unknown', errorCode: 'blocket_evidence_mismatch' };
-        const candidates = new Set(logs(data).filter(row => row.action === delivery.operation && !oldRequests.has(row.request_id)).map(row => row.request_id));
-        // No guessed response header or client-chosen idempotency key: only the documented body log.
-        if (candidates.size !== 1) return { status: 'outcome_unknown', errorCode: 'blocket_request_correlation_missing' };
-        return { status: 'submitted', providerRequestId: [...candidates][0], ...(remoteId(data.blocket_ad_id) ? { providerAdId: data.blocket_ad_id } : {}) };
-      } catch (error) { return error instanceof Error && error.message === 'blocket_taxonomy_selection_required'
-        ? { status: 'rejected', errorCode: 'blocket_taxonomy_selection_required' } : { status: 'outcome_unknown', errorCode: 'blocket_submission_unknown' }; }
+      const preparation = await prepareBlocket(payload, delivery);
+      return preparation.status === 'ready' ? preparation.send(delivery) : preparation;
     },
     async reconcile(payload, delivery): Promise<BlocketProviderOutcome> {
       if (!bound(payload, delivery)) return { status: 'outcome_unknown', errorCode: 'blocket_delivery_required' };

@@ -15,3 +15,5 @@ export const DirectDealForm=()=>null,UploadedPdfSigning=()=>null;
 
 // Independent workspace workflows; the real trade-in purchase component remains under test.
 export const PaperSaleForm=()=>null,DealArchiveControl=()=>null,PdfTemplateWorkspace=()=>null;
+
+export const FinanceHistory=()=>null;

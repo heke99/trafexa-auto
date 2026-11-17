@@ -139,18 +139,21 @@ export async function getMyInvitationsAction(value: unknown = {}): Promise<TeamR
   try {
     const row = input(value, ['pageKey', 'limit']);
     const pageKey = cursor(row.pageKey), count = limit(row.limit);
-    const { db } = await requireInvitationContext();
+    const { db, userId } = await requireInvitationContext();
     const result = await db.rpc('list_my_company_invitations', { p_page_key: pageKey, p_limit: count });
     rpcError(result.error);
+    const current=await requireInvitationContext();
+    if(current.userId!==userId)throw new TeamActionError('access_denied');
     return output(() => {
       const page = object(result.data);
+      if(uuid(page.actorUserId)!==userId)throw new TeamActionError('access_denied');
       const invitations = pageItems<MyCompanyInvitation>(page.invitations, count, pageKey, value => {
         const item = object(value);
         const createdAt = timestamp(item.createdAt), expiresAt = timestamp(item.expiresAt);
         if (item.status !== 'pending' || Date.parse(expiresAt) <= Date.parse(createdAt)) throw new Error();
         return { id: uuid(item.id), companyId: uuid(item.companyId), companyName: text(item.companyName, 300), role: inviteRole(item.role), status: 'pending', version: version(item.version), createdAt, expiresAt };
       });
-      return { ok: true, invitations, nextPageKey: nextCursor(page.nextPageKey, invitations) };
+      return { ok: true, actorUserId:userId, invitations, nextPageKey: nextCursor(page.nextPageKey, invitations) };
     });
   } catch (error) { return failure(error); }
 }
@@ -178,8 +181,10 @@ export async function acceptCompanyInvitationAction(value: unknown): Promise<Tea
       if (member.id !== receipt.membershipId || member.user_id !== userId || member.company_id !== receipt.companyId || member.status !== 'active' || company.id !== receipt.companyId || company.status !== 'active') throw new Error();
       return { companyId: receipt.companyId, role: role(member.role) };
     });
+    const fresh=await requireInvitationContext();
+    if(fresh.userId!==userId)throw new TeamActionError('access_denied');
     const store = await cookies();
     store.set('trafexa-company', active.companyId, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/' });
-    revalidateTeam(); return { ok: true, ...active };
+    revalidateTeam(); return { ok: true, actorUserId:userId, ...active };
   } catch (error) { return failure(error); }
 }

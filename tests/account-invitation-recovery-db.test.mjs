@@ -5,7 +5,16 @@ import{createDatabase,asRole}from'./crm-db/helpers.mjs';
 import{createSourceLoader}from'./helpers/source-loader.mjs';
 const id=n=>`fd330000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const admin=id(1),app=id(2),user=id(3),nonce=id(4),email='recovery-fd330000@fixture.invalid';
-const environment={TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED:'true',NEXT_PUBLIC_SUPABASE_URL:'https://buqdtssxrotkzndublrt.supabase.co',RESEND_API_KEY:'synthetic-provider-key',SUPABASE_SECRET_KEY:'synthetic-database-secret'};
+const invitationKeyId='test-recovery';
+const environment={
+ TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED:'true',
+ NEXT_PUBLIC_SUPABASE_URL:'https://synthetic-trafexa.supabase.co',
+ RESEND_API_KEY:'synthetic-provider-key',
+ SUPABASE_SECRET_KEY:'synthetic-database-secret',
+ ACCOUNT_INVITATION_ACTIVE_KEY_ID:invitationKeyId,
+ ACCOUNT_INVITATION_ENCRYPTION_KEYS:JSON.stringify({[invitationKeyId]:Buffer.alloc(32,13).toString('base64url')}),
+ ACCOUNT_INVITATION_LEGACY_SECRETS:'[]',
+};
 async function setup(){
  const previous=Object.fromEntries(Object.keys(environment).map(k=>[k,process.env[k]]));Object.assign(process.env,environment);
  const db=await createDatabase({approveEstablishedFixtures:false});

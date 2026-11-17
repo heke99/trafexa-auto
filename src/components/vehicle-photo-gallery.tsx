@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { archiveVehiclePhotoAction, listVehiclePhotosAction } from '@/lib/vehicle-photos/actions';
-import { MAX_PHOTO_BYTES, type VehiclePhoto } from '@/lib/vehicle-photos/types';
+import { MAX_PHOTO_UPLOAD_BYTES, type VehiclePhoto } from '@/lib/vehicle-photos/types';
 
 type Props={companyId:string;stockId:string;userId?:string;canEdit?:boolean;demo?:boolean;onPhotosChange?:(photos:VehiclePhoto[])=>void;onBusyChange?:(busy:boolean)=>void;onAccessDenied?:(message:string)=>void};
 export function VehiclePhotoGallery(props:Props){return <PhotoPanel key={`${props.companyId}:${props.stockId}:${props.userId}:${!!props.canEdit}:${!!props.demo}`} {...props}/>;}
@@ -51,7 +51,7 @@ function PhotoPanel({ companyId, stockId, canEdit = false, demo = false, onPhoto
   function upload() {
     if ((!file&&!uploadIntent.current) || !canEdit || demo || denied || pending || locked.current || uncertain.current==='archive') return;
     const selectedFile=uncertain.current==='upload'?uploadIntent.current?.file:file;if(!selectedFile)return;
-    if (selectedFile.size < 1 || selectedFile.size > MAX_PHOTO_BYTES || !['image/jpeg', 'image/png', 'image/webp'].includes(selectedFile.type)) { setError('Välj en JPEG-, PNG- eller WebP-bild på högst 10 MiB.'); return; }
+    if (selectedFile.size < 1 || selectedFile.size > MAX_PHOTO_UPLOAD_BYTES || !['image/jpeg', 'image/png', 'image/webp'].includes(selectedFile.type)) { setError('Välj en JPEG-, PNG- eller WebP-bild på högst 4 MiB.'); return; }
     if (uploadIntent.current?.file !== selectedFile) uploadIntent.current = { file:selectedFile, photoId: crypto.randomUUID(), requestId: crypto.randomUUID() };
     const intent = uploadIntent.current, requestGeneration = ++generation.current;
     locked.current=true;report(true);setError(null); setMessage(null);
@@ -59,6 +59,13 @@ function PhotoPanel({ companyId, stockId, canEdit = false, demo = false, onPhoto
       try {
         const form = new FormData(); form.set('companyId', companyId); form.set('stockId', stockId); form.set('photoId', intent.photoId); form.set('requestId', intent.requestId); form.set('file', intent.file);
         const response = await fetch('/api/vehicle-photos', { method: 'POST', body: form, credentials: 'same-origin' });
+        if (!alive.current || generation.current !== requestGeneration) return;
+        if (response.status === 413 || response.status === 408) {
+          markUnknown(null);
+          uploadIntent.current = null;
+          failed({ code: 'invalid_input', message: response.status === 413 ? 'Bilden är för stor att ladda upp. Välj en bild på högst 4 MiB.' : 'Det tog för lång tid att ta emot bilden. Försök igen.' });
+          return;
+        }
         const result = await response.json();
         if (!alive.current||generation.current !== requestGeneration) return;
         if (!response.ok || result.ok !== true) { markUnknown(['invalid_input','conflict','access_denied'].includes(result.code)?null:'upload');if(!uncertain.current)uploadIntent.current=null;failed({ code: result.code, message: typeof result.message === 'string' ? result.message : 'Bilden kunde inte sparas. Försök igen med samma fil.' }); return; }
@@ -89,9 +96,9 @@ function PhotoPanel({ companyId, stockId, canEdit = false, demo = false, onPhoto
   }
   return <section className="surface" style={{ marginBlock: 24 }} aria-label="Bilens annonsbilder">
     <div className="panel-heading"><h2>Annonsbilder</h2>{!demo && <button type="button" className="text-link" disabled={pending || denied || unknown!==null} onClick={load}>Läs in bilder</button>}</div>
-    <p className="settings-note">Bilderna är privata i företaget. JPEG, PNG och WebP, högst 10 MiB per bild och 20 bilder per bil. Bildmetadata tas bort vid uppladdning.</p>
+    <p className="settings-note">Bilderna är privata i företaget. Du kan ladda upp JPEG, PNG och WebP på högst 4 MiB per bild och ha 20 bilder per bil. Bildmetadata tas bort vid uppladdning.</p>
     {demo && <p className="quiet-empty">Bildhantering visas i företagets inloggade arbetsyta.</p>}
-    {error && <p className="form-error" role="alert">{error}</p>}{message && <p className="notice" role="status">{message}</p>}{pending && <p role="status">Verifierar bilder…</p>}
+    {error && <p className="form-error" role="alert">{error}</p>}{message && <p className="notice" role="status">{message}</p>}{pending && !message && <p role="status">Verifierar bilder…</p>}
     {!demo && !denied && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,180px),1fr))', gap: 16, padding: 20 }}>{photos.map(photo => <figure key={photo.id} style={{ margin: 0 }}><img src={`/api/vehicle-photos/${photo.id}`} alt="Fordonsbild i företagets privata arkiv" width={280} height={180} style={{ width: '100%', height: 180, objectFit: 'contain' }}/><figcaption>{photo.contentType === 'image/jpeg' ? 'JPEG' : photo.contentType === 'image/png' ? 'PNG' : 'WebP'} · {Math.ceil(photo.sizeBytes / 1024)} KiB{canEdit && <button type="button" className="text-link" disabled={pending||unknown!==null} onClick={() => { setReview(photo); setError(null); }}>Ta bort bild</button>}</figcaption></figure>)}</div>}
     {!demo && !denied && !pending && !unknown && !photos.length && <p className="quiet-empty">Inga annonsbilder har sparats på bilen.</p>}
     {!demo && !denied && canEdit && <form className="workspace-form" style={{ padding: 20 }} onSubmit={event => { event.preventDefault(); upload(); }}><label>Välj fordonsbild<input ref={input} type="file" accept="image/jpeg,image/png,image/webp" disabled={pending || unknown!==null || photos.length >= 20} onChange={event => { if(locked.current||uncertain.current)return;setFile(event.target.files?.[0] ?? null); uploadIntent.current = null; setError(null); }}/></label><button type="submit" className="button button-green" disabled={pending || unknown==='archive' || !file || (unknown!=='upload'&&photos.length >= 20)}>{unknown==='upload'?'Kontrollera samma bilduppladdning':'Spara bild privat'}</button></form>}

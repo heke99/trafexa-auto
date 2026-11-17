@@ -9,7 +9,8 @@ async function onboarding({data=snapshot({size:0}),admin=null,access={emailVerif
  const loader=await createSourceLoader({
   'next/link':({children,...props})=>createElement('a',props,children),
   'next/navigation':{redirect:path=>{throw Error(`redirect:${path}`);}},
-  '@/lib/data/workspace':{getWorkspaceSnapshot:async()=>data},
+  '@/lib/data/company-context':{getCompanySession:async()=>data},
+  '@/lib/data/workspace':{getWorkspaceSnapshot:async()=>assert.fail('Onboarding must not read business modules')},
   '@/lib/platform-admin/context':{getPlatformAdminContext:async()=>admin},
   '@/lib/account-access/context':{getAccountAccessContext:async()=>access},
   '@/lib/data/actions':{signOutAction:()=>{}},

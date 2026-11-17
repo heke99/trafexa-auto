@@ -5,7 +5,7 @@ import {assertContractPdfName,ContractPdfValidationError} from '@/lib/documents/
 import {uploadedPdfId,uploadedPdfSource} from './validation';
 import {pdfRpc,uploadedPdfService,freshUploadedPdfDealer,originalPdf,requireUploadedPdfGuest,dispatchUploadedPdf,archiveUploadedPdf,pdfEmailConfigured} from './server';
 import {renderUploadedPdfArtifacts} from './pdf';
-import {UPLOADED_PDF_CONSENT,type UploadedPdfResult,type UploadedPdfPage,type UploadedPdfSource} from './types';
+import {UPLOADED_PDF_CONSENT,canRetryUploadedPdfMail,uploadedPdfLinkStatus,type UploadedPdfResult,type UploadedPdfPage,type UploadedPdfSource} from './types';
 const uuid=z.string().uuid(),hash=z.string().regex(/^[a-f0-9]{64}$/);
 function failure(e:unknown):UploadedPdfResult<never>{if(e instanceof ContractPdfValidationError)return{ok:false,code:'invalid_input',message:e.message};const code=e&&typeof e==='object'&&'code'in e?String(e.code):'';const c=['42501','access_denied','unauthenticated'].includes(code)?'access_denied':code==='40001'||code==='conflict'?'conflict':code==='22023'||code==='invalid_input'||e instanceof z.ZodError?'invalid_input':'unavailable';return{ok:false,code:c,message:c==='access_denied'?'Din behörighet till dokumentet kunde inte verifieras.':c==='conflict'?'Dokumentet har ändrats. Uppdatera underlaget.':c==='invalid_input'?'Kontrollera namn och bekräfta att du har granskat PDF-originalet.':'Resultatet kunde inte bekräftas. Uppdatera för att kontrollera det sparade dokumentet.'};}
 export async function listUploadedPdfAction(value:{companyId:string;dealId:string}):Promise<UploadedPdfResult<{page:UploadedPdfPage;transportConfigured:boolean}>>{try{const v=z.object({companyId:uuid,dealId:uuid}).strict().parse(value),c=await requireDealerSigningContext(v.companyId),r=await pdfRpc(c.db as never,'list_uploaded_pdf_signings',{p_company_id:v.companyId,p_deal_id:v.dealId}) as Record<string,unknown>;
@@ -18,7 +18,32 @@ export async function signUploadedPdfGuestAction(value:{sourceId:string;document
 export async function refreshUploadedPdfGuestAction(sourceId:string):Promise<UploadedPdfResult<{source:UploadedPdfSource}>>{try{const c=await requireUploadedPdfGuest(uploadedPdfId(sourceId));let source=c.source;if(source.status==='completed')try{source=await archiveUploadedPdf(c.db,source,()=>requireUploadedPdfGuest(sourceId));}catch{}await requireUploadedPdfGuest(sourceId);return{ok:true,source};}catch(e){return failure(e);}}
 export async function cancelUploadedPdfAction(value:{companyId:string;sourceId:string;reason:string}):Promise<UploadedPdfResult<{cancelled:true}>>{try{const v=z.object({companyId:uuid,sourceId:uuid,reason:z.string().trim().min(2).max(1000)}).strict().parse(value),c=await requireDealerSigningContext(v.companyId,true);if(await pdfRpc(c.db as never,'cancel_uploaded_pdf',{p_company_id:v.companyId,p_source_id:v.sourceId,p_reason:v.reason})!==true)throw Error('Cancellation not verified');await freshUploadedPdfDealer(c,true);return{ok:true,cancelled:true};}catch(e){return failure(e);}}
 /** Explicit retry of a known non-acceptance, never a status-read side effect. */
-export async function retryUploadedPdfMailAction(value:{companyId:string;sourceId:string;documentHash:string;kind:'invitation'|'completed';acknowledged:boolean}):Promise<UploadedPdfResult<{source:UploadedPdfSource;delivery:string}>>{try{const v=z.object({companyId:uuid,sourceId:uuid,documentHash:hash,kind:z.enum(['invitation','completed']),acknowledged:z.literal(true)}).strict().parse(value),c=await requireDealerSigningContext(v.companyId,true),db=uploadedPdfService();const before=await pdfRpc(c.db as never,'get_uploaded_pdf_source',{p_company_id:v.companyId,p_source_id:v.sourceId}) as Record<string,unknown>;if(before.actorId!==c.userId)throw Error('Actor changed');let source=uploadedPdfSource(before.source,{id:v.sourceId,companyId:v.companyId});if(source.documentHash!==v.documentHash||source.linkRevoked||v.kind==='invitation'&&(source.status!=='pending'||source.delivery!=='queued')||v.kind==='completed'&&(source.status!=='completed'||source.delivery!==null&&source.delivery!=='queued'))throw Object.assign(Error('Delivery changed'),{code:'40001'});if(v.kind==='completed')source=await archiveUploadedPdf(db,source,()=>freshUploadedPdfDealer(c,true));await freshUploadedPdfDealer(c,true);const delivery=await dispatchUploadedPdf(db,source.id,v.kind);await freshUploadedPdfDealer(c,true);const after=await pdfRpc(c.db as never,'get_uploaded_pdf_source',{p_company_id:v.companyId,p_source_id:v.sourceId}) as Record<string,unknown>;if(after.actorId!==c.userId)throw Error('Actor changed');source=uploadedPdfSource(after.source,{id:v.sourceId,companyId:v.companyId});await freshUploadedPdfDealer(c,true);return{ok:true,source,delivery};}catch(e){return failure(e);}}
+export async function retryUploadedPdfMailAction(value:{companyId:string;sourceId:string;documentHash:string;kind:'invitation'|'completed';acknowledged:boolean}):Promise<UploadedPdfResult<{source:UploadedPdfSource;delivery:string}>>{
+ try {
+  const v=z.object({companyId:uuid,sourceId:uuid,documentHash:hash,kind:z.enum(['invitation','completed']),acknowledged:z.literal(true)}).strict().parse(value);
+  const context=await requireDealerSigningContext(v.companyId,true);
+  const readSource=async()=>{
+   const result=await pdfRpc(context.db as never,'get_uploaded_pdf_source',{p_company_id:v.companyId,p_source_id:v.sourceId}) as Record<string,unknown>;
+   if(result.actorId!==context.userId)throw Error('Actor changed');
+   return uploadedPdfSource(result.source,{id:v.sourceId,companyId:v.companyId});
+  };
+  let source=await readSource();
+  if(source.documentHash!==v.documentHash)throw Object.assign(Error('Delivery changed'),{code:'40001'});
+  if(uploadedPdfLinkStatus(source)==='expired')return {ok:false,code:'conflict',message:'Kundlänken har gått ut.'};
+  if(!canRetryUploadedPdfMail(source,v.kind))throw Object.assign(Error('Delivery changed'),{code:'40001'});
+
+  const service=uploadedPdfService();
+  if(v.kind==='completed')source=await archiveUploadedPdf(service,source,()=>freshUploadedPdfDealer(context,true));
+  await freshUploadedPdfDealer(context,true);
+  if(uploadedPdfLinkStatus(source)==='expired')return {ok:false,code:'conflict',message:'Kundlänken har gått ut.'};
+  const delivery=await dispatchUploadedPdf(service,source.id,v.kind);
+  await freshUploadedPdfDealer(context,true);
+  source=await readSource();
+  await freshUploadedPdfDealer(context,true);
+  return {ok:true,source,delivery};
+ } catch(error) {return failure(error);}
+}
+
 
 /** Finish derived artifacts for existing signatures; this read repair never sends mail. */
 export async function prepareUploadedPdfArchiveAction(value:{companyId:string;sourceId:string}):Promise<UploadedPdfResult<{source:UploadedPdfSource}>>{try{const v=z.object({companyId:uuid,sourceId:uuid}).strict().parse(value),c=await requireDealerSigningContext(v.companyId),r=await pdfRpc(c.db as never,'get_uploaded_pdf_source',{p_company_id:v.companyId,p_source_id:v.sourceId})as Record<string,unknown>;if(r.actorId!==c.userId)throw Object.assign(Error('Actor changed'),{code:'access_denied'});const before=uploadedPdfSource(r.source,{id:v.sourceId,companyId:v.companyId});await freshUploadedPdfDealer(c);const source=await archiveUploadedPdf(uploadedPdfService(),before,()=>freshUploadedPdfDealer(c));await freshUploadedPdfDealer(c);return{ok:true,source};}catch(e){return failure(e);}}

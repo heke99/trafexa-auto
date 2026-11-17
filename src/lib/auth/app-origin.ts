@@ -14,7 +14,7 @@ function origin(value: string | undefined): string | null {
 
 /** Production emails and callbacks must never inherit a development/Host URL. */
 export function getAuthAppOrigin(requestOrigin?: string): string {
-  if (process.env.VERCEL_ENV === 'production' || (!process.env.VERCEL_ENV && process.env.NODE_ENV === 'production')) return productionOrigin;
-  if (process.env.NEXT_PUBLIC_APP_URL) return origin(process.env.NEXT_PUBLIC_APP_URL) ?? productionOrigin;
-  return origin(requestOrigin) ?? productionOrigin;
+  if (process.env.VERCEL_ENV === 'production' || process.env.NEXT_PUBLIC_TRAFEXA_DEPLOYMENT_TARGET === 'production') return productionOrigin;
+  if (process.env.NEXT_PUBLIC_APP_URL) return origin(process.env.NEXT_PUBLIC_APP_URL) ?? 'http://localhost:3000';
+  return origin(requestOrigin) ?? 'http://localhost:3000';
 }

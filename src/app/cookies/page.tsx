@@ -1,3 +1,4 @@
+import {publicSiteUrl} from '@/lib/public-site-origin';
 import type { Metadata } from 'next';
 import { COOKIE_POLICY_VERSION, COOKIE_POLICY_UPDATED_LABEL } from '@/lib/privacy/cookies';
 import { Brand } from '@/components/brand';
@@ -5,7 +6,7 @@ import { PublicFooter } from '@/components/public-site';
 import { CookieSettingsButton } from '@/components/cookie-consent';
 export const metadata: Metadata = { title: 'Cookiepolicy' };
 export default function CookiesPage() {
-  return <><header className="public-header wrap"><Brand/></header><main className="legal-content wrap"><a className="text-link" href="/">← Till startsidan</a><p className="eyebrow">Uppdaterad {COOKIE_POLICY_UPDATED_LABEL} · Version {COOKIE_POLICY_VERSION}</p><h1>Cookiepolicy.</h1>
+  return <><header className="public-header wrap"><Brand/></header><main className="legal-content wrap"><a className="text-link" href={publicSiteUrl()}>← Till startsidan</a><p className="eyebrow">Uppdaterad {COOKIE_POLICY_UPDATED_LABEL} · Version {COOKIE_POLICY_VERSION}</p><h1>Cookiepolicy.</h1>
     <p>Cookies är små uppgifter som sparas i din webbläsare. Trafexa använder endast nödvändiga cookies. Vi använder inga analysverktyg, annonspixlar eller cookies för marknadsföring på webbplatsen.</p>
     <h2>Cookies som används</h2><div className="cookie-table-scroll"><table className="cookie-table"><thead><tr><th scope="col">Namn</th><th scope="col">Ändamål</th><th scope="col">Lagring</th></tr></thead><tbody>
       <tr><td>sb-…-auth-token (kan delas i flera delar)</td><td>Supabase-inloggning: håller din session aktiv och förnyar den. Används när du loggar in eller använder kontofunktioner.</td><td>Förnyas under aktiv session. Upp till 400 dagar enligt autentiseringsbibliotekets cookieinställning; avslutas eller uppdateras när du loggar ut.</td></tr>

@@ -28,7 +28,7 @@ async function fixture(options = {}) {
   const actorMembership = options.actorMembership === undefined ? { company_id: COMPANY, user_id: USER, role: actorRole, status: 'active', companies: { id: COMPANY, status: 'active' } } : options.actorMembership;
   const acceptedMembership = options.acceptedMembership === undefined ? { id: MEMBERSHIP, company_id: COMPANY, user_id: USER, role: 'sales', status: 'active', companies: { id: COMPANY, status: 'active' } } : options.acceptedMembership;
   const db = {
-    auth: { async getUser() { calls.push(['auth']); return { data: { user: options.user === undefined ? user : options.user }, error: options.authError ?? null }; } },
+    auth: { async getUser() { calls.push(['auth']); return { data: { user: options.userAfter&&calls.filter(c=>c[0]==='auth').length>1?options.userAfter:options.user === undefined ? user : options.user }, error: options.authError ?? null }; } },
     from(table) {
       const query = { table, select: null, filters: [] }; queries.push(query); calls.push(['from', table]);
       const builder = {
@@ -47,7 +47,7 @@ async function fixture(options = {}) {
       if (name === 'create_company_invitation') return { data: options.createReceipt ?? { companyId: COMPANY, teamVersion: 2, invitation: invite, actorUserId: USER, requestId: REQUEST }, error: options.rpcError ?? null };
       if (name === 'revoke_company_invitation') return { data: options.cancelReceipt ?? { companyId: COMPANY, teamVersion: 3, invitation: { ...invite, status: 'revoked', version: 2 }, actorUserId: USER, requestId: REQUEST }, error: options.rpcError ?? null };
       if (name === 'update_company_team_member') return { data: options.updateReceipt ?? { companyId: COMPANY, teamVersion: 3, member: { ...targetMember, role: 'finance', status: 'suspended', version: 2 }, actorUserId: USER, requestId: REQUEST }, error: options.rpcError ?? null };
-      if (name === 'list_my_company_invitations') return { data: options.myPage ?? { invitations: [{ id: INVITATION, companyId: COMPANY, companyName: 'Dealer AB', role: 'sales', status: 'pending', version: 1, expiresAt: EXPIRES, createdAt: NOW }], nextPageKey: null }, error: options.rpcError ?? null };
+      if (name === 'list_my_company_invitations') return { data: options.myPage ?? { actorUserId:USER, invitations: [{ id: INVITATION, companyId: COMPANY, companyName: 'Dealer AB', role: 'sales', status: 'pending', version: 1, expiresAt: EXPIRES, createdAt: NOW }], nextPageKey: null }, error: options.rpcError ?? null };
       if (name === 'accept_company_invitation') return { data: options.acceptReceipt ?? acceptanceReceipt, error: options.rpcError ?? null };
       throw new Error('Unexpected RPC');
     },
@@ -182,26 +182,26 @@ test('recipient list is read-only, bounded and independent of every company/deal
   const { actions, calls, cookieWrites } = await fixture({ noCompany: true, actorRole: 'viewer' });
   const result = await actions.getMyInvitationsAction({ limit: 50 });
   assert.equal(result.ok, true); assert.equal(result.invitations[0].companyName, 'Dealer AB');
-  assert.deepEqual(calls.map(call => call[0]), ['auth', 'list_my_company_invitations']);
+  assert.deepEqual(calls.map(call => call[0]), ['auth', 'list_my_company_invitations','auth']);
   assert.deepEqual(cookieWrites, []);
   assert.equal('email' in result.invitations[0], false);
 });
 
 test('personal invitation list forwards UUID cursor and excludes unapproved statuses/provider secrets', async () => {
   const myInvite = { id: NEXT_INVITATION, companyId: COMPANY, companyName: 'Dealer AB', role: 'sales', status: 'pending', version: 1, expiresAt: EXPIRES, createdAt: NOW, private_sender_uid: 'secret' };
-  const { actions, calls } = await fixture({ myPage: { invitations: [myInvite], nextPageKey: NEXT_INVITATION } });
+  const { actions, calls } = await fixture({ myPage: { actorUserId:USER,invitations: [myInvite], nextPageKey: NEXT_INVITATION } });
   const result = await actions.getMyInvitationsAction({ pageKey: INVITATION, limit: 1 });
   assert.equal(result.ok, true); assert.equal(JSON.stringify(result).includes('secret'), false);
-  assert.deepEqual(calls.at(-1)[1], { p_page_key: INVITATION, p_limit: 1 });
-  const wrong = await fixture({ myPage: { invitations: [{ ...myInvite, status: 'accepted' }], nextPageKey: null } });
+  assert.deepEqual(calls.find(c=>c[0]==='list_my_company_invitations')[1], { p_page_key: INVITATION, p_limit: 1 });
+  const wrong = await fixture({ myPage: { actorUserId:USER,invitations: [{ ...myInvite, status: 'accepted' }], nextPageKey: null } });
   assert.equal((await wrong.actions.getMyInvitationsAction()).code, 'unavailable');
 });
 
 test('accept derives actor in SQL, validates receipt and sets company cookie only after fresh active membership/company proof', async () => {
   const { actions, calls, queries, cookieWrites } = await fixture({ noCompany: true });
   const result = await actions.acceptCompanyInvitationAction(acceptInput);
-  assert.deepEqual(result, { ok: true, companyId: COMPANY, role: 'sales' });
-  assert.deepEqual(calls.map(call => call[0]), ['auth', 'accept_company_invitation', 'from']);
+  assert.deepEqual(result, { ok: true, actorUserId:USER,companyId: COMPANY, role: 'sales' });
+  assert.deepEqual(calls.map(call => call[0]), ['auth', 'accept_company_invitation', 'from','auth']);
   assert.deepEqual(calls[1][1], { p_invitation_id: INVITATION, p_expected_version: 1, p_request_id: REQUEST });
   assert.deepEqual(queries[0].filters, [['id', MEMBERSHIP], ['user_id', USER], ['company_id', COMPANY], ['status', 'active'], ['companies.status', 'active']]);
   assert.equal(cookieWrites.length, 1); assert.equal(cookieWrites[0][0], 'trafexa-company'); assert.equal(cookieWrites[0][1], COMPANY);
@@ -211,7 +211,7 @@ test('accept derives actor in SQL, validates receipt and sets company cookie onl
 test('historical accept retry honors current changed role and refuses later suspended/deleted membership without cookie writes', async () => {
   const active = { id: MEMBERSHIP, company_id: COMPANY, user_id: USER, role: 'finance', status: 'active', companies: { id: COMPANY, status: 'active' } };
   const current = await fixture({ acceptedMembership: active });
-  assert.deepEqual(await current.actions.acceptCompanyInvitationAction(acceptInput), { ok: true, companyId: COMPANY, role: 'finance' });
+  assert.deepEqual(await current.actions.acceptCompanyInvitationAction(acceptInput), { ok: true, actorUserId:USER,companyId: COMPANY, role: 'finance' });
   for (const acceptedMembership of [null, { ...active, status: 'suspended' }, { ...active, companies: { id: COMPANY, status: 'suspended' } }, { ...active, user_id: OTHER_USER }, { ...active, company_id: FOREIGN }]) {
     const { actions, cookieWrites } = await fixture({ acceptedMembership });
     assert.equal((await actions.acceptCompanyInvitationAction(acceptInput)).ok, false);
@@ -240,4 +240,11 @@ test('fresh current-access lookup failure after committed acceptance is a saniti
   const { actions, cookieWrites } = await fixture({ acceptedLookupError: { code: 'XX000', message: 'secret backend token' } });
   assert.equal((await actions.acceptCompanyInvitationAction(acceptInput)).code, 'unavailable');
   assert.deepEqual(cookieWrites, []);
+});
+
+test('invitation responses and cookie selection remain bound to the original fresh actor after session switches',async()=>{
+ for(const method of ['getMyInvitationsAction','acceptCompanyInvitationAction']){
+  const h=await fixture({userAfter:{...user,id:OTHER_USER,email:'other@example.com'}});const result=await h.actions[method](method==='getMyInvitationsAction'?{}:acceptInput);assert.equal(result.code,'access_denied');assert.deepEqual(h.cookieWrites,[]);
+ }
+ const foreign=await fixture({myPage:{actorUserId:OTHER_USER,invitations:[],nextPageKey:null}});assert.equal((await foreign.actions.getMyInvitationsAction({})).ok,false);assert.deepEqual(foreign.cookieWrites,[]);
 });

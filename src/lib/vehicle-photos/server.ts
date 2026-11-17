@@ -1,3 +1,4 @@
+import { throwIfAuthUnavailable, isAuthUnavailable, authAvailabilityRead } from '@/lib/auth/availability';
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getActiveCompanyContext } from '@/lib/data/company-context';
@@ -14,7 +15,7 @@ export async function requirePhotoContext(expectedCompany?: string, write = fals
   try {
     const current = await getActiveCompanyContext();
     const db = current.db as unknown as SupabaseClient<PhotoDatabase>;
-    const { data, error } = await db.auth.getUser();
+    const { data, error } = await authAvailabilityRead(()=>db.auth.getUser());throwIfAuthUnavailable(error);
     const user = data?.user;
     if (error || !user || user.id !== current.user || user.is_anonymous || !user.email || !user.email_confirmed_at || !Number.isFinite(Date.parse(user.email_confirmed_at)) || !UUID.test(user.id)) throw new PhotoError('access_denied');
     const company = photoUuid(current.company);
@@ -25,7 +26,7 @@ export async function requirePhotoContext(expectedCompany?: string, write = fals
     const organization = member?.companies as unknown as { id?: unknown; status?: unknown };
     if (membership.error || !member || member.company_id !== company || member.user_id !== user.id || member.status !== 'active' || organization?.id !== company || organization.status !== 'active' || !['owner', 'admin', 'sales', 'finance', 'viewer'].includes(member.role) || write && !['owner', 'admin', 'sales'].includes(member.role)) throw new PhotoError('access_denied');
     return { db, company, userId: user.id, role: member.role };
-  } catch (error) { if (error instanceof PhotoError) throw error; throw new PhotoError('access_denied'); }
+  } catch (error) { if (error instanceof PhotoError) throw error;if(isAuthUnavailable(error))throw new PhotoError('unavailable'); throw new PhotoError('access_denied'); }
 }
 export function parseStoredPhoto(value: unknown, companyId: string, photoId?: string, stockId?: string): StoredVehiclePhoto {
   const row = photoObject(value);

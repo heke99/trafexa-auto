@@ -244,10 +244,10 @@ test('actual POST rejects cross-origin and unsupported multipart fields before u
 
 test('actual POST bounds streaming request bytes and cancels oversized bodies', async () => {
   let cancelled = false;
-  const body = new ReadableStream({ start(controller) { controller.enqueue(new Uint8Array(10485760 + 65537)); }, cancel() { cancelled = true; } });
+  const body = new ReadableStream({ start(controller) { controller.enqueue(new Uint8Array(4 * 1024 * 1024 + 65537)); }, cancel() { cancelled = true; } });
   const f = await fixture();
   const request = new Request('https://app.example.test/api/vehicle-photos', { method: 'POST', headers: { Origin: 'https://app.example.test', 'Content-Type': 'multipart/form-data; boundary=test' }, body, duplex: 'half' });
-  assert.equal((await f.post(request)).status, 400); assert.equal(cancelled, true);
+  assert.equal((await f.post(request)).status, 413); assert.equal(cancelled, true);
   assert.equal(f.uploads.length, 0); assert.equal(f.counts().registrations, 0);
 });
 

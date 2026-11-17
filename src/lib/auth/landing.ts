@@ -1,3 +1,4 @@
+import { isAuthUnavailable } from '@/lib/auth/availability';
 import 'server-only';
 import { safeNextPath } from '@/lib/routing.mjs';
 import { getPlatformAdminContext } from '@/lib/platform-admin/context';
@@ -20,5 +21,5 @@ export async function getAuthenticatedLandingPath(next: unknown): Promise<string
     const account = await getAccountAccessContext();
     if (!account || !account.emailVerified || account.status !== 'approved') return getAccountPendingPath(path);
     return path === '/account-pending' ? '/dashboard' : path;
-  } catch { return getAccountPendingPath(path); }
+  } catch(error) { if(isAuthUnavailable(error))throw error;return getAccountPendingPath(path); }
 }

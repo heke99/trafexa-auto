@@ -41,3 +41,27 @@ test('malformed committed PDF upload receipt stays uncertain and same source ret
  assert.equal(h.state.objects.size,1);
  assert.equal(h.state.providers.length,0);
 });
+
+test('expired completion link is reported separately while signed original and queued mail are retained',async t=>{
+ const h=await fixture(t),uploaded=await h.upload(),sent=await h.send(uploaded.result.source);
+ await h.openMail();h.state.rateLimited=true;
+ const signed=await h.actions.signUploadedPdfGuestAction({
+  sourceId:SOURCE,documentHash:sent.source.documentHash,fullName:'Åsa Köpare',acknowledged:true,requestId:id(72),
+ });
+ assert.equal(signed.ok,true);
+ assert.equal(signed.source.status,'completed');
+ await h.db.exec("alter table private.uploaded_pdf_sources disable trigger immutable_uploaded_pdf;update private.uploaded_pdf_sources set expires_at=clock_timestamp()-interval '1 second';alter table private.uploaded_pdf_sources enable trigger immutable_uploaded_pdf;");
+ h.state.rateLimited=false;
+ const countBefore=h.state.providers.length;
+ const retry=await h.actions.retryUploadedPdfMailAction({companyId:C,sourceId:SOURCE,documentHash:signed.source.documentHash,kind:'completed',acknowledged:true});
+ assert.deepEqual(retry,{ok:false,code:'conflict',message:'Kundlänken har gått ut.'});
+ assert.equal(h.state.providers.length,countBefore);
+ const page=await h.actions.listUploadedPdfAction({companyId:C,dealId:D});
+ assert.equal(page.ok,true);
+ const [source]=page.page.documents;
+ assert.equal(source.status,'completed');
+ assert.equal(source.delivery,'queued');
+ assert.equal(source.linkRevoked,false);
+ assert.ok(source.archive);
+ assert.equal(await count(h,'uploaded_pdf_signatures'),2);
+});

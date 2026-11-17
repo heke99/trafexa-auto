@@ -24,6 +24,33 @@ async function archive(h) {
 }
 const page = h => rpc(h.db, U, 'get_deal_fulfilment', [C, D]);
 const mutation = (h, operation, version, patch = {}, actor = U) => rpc(h.db, actor, 'mutate_deal_fulfilment', [C, D, { companyId: C, dealId: D, requestId: id(operation === 'payment' ? 70 : 71), expectedVersion: version, operation, reason: 'Manuellt kontrollerat testunderlag', ...patch }]);
+
+test('payment correction reuses a reversed bank reference while preserving audit history', async () => {
+  const h = await signingFixture('dealer-first');
+  try {
+    await archive(h);
+    await rpc(h.db, U, 'reserve_vehicle', [C, D, 48]);
+    const { businessDate } = await page(h);
+    const input = { amountOre: '100', bankReference: 'TEST-CORRECTION', bookedOn: businessDate };
+    const original = await mutation(h, 'payment', 0, input);
+    await assert.rejects(mutation(h, 'payment', 1, { ...input, requestId: id(72) }), { code: '23505' });
+    const reversed = await mutation(h, 'reverse', 1, { reversalOf: original.entries[0].id });
+    assert.equal(reversed.registeredOre, '0');
+    const confirmation = { ...input, amountOre: '200', requestId: id(73) };
+    const corrected = await mutation(h, 'payment', 2, confirmation);
+    assert.equal(corrected.registeredOre, '200');
+    assert.equal(corrected.canDeliver, true);
+    assert.deepEqual(await mutation(h, 'payment', 2, confirmation), corrected);
+    const { rows } = await h.db.query('select amount_ore::text as amount, reversal_of, correction_of from private.deal_payment_entries order by recorded_at,id');
+    assert.deepEqual(rows, [
+      { amount: '100', reversal_of: null, correction_of: null },
+      { amount: '-100', reversal_of: original.entries[0].id, correction_of: null },
+      { amount: '200', reversal_of: null, correction_of: original.entries[0].id },
+    ]);
+  } finally {
+    await h.db.close();
+  }
+});
 for (const order of ['guest-first', 'dealer-first']) test(`guest ${order}: reproduce old fulfilment refusal, then accept exact archived signing through payment and completed delivery`, async () => {
   const h = await signingFixture(order);
   try {

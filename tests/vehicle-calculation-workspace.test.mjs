@@ -22,7 +22,8 @@ async function harness({data=totals,error=null}={}) {
 test('real snapshot includes typed full-company RPC totals while table samples remain capped at500',async()=>{
  const {workspace,calls}=await harness();const snapshot=await workspace.getWorkspaceSnapshot();
  assert.equal(snapshot.inventory.length,500);assert.deepEqual(snapshot.dashboardTotals,totals);
- assert.deepEqual(calls,[{name:'get_workspace_inventory',args:{p_company_id:COMPANY}},{name:'inventory_dashboard_totals',args:{p_company_id:COMPANY}}]);
+ assert.deepEqual(calls.slice(0,2),[{name:'get_workspace_inventory',args:{p_company_id:COMPANY}},{name:'inventory_dashboard_totals',args:{p_company_id:COMPANY}}]);
+ assert.deepEqual(calls.slice(2).map(call=>[call.name,call.args.p_status]),[['dealer_register_page','draft'],['dealer_register_page','reserved']]);
 });
 test('actual live dashboard renders authoritative counts and exact ore instead of sampled rows',async()=>{
  const {workspace,DealerWorkspace}=await harness();const snapshot=await workspace.getWorkspaceSnapshot();

@@ -1,6 +1,25 @@
 import{test}from'node:test';import assert from'node:assert/strict';import{fixture,call,id,U,C,S}from'./helpers/direct-deal-harness.mjs';import{createSourceLoader}from'./helpers/source-loader.mjs';
 async function harness(db){let revoked=false,selected=C,tamper=null;const calls=[],paths=[];async function context(companyId){if(revoked||companyId!==C)throw{code:'42501'};return{companyId:C,userId:U,role:'owner',db:{async rpc(name,args){calls.push({name,args});try{let data=await call(db,name,args);if(tamper)data=tamper(data);return{data,error:null};}catch(error){return{data:null,error};}}}};}const loader=await createSourceLoader({'next/cache':{revalidatePath:p=>paths.push(p)},'@/lib/deal-fulfilment/context':{requireFulfilmentContext:context},'@/lib/data/company-context':{getActiveCompanyContext:async()=>({company:selected,user:U})}});return{a:loader.load('@/lib/paper-sales/actions'),calls,paths,revoke:()=>{revoked=true;},select:v=>{selected=v;},tamper:v=>{tamper=v;}};}
 const input=()=>({companyId:C,stockItemId:S,dealId:null,customerId:null,buyer:{name:'Synthetic Action Buyer',kind:'person',email:null,phone:null},agreedPrice:'125 000,29',signedOn:'2026-11-14',paperReference:'TEST-PAPER-ACTION',note:'Original in synthetic file',requestId:id(970)});
+
+test('a malformed committed paper sale receipt preserves the exact confirmation retry', async () => {
+  const db = await fixture();
+  try {
+    const h = await harness(db);
+    const { review } = await h.a.preparePaperSaleAction(input());
+    const confirmation = {companyId:C,reviewId:review.reviewId,reviewHash:review.reviewHash,acknowledged:true,requestId:id(971)};
+    h.tamper(result => ({ ...result, receipt: { ...result.receipt, priceOre: 'invalid' } }));
+    assert.equal((await h.a.confirmPaperSaleAction(confirmation)).code, 'unavailable');
+    assert.equal((await db.query('select count(*)::int as count from private.paper_sales')).rows[0].count, 1);
+    h.tamper(null);
+    const retry = await h.a.confirmPaperSaleAction(confirmation);
+    assert.equal(retry.ok, true);
+    assert.equal(retry.receipt.priceOre, '12500029');
+    assert.equal((await db.query('select count(*)::int as count from private.paper_sales')).rows[0].count, 1);
+  } finally {
+    await db.close();
+  }
+});
 test('real paper actions preserve decimal ore through review and confirmation, bind scope and refresh all affected pages',async()=>{const db=await fixture();try{const h=await harness(db);assert.equal((await h.a.getPaperSaleOptionsAction({companyId:C,stockItemId:S})).ok,true);const p=await h.a.preparePaperSaleAction(input());assert.equal(p.ok,true);assert.equal(p.review.snapshot.priceOre,'12500029');assert.equal(h.calls.at(-1).args.p_price_ore,'12500029');const confirmed=await h.a.confirmPaperSaleAction({companyId:C,reviewId:p.review.reviewId,reviewHash:p.review.reviewHash,acknowledged:true,requestId:id(971)});assert.equal(confirmed.ok,true);assert.deepEqual(h.paths,['/inventory','/deals','/dashboard','/customers']);h.select(id(999));assert.equal((await h.a.getPaperSaleOptionsAction({companyId:C,stockItemId:S})).code,'access_denied');}finally{await db.close();}});
 test('paper actions reject changed server content, invalid price and revoked scope without inventing a receipt',async()=>{const db=await fixture();try{const h=await harness(db);assert.equal((await h.a.preparePaperSaleAction({...input(),agreedPrice:'1e6'})).code,'invalid_input');assert.equal(h.calls.length,0);h.tamper(r=>({...r,snapshot:{...r.snapshot,buyer:{...r.snapshot.buyer,name:'Wrong recipient'}}}));assert.equal((await h.a.preparePaperSaleAction(input())).ok,false);assert.equal((await db.query('select count(*)::int n from private.paper_sales')).rows[0].n,0);h.tamper(null);h.revoke();assert.equal((await h.a.preparePaperSaleAction(input())).code,'access_denied');}finally{await db.close();}});
 

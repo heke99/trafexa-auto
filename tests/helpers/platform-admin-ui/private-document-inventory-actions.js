@@ -1,0 +1,1 @@
+export async function getPrivateDocumentInventoryAction(input){(window.inventoryCalls??=[]).push(input);return window.inventoryResponses?.shift()??{ok:true,items:[],generatedAt:'2026-11-17T12:00:00Z',nextCursor:null};}

@@ -7,6 +7,11 @@ export type BlocketDelivery = {
   status: 'dispatching' | 'submitted' | 'outcome_unknown' | 'published' | 'rejected'; version: number;
 };
 export type BlocketProviderOutcome = AdvertisingProviderOutcome & { providerRequestId?: string; evidenceSha256?: string; providerAdId?: string };
+export type BlocketDeliveryIdentity = Pick<BlocketDelivery, 'companyId' | 'listingId' | 'listingVersion' | 'sourceId' |
+  'dealerCode' | 'operation' | 'providerAdId' | 'connectionId' | 'connectionVersion'>;
+export type BlocketPreparation =
+  | { status: 'ready'; send(delivery: BlocketDelivery): Promise<BlocketProviderOutcome> }
+  | { status: 'rejected' | 'retryable'; errorCode: string };
 
 /** Server-side contracts. Credentials and media access URLs never enter dealer DTOs. */
 export type AdvertisingChannel = 'blocket' | 'wayke';
@@ -51,6 +56,8 @@ export interface AdvertisingProvider {
     accountReference: string; validUntil: string;
   };
   submit(payload: AdvertisingPublicPayload, delivery?: BlocketDelivery): Promise<BlocketProviderOutcome>;
+  /** Reads and validation only. The returned send step requires a durable write intent. */
+  prepareBlocket?(payload: AdvertisingPublicPayload, identity: BlocketDeliveryIdentity): Promise<BlocketPreparation>;
   /** Must only read remote state. Never POST again after uncertain or accepted delivery. */
   reconcile(payload: Pick<AdvertisingPublicPayload, 'sourceId' | 'listingVersion' | 'accountReference'>, delivery?: BlocketDelivery): Promise<BlocketProviderOutcome>;
 }

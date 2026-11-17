@@ -10,8 +10,8 @@ type Invitation = InvitationPage['invitations'][number];
 const roles: Record<string, string> = { owner: 'Ägare', admin: 'Administratör', sales: 'Säljare', finance: 'Finansansvarig', viewer: 'Läsbehörighet' };
 const dateLabel = (value: string) => new Intl.DateTimeFormat('sv-SE', { dateStyle: 'medium', timeZone: 'Europe/Stockholm' }).format(new Date(value));
 
-export function CompanyInvitations({userId}:{userId?:string}={}) { return <InvitationsPanel key={userId?.toLowerCase()??'current-session'}/>; }
-function InvitationsPanel() {
+export function CompanyInvitations({userId}:{userId?:string}={}) { return <InvitationsPanel key={userId?.toLowerCase()??'current-session'} userId={userId?.toLowerCase()}/>; }
+function InvitationsPanel({userId}:{userId?:string}) {
   const [page, setPage] = useState<InvitationPage | null>(null);
   const [review, setReview] = useState<{ invitation: Invitation; confirmed: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +43,7 @@ function InvitationsPanel() {
     const result = await getMyInvitationsAction({ pageKey: append ? pageKey : null, limit: 50 });
     if (generation.current !== requestGeneration) return;
     if (!result.ok) { setPage(null); failure(result); return; }
+    if(!userId||result.actorUserId?.toLowerCase()!==userId){failure({code:'access_denied',message:'Kontot har ändrats. Logga in igen för att läsa in dina inbjudningar.'});return;}
     setPage(previous => append && previous ? { ...result, invitations: [...previous.invitations, ...result.invitations.filter(item => !previous.invitations.some(known => known.id === item.id))] } : result);
   }
   function load(append = false) {
@@ -80,6 +81,7 @@ function InvitationsPanel() {
         const result = await acceptCompanyInvitationAction({ invitationId, expectedVersion, requestId });
         if (generation.current !== requestGeneration) return;
         if (!result.ok) {setUnknown(result.code==='unavailable');if(result.code!=='unavailable'){protectedAttempt.current=false;exactReview.current=null;if(result.code==='conflict'||result.code==='not_found'){setReview(null);setPage(null);}}failure(result); return; }
+        if(!userId||result.actorUserId?.toLowerCase()!==userId){failure({code:'access_denied',message:'Kontot har ändrats. Logga in igen för att läsa in dina inbjudningar.'});return;}
         if(result.companyId.toLowerCase()!==selected.invitation.companyId.toLowerCase()||!Object.hasOwn(roles,result.role))throw Error('Invalid acceptance proof');
         setUnknown(false);exactReview.current=null;requests.current.delete(`${invitationId}:${expectedVersion}`);
         received = true; setReview(null); setPage(null);

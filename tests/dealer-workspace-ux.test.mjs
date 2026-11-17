@@ -59,6 +59,27 @@ test('a selected dashboard vehicle closes when a same-company refresh no longer 
  }finally{await p.close();}
 });
 
+test('dashboard signing status refresh reads only active deals and leaves the rest of the page in place',async()=>{
+ const p=await harness.page(1440);try{
+  const data=snapshot({size:1});
+  const unsigned={status:'pending',source:'native',companySigned:true,customerSigned:false,signedAt:null,invitationStatus:'active'};
+  data.deals=[{...data.deals[0],status:'reserved',contractProgress:unsigned}];
+  data.dashboardTotals={companyId:data.organization.id,activeStockCount:'1',availableStockCount:'0',purchaseValueOre:'10000',activeDealCount:'3',reservedDealCount:'2',customerCount:'1'};
+  await p.evaluate(data=>{
+   window.fixture.defaults.dashboardDeals={companyId:data.organization.id,actorId:data.user.id,role:data.membership.role,activeDealCount:'1',reservedDealCount:'1',rows:[{
+    ...data.deals[0],contractProgress:{...data.deals[0].contractProgress,status:'completed',customerSigned:true,signedAt:'2026-11-17T18:00:00Z',invitationStatus:'completed'}
+   }]};
+   window.mountWorkspace({snapshot:data,section:'dashboard',demo:false});
+  },data);
+  await expect(p.getByText('Inväntar signering',{exact:true})).toBeVisible();
+  await p.evaluate(()=>window.dispatchEvent(new Event('focus')));
+  await expect(p.getByText('Signerat avtal',{exact:true})).toBeVisible();
+  await expect(p.getByText('1 reservation',{exact:true})).toBeVisible();
+  assert.deepEqual(await p.evaluate(()=>({kinds:window.fixture.reads.map(read=>read.kind),fullPage:window.fixture.refreshes??0})),
+   {kinds:['dashboardDeals'],fullPage:0});
+ }finally{await p.close();}
+});
+
 test('fresh register removal and failed refresh both purge an open vehicle detail without mutations',async()=>{
  const p=await harness.page(1440);try{
   const data=snapshot({size:4});const page={kind:'inventory',companyId:data.organization.id,actorId:data.user.id,role:data.membership.role,rows:data.inventory,totalCount:4,filteredCount:4,counts:{all:4,available:4},nextCursor:null};

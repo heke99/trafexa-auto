@@ -64,15 +64,16 @@ test('Invitation provider failures retain ambiguity and exact idempotency/body o
 });
 
 async function withConfig(run) {
-  const keys = ['TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED', 'NEXT_PUBLIC_SUPABASE_URL', 'RESEND_API_KEY', 'SUPABASE_SECRET_KEY'];
+  const keys = ['TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED', 'NEXT_PUBLIC_SUPABASE_URL', 'RESEND_API_KEY', 'SUPABASE_SECRET_KEY','ACCOUNT_INVITATION_ACTIVE_KEY_ID','ACCOUNT_INVITATION_ENCRYPTION_KEYS','ACCOUNT_INVITATION_LEGACY_SECRETS'];
   const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
-  Object.assign(process.env, { TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED: 'true', NEXT_PUBLIC_SUPABASE_URL: 'https://buqdtssxrotkzndublrt.supabase.co', RESEND_API_KEY: 'synthetic', SUPABASE_SECRET_KEY: secret });
+  Object.assign(process.env, { TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED: 'true', NEXT_PUBLIC_SUPABASE_URL: 'https://isolated.supabase.invalid', RESEND_API_KEY: 'synthetic', SUPABASE_SECRET_KEY: secret,ACCOUNT_INVITATION_ACTIVE_KEY_ID:'test-v1',ACCOUNT_INVITATION_ENCRYPTION_KEYS:JSON.stringify({'test-v1':Buffer.alloc(32,11).toString('base64url')}),ACCOUNT_INVITATION_LEGACY_SECRETS:'[]' });
   try { await run(); } finally { for (const key of keys) { if (previous[key] === undefined) delete process.env[key]; else process.env[key] = previous[key]; } }
 }
 
-async function dispatchHarness({ mode = 'generate', revoked = false, linkUser = userId, linkToken = token, sendStatus = 'sent', prebound = false, deliveryId = id, changedGeneration = false } = {}) {
+async function dispatchHarness({ mode = 'generate', revoked = false, linkUser = userId, linkToken = token, sendStatus = 'sent', prebound = false, deliveryId = id, changedGeneration = false, ciphertext } = {}) {
   const calls = [], job = { invitationId: id, deliveryId, actorUserId: actorId, leaseId, status: mode, email: invitation.email, userId: mode === 'generate' && !prebound ? null : userId, firstAttemptAt: mode === 'send' ? new Date().toISOString() : null, ciphertext: null };
   if (mode === 'send') job.ciphertext = content.encryptInvitationBody(content.renderAccountInvitationBody({ invitationId: id, email: invitation.email, name: invitation.name, tokenHash: token }), deliveryId, secret);
+  if(ciphertext)job.ciphertext=ciphertext;
   const db = { rpc: async (name) => { calls.push(name); return { data: { ...job }, error: null }; } };
   let checks = 0;
   const service = { auth: { admin: { generateLink: async input => {
@@ -127,7 +128,7 @@ test('GoTrue SHA-224 hashes pass generation, encrypted persistence and provider 
     assert.match(payload.text, new RegExp(`token_hash=${token}`));
     const bound = calls.find(call => Array.isArray(call) && call[0] === 'bind_platform_application_invitation_delivery')[1];
     assert.equal(bound.p_invitation_id, id);
-    assert.equal(content.decryptInvitationBody(bound.p_ciphertext, id, secret), send.body);
+    assert.equal(content.decryptInvitationBody(bound.p_ciphertext, id, content.invitationKeyringFromEnvironment()), send.body);
   }
 }));
 
@@ -146,8 +147,8 @@ test('Renewed generation binds encryption and provider idempotency to its own re
   const bound = calls.find(call => Array.isArray(call) && call[0] === 'bind_platform_application_invitation_delivery')[1];
   const send = calls.find(call => Array.isArray(call) && call[0] === 'send')[1];
   assert.equal(send.invitationId, id); assert.equal(send.deliveryId, renewedId);
-  assert.equal(content.decryptInvitationBody(bound.p_ciphertext, renewedId, secret), send.body);
-  assert.throws(() => content.decryptInvitationBody(bound.p_ciphertext, id, secret));
+  assert.equal(content.decryptInvitationBody(bound.p_ciphertext, renewedId, content.invitationKeyringFromEnvironment()), send.body);
+  assert.throws(() => content.decryptInvitationBody(bound.p_ciphertext, id, content.invitationKeyringFromEnvironment()));
   const keys = [];
   for (const deliveryId of [id, renewedId, renewedId]) await transport.sendAccountInvitation({ ...send, deliveryId }, async (_url, options) => { keys.push(options.headers['Idempotency-Key']); return Response.json({ id: 'synthetic' }); });
   assert.notEqual(keys[0], keys[1]); assert.equal(keys[1], keys[2]);
@@ -159,4 +160,28 @@ test('A stale reviewed generation or changed claim cannot rotate a token or send
     await assert.rejects(server.dispatchAccountInvitation(invitation, { expectedDeliveryId: id }));
     assert.equal(calls.some(call => Array.isArray(call) && ['generate', 'send'].includes(call[0])), false);
   }
+}));
+
+test('independent versioned keyring rotates active keys while retaining old ciphertext and legacy v1 reads',()=>{
+ const first={activeKeyId:'2026a',keys:{'2026a':Buffer.alloc(32,31).toString('base64url')},legacySecrets:[secret]};
+ const next={activeKeyId:'2026b',keys:{...first.keys,'2026b':Buffer.alloc(32,32).toString('base64url')},legacySecrets:[secret]};
+ const body='{"synthetic":"bearer-body"}',old=content.encryptInvitationBody(body,id,first),current=content.encryptInvitationBody(body,id,next);
+ assert.match(old,/^v2\.2026a\./);assert.match(current,/^v2\.2026b\./);
+ assert.equal(content.decryptInvitationBody(old,id,next),body);assert.equal(content.decryptInvitationBody(current,id,next),body);
+ const legacy=content.encryptInvitationBody(body,id,secret);assert.equal(content.decryptInvitationBody(legacy,id,next),body);
+ assert.throws(()=>content.decryptInvitationBody(old,id,{...next,keys:{'2026b':next.keys['2026b']}}),e=>e instanceof content.InvitationKeyUnavailableError);
+ assert.throws(()=>content.decryptInvitationBody(old,actorId,next));assert.throws(()=>content.decryptInvitationBody(old.replace('2026a','2026b'),id,next));
+});
+test('missing encryption key preserves retryable invitation without generating or contacting provider',async()=>withConfig(async()=>{
+ delete process.env.ACCOUNT_INVITATION_ACTIVE_KEY_ID;const unsent=await dispatchHarness();assert.equal(await unsent.server.dispatchAccountInvitation(invitation),'retryable');assert.equal(unsent.calls.some(c=>Array.isArray(c)&&['generate','send'].includes(c[0])),false);
+ const ring={activeKeyId:'retired',keys:{retired:Buffer.alloc(32,12).toString('base64url')}};const ciphertext=content.encryptInvitationBody('{"synthetic":true}',id,ring);
+ const missing=await dispatchHarness({mode:'send',ciphertext});assert.equal(await missing.server.dispatchAccountInvitation(invitation),'retryable');assert.equal(missing.calls.some(c=>Array.isArray(c)&&c[0]==='send'),false);
+}));
+test('known retry remains byte-identical after independent-key and Supabase-service-key rotation; retained v1 key remains readable',async()=>withConfig(async()=>{
+ const original=content.invitationKeyringFromEnvironment(),body=content.renderAccountInvitationBody({invitationId:id,email:invitation.email,name:invitation.name,tokenHash:token});
+ const prepared=content.encryptInvitationBody(body,id,original),legacy=content.encryptInvitationBody(body,id,secret);
+ process.env.SUPABASE_SECRET_KEY='synthetic-rotated-service-key-not-production';process.env.ACCOUNT_INVITATION_ACTIVE_KEY_ID='test-v2';process.env.ACCOUNT_INVITATION_ENCRYPTION_KEYS=JSON.stringify({...original.keys,'test-v2':Buffer.alloc(32,22).toString('base64url')});
+ process.env.ACCOUNT_INVITATION_LEGACY_SECRETS=JSON.stringify([secret]);
+ for(const ciphertext of [prepared,legacy]){const retry=await dispatchHarness({mode:'send',ciphertext});assert.equal(await retry.server.dispatchAccountInvitation(invitation),'sent');assert.equal(retry.calls.some(c=>Array.isArray(c)&&c[0]==='generate'),false);assert.equal(retry.calls.find(c=>Array.isArray(c)&&c[0]==='send')[1].body,body);}
+ process.env.ACCOUNT_INVITATION_LEGACY_SECRETS='[]';const missing=await dispatchHarness({mode:'send',ciphertext:legacy});assert.equal(await missing.server.dispatchAccountInvitation(invitation),'retryable');assert.equal(missing.calls.some(c=>Array.isArray(c)&&c[0]==='send'),false);
 }));

@@ -18,7 +18,7 @@ async function page(user,error=null){
  return {run:()=>loader.load('src/app/my-offers/page.tsx').default(),checks:()=>checks};
 }
 test('customer account page requires fresh Auth and never routes through company onboarding',async()=>{
- for(const [user,error] of [[null,null],[{id:'buyer'},new Error('Revoked session')]]){
+ for(const [user,error] of [[null,null],[{id:'buyer'},Object.assign(new Error('Revoked session'),{status:401})]]){
   const h=await page(user,error);await assert.rejects(h.run(),e=>e.url==='/login?next=/my-offers');assert.equal(h.checks(),1);
  }
 });

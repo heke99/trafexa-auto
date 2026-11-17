@@ -8,7 +8,7 @@ export type LeadStatus = 'new' | 'contacted' | 'qualified' | 'closed';
 export type LeadSummary = { id: string; status: LeadStatus; subject: string; createdAt: string; customer: { id: string; name: string; email: string | null; phone: string | null } | null };
 export type LeadCursor = { createdAt: string; id: string };
 export type LeadListResult = { ok: boolean; message: string; companyId?: string; leads?: LeadSummary[]; nextBefore?: LeadCursor };
-export type LeadMutationResult = { ok: boolean; message: string; leadId?: string; conflict?: boolean };
+export type LeadMutationResult = { ok: boolean; message: string; leadId?: string; conflict?: boolean; uncertain?:boolean };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const statuses: LeadStatus[] = ['new', 'contacted', 'qualified', 'closed'];
 const companyChanged = 'Det aktiva företaget har ändrats. Öppna kundlistan igen.';
@@ -51,23 +51,23 @@ export async function createCustomerLeadAction(form: FormData): Promise<LeadMuta
     if (phone && (!/^[+0-9() .-]+$/.test(phone) || phone.replace(/[^0-9]/g, '').length < 3)) throw new Error('Ange ett giltigt telefonnummer.');
     if (!email && !phone) throw new Error('Ange e-post eller telefon så att kunden kan kontaktas.');
     if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(subject)) throw new Error('Anteckningen innehåller ogiltiga kontrolltecken.');
-  } catch (error) { return { ok: false, message: error instanceof Error ? error.message : 'Kontrollera kundens uppgifter.' }; }
+  } catch (error) { return { ok: false, uncertain:false,message: error instanceof Error ? error.message : 'Kontrollera kundens uppgifter.' }; }
   try {
     const { db, company, role } = await getActiveCompanyContext();
-    if (company.toLowerCase() !== expectedCompany.toLowerCase()) return { ok: false, message: companyChanged };
-    if (!['owner', 'admin', 'sales'].includes(role)) return { ok: false, message: 'Din roll har läsbehörighet till kundförfrågningar.' };
+    if (company.toLowerCase() !== expectedCompany.toLowerCase()) return { ok: false, uncertain:false,message: companyChanged };
+    if (!['owner', 'admin', 'sales'].includes(role)) return { ok: false, uncertain:false,message: 'Din roll har läsbehörighet till kundförfrågningar.' };
     const { data, error } = await db.rpc('create_customer_lead', { company, submission, contact_name: name, contact_email: email, contact_phone: phone, lead_subject: subject });
     if (error) {
       const message = error.code === '42501' ? 'Du har inte längre behörighet att skapa kundförfrågningar.'
         : error.code === '22023' ? 'Kontrollera uppgifterna. Om underlaget har ändrats behöver du starta en ny förfrågan.'
         : error.code === 'P0001' ? 'Företaget har nått gränsen för nya förfrågningar. Försök igen senare.'
         : 'Sparandet kunde inte bekräftas. Försök igen med samma uppgifter inom sju dagar.';
-      return { ok: false, message };
+      return { ok: false, uncertain:!['42501','22023','P0001'].includes(error.code??''),message };
     }
-    if (typeof data !== 'string' || !uuid.test(data)) return { ok: false, message: 'Sparandet kunde inte bekräftas. Försök igen med samma uppgifter inom sju dagar.' };
+    if (typeof data !== 'string' || !uuid.test(data)) return { ok: false, uncertain:true,message: 'Sparandet kunde inte bekräftas. Försök igen med samma uppgifter inom sju dagar.' };
     revalidatePath('/customers'); revalidatePath('/dashboard');
     return { ok: true, message: 'Kundförfrågan och kontakten har sparats.', leadId: data };
-  } catch { return { ok: false, message: 'Sparandet kunde inte bekräftas. Kontrollera din inloggning och försök igen med samma uppgifter inom sju dagar.' }; }
+  } catch { return { ok: false, uncertain:true,message: 'Sparandet kunde inte bekräftas. Kontrollera din inloggning och försök igen med samma uppgifter inom sju dagar.' }; }
 }
 
 export async function updateLeadStatusAction(form: FormData): Promise<LeadMutationResult> {

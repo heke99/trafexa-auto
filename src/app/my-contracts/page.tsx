@@ -1,3 +1,4 @@
+import { throwIfAuthUnavailable, isAuthUnavailable, authAvailabilityRead } from '@/lib/auth/availability';
 import Link from 'next/link';
 import { getAccountAccessContext } from '@/lib/account-access/context';
 import { redirect } from 'next/navigation';
@@ -18,10 +19,11 @@ export default async function MyContractsPage({searchParams}:{searchParams?:Prom
   const loginPath=signingId?`/login?${new URLSearchParams({next:destination})}`:'/login?next=/my-contracts';
   const pendingPath=`/account-pending?${new URLSearchParams({next:destination})}`;
   const db = await createServerSupabaseClient();
-  const { data, error } = await db.auth.getUser();
+  const { data, error } = await authAvailabilityRead(()=>db.auth.getUser());
+  throwIfAuthUnavailable(error);
   const user = data?.user;
   if (error || !user) redirect(loginPath);
-  let access; try { access = await getAccountAccessContext(); } catch { redirect(pendingPath); }
+  let access; try { access = await getAccountAccessContext(); } catch(error) { if(isAuthUnavailable(error))throw error;redirect(pendingPath); }
   if (!access || !access.emailVerified || access.status !== 'approved') redirect(pendingPath);
   const verified = !user.is_anonymous && Boolean(user.email && user.email_confirmed_at && Number.isFinite(Date.parse(user.email_confirmed_at)));
   return <div className="wrap">

@@ -8,7 +8,7 @@ import {fixture,id,U,C,D,EMAIL,rpc,service,capability,createSigning,approveContr
 const A=id(80);
 const checkpoint='20261018164815_guest_document_invitation_renewal.sql';
 async function upgrade(db){const dir=new URL('../supabase/migrations/',import.meta.url);for(const name of(await readdir(dir)).filter(n=>n.endsWith('.sql')&&n>checkpoint).sort())await db.exec(await readFile(new URL(name,dir),'utf8'));}
-const env={CONTRACT_EMAIL_ENABLED:'true',TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED:'true',RESEND_API_KEY:'synthetic-renewal-provider',SUPABASE_SECRET_KEY:'synthetic-renewal-secret',NEXT_PUBLIC_SUPABASE_URL:'https://buqdtssxrotkzndublrt.supabase.co'};
+const env={CONTRACT_EMAIL_ENABLED:'true',TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED:'true',RESEND_API_KEY:'synthetic-renewal-provider',SUPABASE_SECRET_KEY:'synthetic-renewal-secret',NEXT_PUBLIC_SUPABASE_URL:'https://synthetic-trafexa.supabase.co'};
 async function setup(t,kind='contract_invitation',mode='accepted',current=false){
  const actor=current?U:A;
  const previous=Object.fromEntries(Object.keys(env).map(key=>[key,process.env[key]]));Object.assign(process.env,env);

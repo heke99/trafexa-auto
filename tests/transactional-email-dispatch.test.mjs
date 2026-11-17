@@ -5,12 +5,12 @@ const reference='a1300000-0000-4000-8000-000000000001';
 async function harness(options={}){
  let sent=0,proofs=0;const calls=[];
  const loader=await createSourceLoader({'server-only':{},
- '@supabase/supabase-js':{createClient(){return {async rpc(name,args){calls.push([name,args]);if(name==='claim_transactional_email'||name==='claim_transactional_email_exact')return{data:{id:reference,kind:'contract_completed_company',reference,recipient:'customer@example.invalid',createdAt:new Date().toISOString(),firstAttemptAt:new Date().toISOString(),leaseId:reference,...options.row}};if(name==='check_transactional_email_lease'){if(options.leaseThrows)throw Error('private db detail');return options.lease??{data:true};}if(name==='finish_transactional_email'){if(options.finishThrows)throw Error('private db detail');return options.finish??{data:true};}throw Error('Unexpected RPC');}};}},
+ '@supabase/supabase-js':{createClient(){return {async rpc(name,args){calls.push([name,args]);if(name==='claim_transactional_email'||name==='claim_transactional_email_exact'||name==='claim_transactional_email_enabled')return{data:{id:reference,kind:'contract_completed_company',reference,recipient:'customer@example.invalid',createdAt:new Date().toISOString(),firstAttemptAt:new Date().toISOString(),leaseId:reference,...options.row}};if(name==='check_transactional_email_lease'){if(options.leaseThrows)throw Error('private db detail');return options.lease??{data:true};}if(name==='finish_transactional_email'){if(options.finishThrows)throw Error('private db detail');return options.finish??{data:true};}throw Error('Unexpected RPC');}};}},
  '@/lib/platform-admin/context':{async requirePlatformAdminContext(){proofs++;if(options.revoke&&proofs>1||options.revokeAfterSend&&sent>0)throw Error('Private denial');return{userId:reference};}},
- './transport':{emailConfigurationStatus:()=> 'configured',async sendTransactionalEmail(){sent++;return options.sendResult??{status:'accepted',providerId:'fixture-provider-id'};}},
+ './transport':{emailConfigurationStatus:config=>config.enabled&&config.apiKey?'configured':'unconfigured',async sendTransactionalEmail(){sent++;return options.sendResult??{status:'accepted',providerId:'fixture-provider-id'};}},
  });return {server:loader.load('src/lib/email/server.ts'),counts:()=>({sent,proofs,calls})};
 }
-async function configured(fn){const prior={};const values={SUPABASE_SECRET_KEY:'synthetic-only',NEXT_PUBLIC_SUPABASE_URL:'https://buqdtssxrotkzndublrt.supabase.co'};for(const [key,value]of Object.entries(values)){prior[key]=process.env[key];process.env[key]=value;}try{return await fn();}finally{for(const key of Object.keys(values)){if(prior[key]===undefined)delete process.env[key];else process.env[key]=prior[key];}}}
+async function configured(fn){const prior={};const values={SUPABASE_SECRET_KEY:'synthetic-only',NEXT_PUBLIC_SUPABASE_URL:'https://fixture.supabase.co',TRANSACTIONAL_EMAIL_ENABLED:'true',CONTRACT_EMAIL_ENABLED:'true',TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED:'true',RESEND_API_KEY:'synthetic-only'};for(const [key,value]of Object.entries(values)){prior[key]=process.env[key];process.env[key]=value;}try{return await fn();}finally{for(const key of Object.keys(values)){if(prior[key]===undefined)delete process.env[key];else process.env[key]=prior[key];}}}
 test('persisted-event dispatcher claims only bound kind/reference and finishes one verified lease',()=>configured(async()=>{
  const h=await harness(),r=await h.server.dispatchTransactionalEvent('contract_completed_company',reference);assert.equal(r.status,'accepted');assert.equal(h.counts().sent,1);assert.deepEqual(h.counts().calls[0],['claim_transactional_email',{p_kind:'contract_completed_company',p_reference:reference}]);assert.equal(h.counts().calls.at(-1)[0],'finish_transactional_email');
 }));
@@ -57,4 +57,14 @@ test('reviewed guest renewal claims exact email ID and rejects substituted rows 
   const h=await harness({row});assert.equal((await h.server.dispatchGuestInvitationEmail('offer_invitation',reference,reference)).status,'unavailable');assert.equal(h.counts().sent,0);assert.equal(h.counts().calls.length,1);
  }
  for(const args of [['contract_completed_company',reference,reference],['offer_invitation','bad',reference],['offer_invitation',reference,'bad']]){const h=await harness();assert.equal((await h.server.dispatchGuestInvitationEmail(...args)).status,'unavailable');assert.equal(h.counts().calls.length,0);}
+}));
+
+test('manual dispatch asks SQL for only kinds with enabled transports',()=>configured(async()=>{
+ process.env.CONTRACT_EMAIL_ENABLED='false';
+ const h=await harness({row:{kind:'application_received'}});
+ assert.equal((await h.server.dispatchNextTransactionalEmail()).status,'accepted');
+ assert.deepEqual(h.counts().calls[0],['claim_transactional_email_enabled',{
+  p_kinds:['application_received','application_admin','account_approved'],
+ }]);
+ assert.equal(h.counts().sent,1);
 }));

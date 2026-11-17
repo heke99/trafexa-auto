@@ -1,3 +1,4 @@
+import { throwIfAuthUnavailable, authAvailabilityRead } from '@/lib/auth/availability';
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '../supabase/database.types';
@@ -20,7 +21,8 @@ const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 
 /** Creating an additional company must not depend on an existing selected tenant. */
 export async function requireCompanyStoreCreationContext(): Promise<CompanyStoreCreationContext> {
-  const db = await createServerSupabaseClient(), { data, error } = await db.auth.getUser(), user = data?.user;
+  const db = await createServerSupabaseClient(), { data, error } = await authAvailabilityRead(()=>db.auth.getUser()), user = data?.user;
+  throwIfAuthUnavailable(error);
   if (error || !user || !UUID.test(user.id)) throw new CrmError('unauthenticated');
   if (user.is_anonymous || !user.email || !user.email_confirmed_at || !Number.isFinite(Date.parse(user.email_confirmed_at))) throw new CrmError('access_denied');
   const approval = await readAccountAccess(db, user);

@@ -2,19 +2,19 @@ import assert from 'node:assert/strict';
 import {test,beforeEach,afterEach} from 'node:test';
 import {createSourceLoader} from './helpers/source-loader.mjs';
 let saved;
-const keys=['NEXT_PUBLIC_APP_URL','NODE_ENV','VERCEL_ENV'];
-beforeEach(()=>{saved=Object.fromEntries(keys.map(k=>[k,process.env[k]]));delete process.env.NODE_ENV;delete process.env.VERCEL_ENV;delete process.env.NEXT_PUBLIC_APP_URL;});
+const keys=['NEXT_PUBLIC_APP_URL','NODE_ENV','VERCEL_ENV','NEXT_PUBLIC_TRAFEXA_DEPLOYMENT_TARGET'];
+beforeEach(()=>{saved=Object.fromEntries(keys.map(k=>[k,process.env[k]]));delete process.env.NODE_ENV;delete process.env.VERCEL_ENV;delete process.env.NEXT_PUBLIC_APP_URL;delete process.env.NEXT_PUBLIC_TRAFEXA_DEPLOYMENT_TARGET;});
 afterEach(()=>{for(const k of keys){if(saved[k]===undefined)delete process.env[k];else process.env[k]=saved[k];}});
 async function helper(){return (await createSourceLoader()).load('@/lib/auth/app-origin').getAuthAppOrigin;}
 test('production callback origin stays on Trafexa despite localhost, foreign or malformed configuration',async()=>{
  const get=await helper();process.env.VERCEL_ENV='production';
  for(const value of ['http://localhost:3000','https://attacker.invalid','not-a-url','https://app.trafexa.com/path']){process.env.NEXT_PUBLIC_APP_URL=value;assert.equal(get('https://untrusted-host.invalid'),'https://app.trafexa.com');}
- delete process.env.VERCEL_ENV;process.env.NODE_ENV='production';assert.equal(get(),'https://app.trafexa.com');
+ delete process.env.VERCEL_ENV;process.env.NODE_ENV='production';process.env.NEXT_PUBLIC_APP_URL='http://localhost:3000';assert.equal(get(),'http://localhost:3000');process.env.NEXT_PUBLIC_TRAFEXA_DEPLOYMENT_TARGET='production';assert.equal(get(),'https://app.trafexa.com');
 });
 test('development and preview allow only explicit valid origins without credentials or URL suffixes',async()=>{
  const get=await helper();process.env.VERCEL_ENV='preview';process.env.NODE_ENV='production';
  for(const value of ['https://review.vercel.app','http://localhost:3000','http://127.0.0.1:3010']){process.env.NEXT_PUBLIC_APP_URL=value;assert.equal(get(),value);}
- for(const value of ['http://attacker.invalid','https://user:password@app.trafexa.com','https://app.trafexa.com/?next=bad','https://app.trafexa.com/#bad','ftp://localhost:3000']){process.env.NEXT_PUBLIC_APP_URL=value;assert.equal(get(),'https://app.trafexa.com');}
+ for(const value of ['http://attacker.invalid','https://user:password@app.trafexa.com','https://app.trafexa.com/?next=bad','https://app.trafexa.com/#bad','ftp://localhost:3000']){process.env.NEXT_PUBLIC_APP_URL=value;assert.equal(get(),'http://localhost:3000');}
 });
 test('closed signup has no Auth call while recovery retains its production password destination',async()=>{
  process.env.VERCEL_ENV='production';process.env.NEXT_PUBLIC_APP_URL='http://localhost:3000';const calls=[];

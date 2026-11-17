@@ -23,6 +23,8 @@ do $$declare body text;begin
  select prosrc into body from pg_proc where oid='public.claim_transactional_email_exact(uuid)'::regprocedure;
  if position('return public.claim_transactional_email_exact(e.kind,e.reference_id,e.id)' in body)=0 then raise exception 'Legacy exact dispatcher delegation changed';end if;
  select prosrc into body from pg_proc where oid='public.claim_transactional_email(text,uuid)'::regprocedure;
+ if position('private.claim_transactional_email_filtered' in body)=0 then raise exception 'Generic dispatcher delegation changed';end if;
+ select prosrc into body from pg_proc where oid='private.claim_transactional_email_filtered(text[],uuid)'::regprocedure;
  if position('customer_document_email_latest' in body)=0 or position('customer_document_saved_review' in body)=0 then raise exception 'Generic dispatch fencing changed';end if;
  select prosrc into body from pg_proc where oid='public.check_transactional_email_lease(uuid,uuid)'::regprocedure;
  if position('customer_document_email_latest' in body)=0 then raise exception 'Provider lease generation fence changed';end if;

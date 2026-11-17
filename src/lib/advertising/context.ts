@@ -1,3 +1,4 @@
+import { throwIfAuthUnavailable, isAuthUnavailable, authAvailabilityRead } from '@/lib/auth/availability';
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -14,7 +15,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function requireAdvertisingContext(companyId: string, mode: 'read' | 'write' | 'manage' = 'read'): Promise<AdvertisingContext> {
   try {
     const db = await createServerSupabaseClient() as unknown as SupabaseClient<AdvertisingDatabase>;
-    const { data, error } = await db.auth.getUser();
+    const { data, error } = await authAvailabilityRead(()=>db.auth.getUser());throwIfAuthUnavailable(error);
     const user = data?.user;
     if (error || !user || !UUID.test(user.id)) throw new AdvertisingError('unauthenticated');
     if (user.is_anonymous || !user.email || !user.email_confirmed_at || !Number.isFinite(Date.parse(user.email_confirmed_at))) throw new AdvertisingError('access_denied');
@@ -30,7 +31,7 @@ export async function requireAdvertisingContext(companyId: string, mode: 'read' 
     if (mode === 'write' && !['owner', 'admin', 'sales'].includes(membership.role) || mode === 'manage' && !['owner', 'admin'].includes(membership.role)) throw new AdvertisingError('access_denied');
     return { db, companyId, userId: user.id, role: membership.role as AdvertisingRole };
   } catch (error) {
-    if (error instanceof AdvertisingError) throw error;
+    if (error instanceof AdvertisingError) throw error;if(isAuthUnavailable(error))throw new AdvertisingError('unavailable');
     throw new AdvertisingError('access_denied');
   }
 }

@@ -23,7 +23,7 @@ function fixture(format = 'jpeg') {
   const calls = [];
   const buckets = new Map([['ads-vehicle-photos', { id: 'ads-vehicle-photos', public: false }], ['ads-export-media', { id: 'ads-export-media', public: false }]]);
   const exports = new Map();
-  const behavior = { source, corruptReadback: false, uploadError: false, signedUrlOverride: null, sourceBlobOverride: null,
+  const behavior = { source, corruptReadback: false, uploadError: false, signedUrlOverride: null, sourceBlobOverride: null, sourcePaths: new Set([photo.objectPath]),
     async afterUpload() {}, async afterSign() {} };
   const client = { storage: {
     async getBucket(bucket) { calls.push(['bucket', bucket]); return { data: buckets.get(bucket), error: null }; },
@@ -31,7 +31,7 @@ function fixture(format = 'jpeg') {
       async download(path) {
         calls.push(['download', bucket, path]);
         if (bucket === 'ads-vehicle-photos') {
-          assert.equal(path, photo.objectPath);
+          assert.ok(behavior.sourcePaths.has(path));
           return { data: behavior.sourceBlobOverride ?? new Blob([behavior.source], { type: contentType }), error: null };
         }
         let bytes = exports.get(path);
@@ -77,7 +77,7 @@ test('real JPEG, PNG and WebP originals are decoded and stripped of EXIF before 
     assert.ok(proof.url.startsWith(`${PROJECT}/storage/v1/object/sign/ads-export-media/`));
     assert.equal(proof.expiresAt, '2026-10-15T12:00:00.000Z');
     const upload = f.calls.findIndex(([kind]) => kind === 'upload');
-    const readback = f.calls.findIndex(([kind, bucket]) => kind === 'download' && bucket === 'ads-export-media');
+    const readback = f.calls.findLastIndex(([kind, bucket]) => kind === 'download' && bucket === 'ads-export-media');
     const sign = f.calls.findIndex(([kind]) => kind === 'sign');
     assert.ok(upload < readback && readback < sign);
     assert.ok(!f.calls.some(([kind, bucket]) => kind === 'sign' && bucket === 'ads-vehicle-photos'));
@@ -89,7 +89,7 @@ test('an immutable existing normalized object can be reused only after real read
   const first = await resolver.resolve(f.photo); const second = await resolver.resolve(f.photo);
   assert.equal(first.sha256, second.sha256); assert.equal(first.objectPath, second.objectPath);
   assert.equal(f.exports.size, 1); assert.equal(f.calls.filter(([kind]) => kind === 'sign').length, 2);
-  assert.ok(f.calls.filter(([kind]) => kind === 'upload').every(([, , , options]) => options.upsert === false));
+  assert.equal(f.calls.filter(([kind]) => kind === 'upload').length, 1);
 });
 test('untrusted photo scope, traversal, archived identity and false MIME never create exported bytes', async () => {
   for (const mutate of [p => { p.objectPath = `${id(9)}/${id(3)}/${id(1)}.jpg`; }, p => { p.objectPath += '/../evil'; },
@@ -145,4 +145,20 @@ test('invalid trusted origin or short URL lifetime is rejected before storage op
   }
   const f = fixture(); f.options.expiresInSeconds = 86400;
   assert.throws(() => createAdvertisingExportMediaResolver(f.options), e => e.code === 'invalid_configuration');
+});
+
+test('twenty photos retain order with shared private bucket checks and existing export reuse', async () => {
+  const f = fixture();
+  const photos = Array.from({length:20},(_,index)=>({
+    ...f.photo,id:id(index+10),objectPath:`${f.photo.companyId}/${f.photo.stockId}/${id(index+10)}.jpg`,
+  }));
+  for(const photo of photos)f.behavior.sourcePaths.add(photo.objectPath);
+  const resolver=createAdvertisingExportMediaResolver(f.options);
+  const initial=await resolver.resolveBatch(photos);
+  assert.deepEqual(initial.map(result=>result.objectPath.split('/')[2]),photos.map(photo=>photo.id));
+  assert.equal(f.calls.filter(([kind])=>kind==='bucket').length,44);
+  assert.equal(f.calls.filter(([kind])=>kind==='upload').length,20);
+  f.calls.length=0;
+  assert.deepEqual(await resolver.resolveBatch(photos),initial);
+  assert.equal(f.calls.filter(([kind])=>kind==='upload').length,0);
 });

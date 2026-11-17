@@ -2,6 +2,8 @@ import type { Database, Json } from '@/lib/supabase/database.types';
 
 export const PHOTO_BUCKET = 'ads-vehicle-photos';
 export const MAX_PHOTO_BYTES = 10485760;
+// Leave room for the multipart envelope below the hosting request limit.
+export const MAX_PHOTO_UPLOAD_BYTES = 4 * 1024 * 1024;
 export type PhotoContentType = 'image/jpeg' | 'image/png' | 'image/webp';
 export type VehiclePhoto = { id: string; companyId: string; stockId: string; contentType: PhotoContentType; sizeBytes: number; version: number; status: 'active' | 'archived'; createdAt: string };
 export type StoredVehiclePhoto = VehiclePhoto & { objectPath: string; storageBucket: typeof PHOTO_BUCKET; storageVisibility: 'private' };

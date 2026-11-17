@@ -13,6 +13,7 @@ for(const [scenario,status] of [['anonymous',401],['no membership',403],['databa
       '@/lib/supabase/server':{async createServerSupabaseClient(){return {
         auth:{async getUser(){return {data:{user:scenario==='anonymous'?null:{id,email:'fixture@example.invalid'}},error:null};}},
         from(){return query;},
+        async rpc(name){assert.equal(name,'get_my_company_access_status');return {data:{actorUserId:id,hasSuspendedCompany:false},error:null};},
       };}},
       '@/lib/account-access/context':{async readAccountAccess(){return {status:'approved',emailVerified:true};}},
       '@/lib/contracts/context':{requireContractContext:forbidden},
