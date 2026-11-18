@@ -8,20 +8,49 @@ function key(secret: string) {
   if (secret.length < 20) throw Error('Invitation encryption unavailable');
   return Buffer.from(hkdfSync('sha256', secret, 'trafexa-account-invitation-v1', 'email-payload', 32));
 }
-/** Service-only encrypted outbox: bearer links never enter an admin DTO or a plaintext database column. */
-export function encryptInvitationBody(body: string, invitationId: string, secret: string): string {
-  if (Buffer.byteLength(body) > 24_000) throw Error('Invalid invitation payload');
-  const nonce = randomBytes(12), cipher = createCipheriv('aes-256-gcm', key(secret), nonce);
-  cipher.setAAD(Buffer.from(scope(invitationId)));
-  const encrypted = Buffer.concat([cipher.update(body, 'utf8'), cipher.final()]);
-  return ['v1', nonce.toString('base64url'), cipher.getAuthTag().toString('base64url'), encrypted.toString('base64url')].join('.');
+export type InvitationKeyring={activeKeyId:string;keys:Record<string,string>;legacySecrets?:string[]};
+export class InvitationKeyUnavailableError extends Error {constructor(){super('Invitation encryption key unavailable');}}
+const KEY_ID=/^[A-Za-z0-9_-]{1,48}$/;
+function versionedKey(secret:string){
+ if(!/^[A-Za-z0-9_-]{43}$/.test(secret))throw new InvitationKeyUnavailableError();
+ const bytes=Buffer.from(secret,'base64url');if(bytes.length!==32||bytes.toString('base64url')!==secret)throw new InvitationKeyUnavailableError();
+ return Buffer.from(hkdfSync('sha256',bytes,'trafexa-account-invitation-v2','email-payload',32));
 }
-export function decryptInvitationBody(value: string, invitationId: string, secret: string): string {
-  if (value.length > 36_000 || !/^v1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]+$/.test(value)) throw Error('Invalid invitation payload');
-  const [, nonce, tag, data] = value.split('.');
-  const cipher = createDecipheriv('aes-256-gcm', key(secret), Buffer.from(nonce, 'base64url'));
-  cipher.setAAD(Buffer.from(scope(invitationId))); cipher.setAuthTag(Buffer.from(tag, 'base64url'));
-  return Buffer.concat([cipher.update(Buffer.from(data, 'base64url')), cipher.final()]).toString('utf8');
+/** Independent encryption keys; old service secrets are read-only legacy migration keys. */
+export function invitationKeyringFromEnvironment():InvitationKeyring{
+ try{
+  const keys:unknown=JSON.parse(process.env.ACCOUNT_INVITATION_ENCRYPTION_KEYS??'{}');
+  const legacy:unknown=JSON.parse(process.env.ACCOUNT_INVITATION_LEGACY_SECRETS??'[]');
+  if(!keys||typeof keys!=='object'||Array.isArray(keys)||Object.keys(keys).length>20||!Array.isArray(legacy)||legacy.length>20||legacy.some(v=>typeof v!=='string'||v.length<20))throw Error();
+  for(const [id,value]of Object.entries(keys)){if(!KEY_ID.test(id)||typeof value!=='string')throw Error();versionedKey(value);}
+  return {activeKeyId:process.env.ACCOUNT_INVITATION_ACTIVE_KEY_ID??'',keys:keys as Record<string,string>,legacySecrets:[...legacy,...(process.env.SUPABASE_SECRET_KEY?[process.env.SUPABASE_SECRET_KEY]:[])]};
+ }catch{throw new InvitationKeyUnavailableError();}
+}
+/** String input remains a v1 fixture/legacy API; production writes use an explicit v2 keyring. */
+export function encryptInvitationBody(body:string,invitationId:string,secret:string|InvitationKeyring):string{
+ if(Buffer.byteLength(body)>24_000)throw Error('Invalid invitation payload');
+ const version=typeof secret==='string'?'v1':'v2';
+ const id=typeof secret==='string'?'':secret.activeKeyId;
+ if(version==='v2'&&(!KEY_ID.test(id)||!Object.hasOwn((secret as InvitationKeyring).keys,id)))throw new InvitationKeyUnavailableError();
+ const bytes=typeof secret==='string'?key(secret):versionedKey(secret.keys[id]);
+ const nonce=randomBytes(12),cipher=createCipheriv('aes-256-gcm',bytes,nonce);
+ cipher.setAAD(Buffer.from(scope(invitationId)+(version==='v2'?`/v2/${id}`:'')));
+ const encrypted=Buffer.concat([cipher.update(body,'utf8'),cipher.final()]);
+ return [version,...(version==='v2'?[id]:[]),nonce.toString('base64url'),cipher.getAuthTag().toString('base64url'),encrypted.toString('base64url')].join('.');
+}
+export function decryptInvitationBody(value:string,invitationId:string,secret:string|InvitationKeyring):string{
+ if(value.length>36_000||!/^v[12]\.(?:[A-Za-z0-9_-]{1,48}\.)?[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]+$/.test(value))throw Error('Invalid invitation payload');
+ const parts=value.split('.'),version=parts[0];
+ const decode=(nonce:string,tag:string,data:string,bytes:Buffer,aad:string)=>{const cipher=createDecipheriv('aes-256-gcm',bytes,Buffer.from(nonce,'base64url'));cipher.setAAD(Buffer.from(aad));cipher.setAuthTag(Buffer.from(tag,'base64url'));return Buffer.concat([cipher.update(Buffer.from(data,'base64url')),cipher.final()]).toString('utf8');};
+ if(version==='v2'){
+  if(parts.length!==5||typeof secret==='string'||!Object.hasOwn(secret.keys,parts[1]))throw new InvitationKeyUnavailableError();
+  const [,id,nonce,tag,data]=parts;return decode(nonce,tag,data,versionedKey(secret.keys[id]),scope(invitationId)+`/v2/${id}`);
+ }
+ if(parts.length!==4)throw Error('Invalid invitation payload');
+ const [,nonce,tag,data]=parts;const legacy=typeof secret==='string'?[secret]:secret.legacySecrets??[];
+ for(const previous of legacy)try{return decode(nonce,tag,data,key(previous),scope(invitationId));}catch{}
+ // v1 has no key ID, so absent old key and failed authentication cannot safely be distinguished.
+ throw new InvitationKeyUnavailableError();
 }
 function escape(value: string) { return value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!)); }
 export function renderAccountInvitationBody(input: { invitationId: string; email: string; name: string; tokenHash: string }): string {

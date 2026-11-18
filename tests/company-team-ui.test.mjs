@@ -272,11 +272,11 @@ test('standalone acceptance keeps exact unknown attempt and guards header naviga
  }finally{await page.close();}
 });
 test('wrong company acceptance proof stays unknown and actor scope change discards old reviewed data',async()=>{
- const page=await setup({invitations:true,myInvitations:[invitation()],acceptResponses:[{ok:true,companyId:id(88),role:'sales'}]});
+ const page=await setup({invitations:true,myInvitations:[invitation()],acceptResponses:[{ok:true,actorUserId:ACTOR,companyId:id(88),role:'sales'}]});
  try{
   await page.getByRole('button',{name:/Granska inbjudan från/}).click();await page.getByRole('button',{name:'Fortsätt till bekräftelse'}).click();await page.getByRole('button',{name:'Acceptera inbjudan',exact:true}).click();
   await expect(page.getByRole('alert')).toContainText('samma begäran');await expect(page.getByRole('link',{name:'Öppna företaget'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Avbryt',exact:true})).toBeDisabled();
-  await page.evaluate(props=>{window.fixture.myInvitations=[];window.mountTeamFixture({...props,invitations:true});},{companyId:COMPANY,companyRole:'owner',userId:id(99)});
+  await page.evaluate(props=>{window.fixture.myInvitations=[];window.fixture.team.actorUserId=props.userId;window.mountTeamFixture({...props,invitations:true});},{companyId:COMPANY,companyRole:'owner',userId:id(99)});
   await expect(page.getByRole('heading',{name:'Inga väntande inbjudningar'})).toBeVisible();await expect(page.getByRole('heading',{name:'Bekräfta anslutning'})).toHaveCount(0);assert.equal(await page.evaluate(()=>window.fixture.acceptCalls.length),1);
  }finally{await page.close();}
 });
@@ -287,4 +287,11 @@ test('known invitation acceptance with failed readback keeps known result withou
   await expect(page.getByRole('alert')).toContainText('har accepterats');await expect(page.getByRole('link',{name:'Öppna företaget',exact:true})).toHaveAttribute('aria-disabled','false');await expect(page.getByRole('button',{name:'Uppdatera inbjudningar',exact:true})).toBeEnabled();await expect(page.getByRole('button',{name:'Acceptera inbjudan',exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:'Uppdatera inbjudningar',exact:true}).click();await expect(page.getByRole('heading',{name:'Inga väntande inbjudningar'})).toBeVisible();assert.equal(await page.evaluate(()=>window.fixture.acceptCalls.length),1);
  }finally{await page.close();}
+});
+
+test('an invitation list from another actual actor is purged instead of shown under the mounted user',async()=>{
+ const page=await setup({invitations:true,myResponses:[{ok:true,actorUserId:id(99),invitations:[invitation()],nextPageKey:null}]});try{await expect(page.getByRole('alert')).toContainText('Kontot har ändrats');await expect(page.getByRole('table')).toHaveCount(0);assert.equal(await page.evaluate(()=>window.fixture.acceptCalls.length),0);}finally{await page.close();}
+});
+test('an acceptance proof from another actor clears the reviewed invitation and never offers company navigation',async()=>{
+ const page=await setup({invitations:true,myInvitations:[invitation()],acceptResponses:[{ok:true,actorUserId:id(99),companyId:COMPANY,role:'sales'}]});try{await page.getByRole('button',{name:/Granska inbjudan från/}).click();await page.getByRole('button',{name:'Fortsätt till bekräftelse'}).click();await page.getByRole('button',{name:'Acceptera inbjudan',exact:true}).click();await expect(page.getByRole('alert')).toContainText('Kontot har ändrats');await expect(page.getByRole('table')).toHaveCount(0);await expect(page.getByRole('link',{name:'Öppna företaget'})).toHaveCount(0);}finally{await page.close();}
 });

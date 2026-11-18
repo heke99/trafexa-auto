@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getTransactionalEmailStatusAction, dispatchTransactionalEmailAction } from '@/lib/email/actions';
 
 type EmailStatus = Awaited<ReturnType<typeof getTransactionalEmailStatusAction>>;
-const unavailable: EmailStatus = { ok: false, message: 'Mejlstatus kunde inte hämtas. Uppdatera status för att försöka igen.' };
+const unavailable: EmailStatus = { ok: false, code:'unavailable', message: 'Mejlstatus kunde inte hämtas. Uppdatera status för att försöka igen.' };
 
 export function EmailDeliveryStatus() {
   const alive = useRef(true);
@@ -47,7 +47,7 @@ export function EmailDeliveryStatus() {
       if (!alive.current) return;
       setAck(false);
       if (!result.ok) {
-        setStatus({ ok: false, message: result.message });
+        setStatus({ ok: false, code:'unavailable', message: result.message });
         return;
       }
       const labels: Record<string, string> = {
@@ -64,7 +64,7 @@ export function EmailDeliveryStatus() {
     } catch {
       if (alive.current) {
         setAck(false);
-        setStatus({ ok: false, message: 'Utskicket kunde inte verifieras. Kontrollera status innan ett nytt utskick görs.' });
+        setStatus({ ok: false, code:'unavailable', message: 'Utskicket kunde inte verifieras. Kontrollera status innan ett nytt utskick görs.' });
       }
     } finally {
       lock.current = false;
@@ -93,7 +93,7 @@ export function EmailDeliveryStatus() {
       </div>
       {configuration.counts && <div className="email-delivery-queue" aria-labelledby="email-queue-heading"><h3 id="email-queue-heading">Kö för händelsemejl</h3><dl className="email-delivery-metrics">{([
         ['pending', 'Väntar på utskick'], ['accepted', 'Mottagna av mejltjänsten'], ['rejected', 'Avvisade'], ['unknown', 'Okänt utfall'],
-      ] as const).map(([key,label]) => <div key={key}><dt>{label}</dt><dd>{configuration.counts[key] ?? 0}</dd></div>)}</dl><p>Antalen gäller händelsemejl. Välkomstmejl, lösenordsåterställning och fakturamejl ingår inte. Mottagna av mejltjänsten betyder inte bekräftad leverans till inkorgen.</p></div>}
+      ] as const).map(([key,label]) => <div key={key}><dt>{label}</dt><dd>{configuration.counts[key] ?? 0}</dd></div>)}</dl>{configuration.queue&&<><p>{configuration.queue.oldestSendableAt?`Äldsta sändbara mejl: ${new Intl.DateTimeFormat('sv-SE',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Stockholm'}).format(new Date(configuration.queue.oldestSendableAt))} (${Math.floor((configuration.queue.oldestSendableAgeSeconds??0)/60)} minuter).`:'Inga sändbara mejl väntar.'} {configuration.queue.sendableCount} mejl klarar kökontrollerna; utskick kräver även aktiv mejlkonfiguration.</p><details><summary>Väntande mejl per typ</summary><ul>{configuration.queue.byKind.map(row=><li key={row.kind}>{({application_received:'Ansökningsbekräftelser',application_admin:'Nya ansökningar till Trafexa',account_approved:'Godkända konton',offer_invitation:'Offertinbjudningar',contract_invitation:'Avtalsinbjudningar',contract_completed:'Kundens färdiga avtal',contract_completed_company:'Handlarens färdiga avtal'} as Record<string,string>)[row.kind]??'Övriga händelsemejl'}: {row.pending} väntande, {row.sendable} sändbara</li>)}</ul></details></>}<p>Antalen gäller händelsemejl. Välkomstmejl, lösenordsåterställning och fakturamejl ingår inte. Mottagna av mejltjänsten betyder inte bekräftad leverans till inkorgen.</p></div>}
       <details className="email-delivery-manual"><summary>Manuellt utskick av väntande mejl</summary><div><p>{pendingCount ? `${pendingCount} mejl väntar. Här kan du skicka ett mejl i taget efter kontroll.` : 'Inga mejl väntar på utskick. Uppdatera status för att läsa in kön igen.'} Kön har inget schemalagt utskicksjobb.</p>{!ready && <p>Manuellt utskick är inte tillgängligt medan händelsemejl är {paused ? 'pausade' : 'okonfigurerade'}.</p>}<label className="email-delivery-confirmation"><input type="checkbox" checked={ack} onChange={event => setAck(event.target.checked)} disabled={busy || !ready || !pendingCount}/><span>Jag vill skicka nästa väntande transaktionsmejl</span></label><button type="button" className="button button-green" disabled={!ack || busy || !ready || !pendingCount} onClick={() => void dispatch()}>{busy ? 'Skickar…' : 'Skicka nästa mejl'}</button></div></details>
       <aside className="email-delivery-account-note" aria-label="Kontomejl"><h3>Välkomstmejl och konto</h3><p>Välkomstmejl efter godkänd ansökan hanteras separat{configuration.invitationTransport === 'configured' ? ' och är konfigurerade för utskick' : configuration.invitationTransport === 'unconfigured' ? ' och behöver konfigureras' : ''}. Lösenordsåterställning har ett eget utskicksflöde.</p>{configuration.contractTransport && <p>Offert- och avtalsmejl har en separat utskicksinställning: {configuration.contractTransport === 'configured' ? 'aktiverade' : configuration.contractTransport === 'paused' ? 'pausade' : 'inställningar saknas'}. Bilhandlaren följer utskicken vid respektive offert eller avtal.</p>}</aside>
     </>}

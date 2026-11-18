@@ -2,7 +2,7 @@ import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 import type { PublicStoreDatabase } from './context';
 import { PublicStoreError, parsePublicDealerStore, storeObject, storeSlug, storeUuid } from './validation';
-import { normalizeVehicleImage } from '../vehicle-photos/images';
+import { publicVehicleImage } from '../vehicle-photos/images';
 /** Public reads deliberately never inherit the visitor's app cookies or a service key. */
 export function createPublicStoreClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -29,7 +29,7 @@ export async function loadPublicStorePhoto(inputSlug:string,inputId:string) {
   if(before.objectPath.split('/').at(-1)!==photoId+'.'+(before.contentType==='image/jpeg'?'jpg':before.contentType==='image/png'?'png':'webp'))throw new PublicStoreError('unavailable');
   const result=await db.storage.from('ads-vehicle-photos').download(before.objectPath);
   if(result.error||!result.data||result.data.size!==before.sizeBytes)throw new PublicStoreError('unavailable');
-  const normalized=await normalizeVehicleImage(new Uint8Array(await result.data.arrayBuffer()),before.contentType);
+  const normalized=await publicVehicleImage(new Uint8Array(await result.data.arrayBuffer()),before.contentType);
   // A withdrawal, sale or archived image during download must withhold the bytes.
   const current=await db.rpc('get_public_store_photo',{p_slug:slug,p_photo_id:photoId}); if(current.error) throw new PublicStoreError('unavailable');
   const after=photoMeta(current.data); if(!after || after.objectPath!==before.objectPath || after.sizeBytes!==before.sizeBytes || after.contentType!==before.contentType)return null;

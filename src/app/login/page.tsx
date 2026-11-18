@@ -1,3 +1,4 @@
+import { throwIfAuthUnavailable, isAuthUnavailable, authAvailabilityRead } from '@/lib/auth/availability';
 import {AuthSubmit} from '@/components/auth-submit';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -10,7 +11,7 @@ import { passwordChangeUnconfirmedWarning, savedPasswordSignOutWarning, sessionS
 import { retryPasswordSignOutAction } from '@/lib/auth/session-recovery-actions';
 export const metadata={title:'Logga in',robots:{index:false,follow:false}};
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{error?:string;success?:string;next?:string}> }) {
- const query=await searchParams;const nextPath=safeNextPath(query.next);const db=await createServerSupabaseClient();const {data,error}=await db.auth.getUser();
+ const query=await searchParams;const nextPath=safeNextPath(query.next);const db=await createServerSupabaseClient();const {data,error}=await authAvailabilityRead(()=>db.auth.getUser());throwIfAuthUnavailable(error);
  if(!error&&data?.user){
   const landing=await getAuthenticatedLandingPath(nextPath);
   if(query.error!==savedPasswordSignOutWarning&&query.error!==passwordChangeUnconfirmedWarning&&query.error!==sessionSignOutUnconfirmedWarning)redirect(landing);

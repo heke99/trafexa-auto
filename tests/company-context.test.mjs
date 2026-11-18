@@ -68,7 +68,13 @@ async function harness() {
           const role = request.memberships.find(m => m.company_id === args.p_company_id && m.user_id === request.user.id).role;
           return {data:{companyId:args.p_company_id,actorId:request.user.id,role,rows:request.stock.filter(s=>s.company_id===args.p_company_id).map(s=>({...s,purchase_price_ore:['owner','admin','finance'].includes(role)?s.purchase_price_ore:null}))},error:null};
         }
+        if(name==='get_my_company_access_status')return {data:{actorUserId:request.user.id,hasSuspendedCompany:request.memberships.some(m=>m.user_id===request.user.id&&m.status==='active'&&m.companies.status==='suspended')},error:null};
         if (name === 'inventory_dashboard_totals') return {data:null,error:{code:'test_no_totals'}};
+        if (name === 'dealer_register_page') {
+          assert.equal(args.p_company_id, A);
+          assert.ok(['draft','reserved'].includes(args.p_status));
+          return {data:{companyId:A,actorId:request.user.id,role:'owner',kind:'deals',options:false,rows:[],totalCount:0,filteredCount:0,counts:{all:0,draft:0,reserved:0,cancelled:0,completed:0,archived:0},nextCursor:null},error:null};
+        }
         assert.equal(name,'get_account_access'); return {data:{userId:request.user.id,email:request.user.email,emailVerified:Boolean(request.user.email_confirmed_at),status:request.approvalStatus??'approved',version:request.approvalStatus?0:1,isPlatformAdmin:false},error:request.approvalError??null};
       },
       from(table) {
@@ -100,6 +106,7 @@ async function harness() {
   }
   const loader = await createSourceLoader({
     react: createRequestReact(storage),
+    '@/lib/platform-admin/context':{getPlatformAdminContext:async()=>null},
     'next/headers': { cookies: async () => ({
       get: (key) => key === 'trafexa-company' && state().cookie !== undefined ? { value: state().cookie } : undefined,
       set: (...args) => { state().cookieWrites.push(args); state().cookie = args[1]; },
@@ -139,8 +146,8 @@ test('real React server cache shares a verified session across context and snaps
     const [one, two, snapshot, strict] = await Promise.all([h.context.getCompanySession(), h.context.getCompanySession(), h.workspace.getWorkspaceSnapshot(), h.context.getActiveCompanyContext()]);
     assert.equal(one, two);
     assert.equal(snapshot.organization.id, strict.company);
-    assert.equal(request.authCalls, 3); assert.equal(request.clients, 3);
-    assert.equal(request.queries.filter((query) => query.table === 'memberships').length, 2);
+    assert.equal(request.authCalls, 5); assert.equal(request.clients, 5);
+    assert.equal(request.queries.filter((query) => query.table === 'memberships').length, 4);
   });
 });
 
@@ -166,16 +173,32 @@ test('auth and membership revocation are fresh across requests without leaking a
   assert.equal(unauthenticated.authCalls, 1);
 });
 
-test('snapshot reuses verified company metadata and scopes customer, stock and cost reads to the selected company', async () => {
+test('snapshot reuses verified company metadata without loading the customer or document registers', async () => {
   const h = await harness(), request = fixture({ cookie: A.toUpperCase() });
   await h.request(request, async () => {
     const snapshot = await h.workspace.getWorkspaceSnapshot();
     assert.equal(snapshot.organization.id, A); assert.equal(snapshot.organization.name, 'Company a');
     assert.equal(snapshot.user.email, 'verified@example.invalid');
-    assert.deepEqual(snapshot.customers.map((customer) => customer.name), ['Own customer']);
+    assert.deepEqual(snapshot.customers, []);
+    assert.ok(!request.queries.some(query=>['customers','documents','activities'].includes(query.table)));
     assert.ok(request.queries.filter((query) => !['memberships', 'finance_partners'].includes(query.table)).every((query) => query.filters.company_id === A));
-    assert.equal(request.authCalls, 3);
+    assert.equal(request.authCalls, 5);
   });
+});
+
+test('interactive sections use the scoped shell without loading dashboard data', async () => {
+  const h=await harness();
+  for (const section of ['documents','network','advertising','deals','customers']) {
+    const request=fixture();
+    await h.request(request,async()=>{
+      const snapshot=await h.workspace.getWorkspaceSnapshot(section);
+      assert.equal(snapshot.organization.id,A);
+      assert.deepEqual(snapshot.inventory,[]);
+      assert.deepEqual(snapshot.deals,[]);
+      assert.deepEqual(request.queries.map(query=>query.table),['memberships']);
+      assert.equal(request.authCalls,1);
+    });
+  }
 });
 
 test('stale, blank, paused-company and revoked-member cookies permit only a readonly company chooser', async () => {
@@ -198,7 +221,7 @@ test('stale, blank, paused-company and revoked-member cookies permit only a read
 
 test('unauthenticated and failed-auth sessions read no memberships, while no active memberships yield onboarding state', async () => {
   const h = await harness();
-  for (const overrides of [{ user: null }, { authError: { message: 'Token revoked' } }]) {
+  for (const overrides of [{ user: null }, { authError: { status:401,message: 'Token revoked' } }]) {
     const request = fixture(overrides);
     await h.request(request, async () => {
       assert.equal(await h.context.getCompanySession(), null);
@@ -302,4 +325,14 @@ test('actual settings markup with null membership offers every active company fo
 test('pending rejected and suspended accounts expose no companies even with active owner fixtures',async()=>{
  const h=await harness();for(const approvalStatus of ['pending','rejected','suspended']){const request=fixture({approvalStatus});await h.request(request,async()=>{const session=await h.context.getCompanySession();assert.equal(session.accountAccess.status,approvalStatus);assert.deepEqual(session.memberships,[]);assert.equal(session.membership,null);assert.equal(request.queries.length,0);await assert.rejects(h.context.getActiveCompanyContext());});}
  const unavailable=fixture({approvalError:{code:'XX000'}});await h.request(unavailable,async()=>{await assert.rejects(h.context.getCompanySession(),/godkännande/);assert.equal(unavailable.queries.length,0);});
+});
+
+test('a sole suspended company has explicit blocked workspace state and no tenant data or onboarding form',async()=>{
+ const h=await harness(),request=fixture({memberships:[membership(PAUSED,{companyStatus:'suspended'})]});
+ await h.request(request,async()=>{
+  const session=await h.context.getCompanySession();assert.equal(session.hasSuspendedCompany,true);assert.equal(session.membership,null);assert.deepEqual(session.memberships,[]);
+  const snapshot=await h.workspace.getWorkspaceSnapshot();assert.equal(snapshot.hasSuspendedCompany,true);assert.deepEqual(snapshot.deals,[]);assert.deepEqual(snapshot.inventory,[]);
+  const page=await h.loader.load('src/app/(dealer)/[section]/page.tsx').default({params:Promise.resolve({section:'dashboard'}),searchParams:Promise.resolve({})});assert.equal(page.type.name,'CompanySuspended');
+  await assert.rejects(h.context.getActiveCompanyContext(),error=>error.code==='access_denied');assert.ok(request.queries.every(q=>q.table==='memberships'));
+ });
 });

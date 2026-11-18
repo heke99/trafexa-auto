@@ -27,7 +27,7 @@ test('keyboard-only deliberate tracing enables native signing review without gen
   await expect(page.getByRole('button',{name:'Granska min underskrift'})).toBeDisabled();
   assert.equal(await page.evaluate(()=>window.fixture.calls.filter(c=>c.kind==='sign').length),0);
   await keyboardTrace(page);await expect(page.getByRole('status')).toContainText('klar att granskas');
-  await mkdir('/workspace/scratch/review8-ui',{recursive:true});await page.screenshot({path:'/workspace/scratch/review8-ui/signature-320.png',fullPage:true});
+  await mkdir(`${process.env.TRAFEXA_QA_EVIDENCE_DIR ?? tmpdir()}/scratch/review8-ui`,{recursive:true});await page.screenshot({path:`${process.env.TRAFEXA_QA_EVIDENCE_DIR ?? tmpdir()}/scratch/review8-ui/signature-320.png`,fullPage:true});
   await page.keyboard.press('Tab');await expect(page.getByRole('button',{name:'Rensa namnteckning'})).toBeFocused();
   await page.keyboard.press('Tab');await expect(page.getByRole('checkbox')).toBeFocused();await page.keyboard.press('Space');
   await expect(page.getByRole('button',{name:'Granska min underskrift'})).toBeEnabled();

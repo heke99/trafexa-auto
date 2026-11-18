@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {createSourceLoader} from './helpers/source-loader.mjs';
 import {asRole} from './crm-db/helpers.mjs';
 import {fixture,id,U,C,EMAIL,service,read,approveOffer,approveContract,createSigning,rpc,strokes} from './guest-customer-db/helpers.mjs';
-const env={CONTRACT_EMAIL_ENABLED:'true',TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED:'true',RESEND_API_KEY:'synthetic-guest-provider-key',SUPABASE_SECRET_KEY:'synthetic-guest-server-secret',NEXT_PUBLIC_SUPABASE_URL:'https://buqdtssxrotkzndublrt.supabase.co'};
+const env={CONTRACT_EMAIL_ENABLED:'true',TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED:'true',RESEND_API_KEY:'synthetic-guest-provider-key',SUPABASE_SECRET_KEY:'synthetic-guest-server-secret',NEXT_PUBLIC_SUPABASE_URL:'https://synthetic-trafexa.supabase.co'};
 async function setup(t){
  const prior=Object.fromEntries([...Object.keys(env),'TRANSACTIONAL_EMAIL_ENABLED'].map(k=>[k,process.env[k]]));Object.assign(process.env,env);delete process.env.TRANSACTIONAL_EMAIL_ENABLED;
  const h=await fixture(),state={providers:[],responses:[],rpcCalls:[],authCalls:0,failAfterBind:false,failBeginAck:false,bound:false};

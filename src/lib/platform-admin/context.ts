@@ -1,3 +1,5 @@
+import {getRequestAuthContext} from '@/lib/auth/request-context';
+import { throwIfAuthUnavailable, isAuthUnavailable, authAvailabilityRead } from '@/lib/auth/availability';
 import 'server-only';
 import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -12,10 +14,13 @@ export class PlatformAdminError extends Error {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Fresh verification for every action. Dealer roles and profile metadata confer no access. */
-export async function requirePlatformAuthenticatedContext(): Promise<PlatformAdminContext> {
+export async function requirePlatformAuthenticatedContext(navigation=false): Promise<PlatformAdminContext> {
   try {
-    const db = await createServerSupabaseClient() as unknown as SupabaseClient<PlatformAdminDatabase>;
-    const { data, error } = await db.auth.getUser();
+    const initial=navigation?await getRequestAuthContext():null;
+    if(navigation&&!initial)throw new PlatformAdminError('unauthenticated');
+    const db = (initial?.db??await createServerSupabaseClient()) as unknown as SupabaseClient<PlatformAdminDatabase>;
+    const {data,error}=initial?{data:{user:initial.user},error:null}:await authAvailabilityRead(()=>db.auth.getUser());
+    throwIfAuthUnavailable(error);
     const user = data?.user;
     if (error || !user || !UUID.test(user.id)) throw new PlatformAdminError('unauthenticated');
     if (user.is_anonymous || !user.email || !user.email_confirmed_at || !Number.isFinite(Date.parse(user.email_confirmed_at))) throw new PlatformAdminError('forbidden');
@@ -25,9 +30,9 @@ export async function requirePlatformAuthenticatedContext(): Promise<PlatformAdm
     throw new PlatformAdminError('unavailable');
   }
 }
-export async function requirePlatformAdminContext(): Promise<PlatformAdminContext> {
+export async function requirePlatformAdminContext(navigation=false): Promise<PlatformAdminContext> {
   try {
-    const { db, userId } = await requirePlatformAuthenticatedContext();
+    const { db, userId } = await requirePlatformAuthenticatedContext(navigation);
     const session = await db.rpc('get_platform_admin_session', {});
     if (session.error) throw new PlatformAdminError(session.error.code === '42501' ? 'forbidden' : 'unavailable');
     const value = session.data;
@@ -40,8 +45,8 @@ export async function requirePlatformAdminContext(): Promise<PlatformAdminContex
 }
 
 /** Optional navigation probe: unavailable migrations also omit the admin link. */
-export async function getPlatformAdminContext(): Promise<PlatformAdminContext | null> {
-  try { return await requirePlatformAdminContext(); } catch { return null; }
+export async function getPlatformAdminContext(options?:{navigation?:boolean}): Promise<PlatformAdminContext | null> {
+  try { return await requirePlatformAdminContext(options?.navigation===true); } catch(error) { if(isAuthUnavailable(error))throw error;return null; }
 }
 export const requirePlatformAdminPageContext = cache(requirePlatformAdminContext);
 
@@ -58,5 +63,5 @@ export async function requirePlatformAdminActivationContext(): Promise<PlatformA
   return context;
 }
 export async function getPlatformAdminActivationContext(): Promise<PlatformAdminContext|null> {
-  try{return await requirePlatformAdminActivationContext();}catch{return null;}
+  try{return await requirePlatformAdminActivationContext();}catch(error){if(isAuthUnavailable(error))throw error;return null;}
 }

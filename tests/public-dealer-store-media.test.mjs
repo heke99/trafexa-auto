@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict';
 import { before, after, test } from 'node:test';
 import sharp from 'sharp';
+import { randomBytes } from 'node:crypto';
 import { createSourceLoader } from './helpers/source-loader.mjs';
 const id=n=>`f3720000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const PHOTO=id(3),PATH=`${id(1)}/${id(2)}/${PHOTO}.jpg`,SLUG='bilfirman';
 const originalEnv={url:process.env.NEXT_PUBLIC_SUPABASE_URL,key:process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY};
 before(()=>{process.env.NEXT_PUBLIC_SUPABASE_URL='https://public-fixture.supabase.co';process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY='fixture-publishable-key';});
 after(()=>{for(const[key,value]of[['NEXT_PUBLIC_SUPABASE_URL',originalEnv.url],['NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',originalEnv.key]])if(value===undefined)delete process.env[key];else process.env[key]=value;});
-async function harness({bytes,metas,downloadError=false,rpcError=false,arrayBuffer}={}){
+async function harness({bytes,metas,downloadError=false,rpcError=false,arrayBuffer,contentType='image/jpeg',objectPath=PATH}={}){
  bytes??=await sharp({create:{width:8,height:8,channels:3,background:'#396b52'}}).jpeg().withMetadata({exif:{IFD0:{ImageDescription:'PRIVATE_IMAGE_METADATA'}}}).toBuffer();
- const meta={objectPath:PATH,contentType:'image/jpeg',sizeBytes:bytes.length};const calls={clients:[],rpc:[],storage:[],downloads:[],arrayBuffers:0};const sequence=metas??[meta,meta];
+ const meta={objectPath,contentType,sizeBytes:bytes.length};const calls={clients:[],rpc:[],storage:[],downloads:[],arrayBuffers:0};const sequence=metas??[meta,meta];
  const db={rpc:async(name,args)=>{calls.rpc.push({name,args});return {data:sequence.shift()??null,error:rpcError?{message:'PRIVATE_BACKEND_FAILURE'}:null};},storage:{from:bucket=>{calls.storage.push(bucket);return {download:async path=>{calls.downloads.push(path);return {error:downloadError?{message:'PRIVATE_STORAGE_FAILURE'}:null,data:{size:bytes.length,arrayBuffer:async()=>{calls.arrayBuffers++;return arrayBuffer?arrayBuffer():bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);}}};}};}}};
  class PhotoError extends Error{constructor(code){super(code);this.code=code;}}
  const loader=await createSourceLoader({'@supabase/supabase-js':{createClient:(...args)=>{calls.clients.push(args);return db;}},'./server':{PhotoError}});
@@ -27,6 +28,18 @@ test('invalid public slug or photo ID performs no SDK or Storage request',async(
 });
 test('actual decoder reencodes selected image and strips embedded metadata before returning public bytes',async()=>{
  const h=await harness();assert.ok(h.bytes.includes(Buffer.from('PRIVATE_IMAGE_METADATA')));const result=await h.source.loadPublicStorePhoto(SLUG,PHOTO);assert.equal(result.contentType,'image/jpeg');assert.ok(!Buffer.from(result.bytes).includes(Buffer.from('PRIVATE_IMAGE_METADATA')));const decoded=await sharp(result.bytes).metadata();assert.equal(decoded.width,8);assert.equal(decoded.height,8);assert.equal(decoded.exif,undefined);assert.deepEqual(h.calls.storage,['ads-vehicle-photos']);assert.deepEqual(h.calls.downloads,[PATH]);assert.equal(h.calls.rpc.length,2);assert.deepEqual(h.calls.rpc[0].args,{p_slug:SLUG,p_photo_id:PHOTO});
+});
+test('a still-valid legacy PNG above the hosting response limit becomes a bounded public image',async()=>{
+ const bytes=await sharp(randomBytes(1600*1200*3),{raw:{width:1600,height:1200,channels:3}}).png().toBuffer();
+ assert.ok(bytes.length>4_500_000);
+ const h=await harness({bytes,contentType:'image/png',objectPath:PATH.replace(/\.jpg$/,'.png')});
+ const result=await h.source.loadPublicStorePhoto(SLUG,PHOTO);
+ assert.ok(result.bytes.length<=4*1024*1024);
+ assert.equal(result.contentType,'image/webp');
+ const info=await sharp(result.bytes).metadata();
+ assert.equal(info.format,'webp');
+ assert.equal(info.width,1024);
+ assert.equal(h.calls.rpc.length,2);
 });
 test('publication withdrawn while bytes download are decoded yields no public bytes',async()=>{
  const h=await harness();h.db.rpc=async(name,args)=>{h.calls.rpc.push({name,args});return {data:h.calls.rpc.length===1?h.meta:null,error:null};};assert.equal(await h.source.loadPublicStorePhoto(SLUG,PHOTO),null);assert.equal(h.calls.arrayBuffers,1);assert.equal(h.calls.rpc.length,2);

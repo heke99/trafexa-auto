@@ -23,6 +23,9 @@ const pageSchema = z.object({ companyId: uuid, dealId: uuid, actorId: uuid, role
 function failure(error: unknown): FulfilmentResult {
   const code = error instanceof z.ZodError ? 'invalid_input' : error && typeof error === 'object' && 'code' in error ? String(error.code) : 'unavailable';
   const mapped = code === '40001' || code === '23505' ? 'conflict' : code === '42501' ? 'access_denied' : code === '22023' || code === '22007' || code === '22008' ? 'invalid_input' : ['invalid_input', 'unauthenticated', 'access_denied'].includes(code) ? code as 'invalid_input' | 'unauthenticated' | 'access_denied' : 'unavailable';
+  if (code === '23505' && error && typeof error === 'object' && 'message' in error && /Bank reference already used|deal_payment_bank_reference|deal_payment_entries_correction_of_key/.test(String(error.message))) {
+    return { ok: false, code: 'conflict', message: 'Bankreferensen används redan. Kontrollera den befintliga bokningen och återför den vid behov innan du registrerar en rättelse.' };
+  }
   return { ok: false, code: mapped, message: mapped === 'conflict' ? 'Affären eller avstämningen har ändrats. Läs in och granska uppgifterna igen.' : mapped === 'invalid_input' ? 'Kontrollera belopp, bankreferens, datum och anledning.' : mapped === 'access_denied' || mapped === 'unauthenticated' ? 'Din aktuella behörighet kunde inte verifieras. Öppna affären igen.' : 'Resultatet kunde inte bekräftas. Försök igen med exakt samma granskade begäran.' };
 }
 async function execute(input: FulfilmentScope | FulfilmentMutation, write: boolean): Promise<FulfilmentResult> {

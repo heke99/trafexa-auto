@@ -1,4 +1,5 @@
 import 'server-only';
+import {configuredSupabaseProjectUrl,isSupabaseProjectConfigured} from '@/lib/runtime/environment';
 import { createClient } from '@supabase/supabase-js';
 import { requirePlatformAdminContext, PlatformAdminError } from '@/lib/platform-admin/context';
 import { record } from '@/lib/advertising/billing-validation';
@@ -7,13 +8,13 @@ import { parseAdvertisingInvoiceEmailJob } from '@/lib/advertising/invoice-email
 import { prepareAdvertisingInvoiceEmail } from './advertising-invoice-content';
 import { sendPreparedAdvertisingInvoiceEmail } from './advertising-invoice-transport';
 
-const PROJECT_URL = 'https://buqdtssxrotkzndublrt.supabase.co';
+
 type RpcClient = { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> };
 export type AdvertisingEmailDispatchStatus = 'accepted' | 'pending' | 'rejected' | 'unknown' | 'cancelled' | 'empty' | 'unconfigured' | 'unavailable' | 'busy';
 export function advertisingInvoiceEmailConfigured() {
   return process.env.ADVERTISING_INVOICE_EMAIL_ENABLED === 'true'
     && process.env.TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED === 'true'
-    && process.env.NEXT_PUBLIC_SUPABASE_URL === PROJECT_URL
+    && isSupabaseProjectConfigured()
     && Boolean(process.env.RESEND_API_KEY) && Boolean(process.env.SUPABASE_SECRET_KEY) && Boolean(process.env.RESEND_WEBHOOK_SECRET);
 }
 async function rpc(db: RpcClient, name: string, args: Record<string, unknown>) {
@@ -30,7 +31,7 @@ export async function dispatchAdvertisingInvoiceEmail(value: { companyId: string
   const actor = await requirePlatformAdminContext();
   if (!advertisingInvoiceEmailConfigured()) return { status: 'unconfigured' };
   // Dedicated service client records historical provider outcomes even if access changes after sending.
-  const service = createClient(PROJECT_URL, process.env.SUPABASE_SECRET_KEY!, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }) as unknown as RpcClient;
+  const service = createClient(configuredSupabaseProjectUrl(), process.env.SUPABASE_SECRET_KEY!, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }) as unknown as RpcClient;
   const envelope = record(await rpc(actor.db as unknown as RpcClient, 'claim_advertising_invoice_email', { p_company_id: companyId, p_email_id: emailId }));
   if (envelope.companyId !== companyId || envelope.actorUserId !== actor.userId || envelope.actorRole !== 'platform_admin') throw Error('Invalid claim scope');
   if (envelope.job === null) return { status: 'empty' };
@@ -63,7 +64,13 @@ export async function dispatchAdvertisingInvoiceEmail(value: { companyId: string
     if (fresh.userId !== actor.userId) return finish('cancelled');
     const check = record(await rpc(fresh.db as unknown as RpcClient, 'check_advertising_invoice_email', leaseArgs));
     if (check.ok !== true) return finish('cancelled');
-  } catch { return finish('cancelled'); }
+  } catch (error) {
+    // No provider request has occurred. A transport/database outage can safely
+    // retry the exact bound bytes; only verified loss of access cancels.
+    const denied = error instanceof PlatformAdminError && ['forbidden','unauthenticated'].includes(error.code)
+      || Boolean(error && typeof error === 'object' && 'code' in error && error.code === '42501');
+    return finish(denied ? 'cancelled' : 'retryable');
+  }
   const result = await sendPreparedAdvertisingInvoiceEmail({ emailId, firstAttemptAt: job.firstAttemptAt, body: prepared.body, apiKey: process.env.RESEND_API_KEY! });
   return finish(result.status, result.status === 'accepted' ? result.providerId : null);
 }

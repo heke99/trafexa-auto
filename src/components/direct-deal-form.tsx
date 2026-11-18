@@ -1,10 +1,10 @@
 'use client';
 
 import {useCallback,useEffect,useId,useRef,useState} from 'react';
-import {getDirectDealOptionsAction,prepareDirectDealAction,approveAndSendDirectDealAction} from '@/lib/data/direct-deal-actions';
+import {getDirectDealOptionsAction,listDirectDealTemplatesAction,prepareDirectDealAction,approveAndSendDirectDealAction} from '@/lib/data/direct-deal-actions';
 import {getContractSigningDeliveryAction} from '@/lib/data/contract-signing-actions';
 import type {ContractSigning,ContractSigningDelivery} from '@/lib/contracts/signing-types';
-import type {DirectDealCustomerContext,DirectDealOptions,DirectDealReview,PrepareDirectDealInput,ApproveDirectDealInput} from '@/lib/data/direct-deal-types';
+import type {DirectDealCustomerContext,DirectDealOptions,DirectDealReview,DirectDealTemplatePage,PrepareDirectDealInput,ApproveDirectDealInput} from '@/lib/data/direct-deal-types';
 import type {Customer,InventoryItem,WorkspaceSnapshot} from '@/lib/data/workspace';
 import {formatOre} from '@/lib/calculations/vehicle-calculation';
 import {useDescendantBusy} from './use-descendant-busy';
@@ -32,12 +32,15 @@ function ScopedDirectDealForm({snapshot,companyId,dealId,demo=false,onBusyChange
  const statusCallback=useRef(onSigningStatusChange),observedStatus=useRef('');statusCallback.current=onSigningStatusChange;
  const field=useId(),busy=useDescendantBusy(onBusyChange),alive=useRef(false),reads=useRef(0),errorFocus=useRef<HTMLParagraphElement>(null),reviewFocus=useRef<HTMLHeadingElement>(null),completionFocus=useRef<HTMLHeadingElement>(null);
  const [fields,setFields]=useState<Fields>(blankFields),[options,setOptions]=useState<DirectDealOptions|null>(null),[customer,setCustomer]=useState<DirectDealCustomerContext|null>(null),[activeDealId,setActiveDealId]=useState(dealId??null),[review,setReview]=useState<DirectDealReview|null>(null),[sent,setSent]=useState<Sent|null>(null);
+ const [templateSearch,setTemplateSearch]=useState(''),[activeTemplateSearch,setActiveTemplateSearch]=useState(''),[templateSelection,setTemplateSelection]=useState<DirectDealTemplatePage|null>(null);
+ const availableTemplates=templateSelection?.templates??options?.templates??[];
+ const nextBeforeTemplateId=templateSelection?templateSelection.nextBeforeTemplateId:options?.nextBeforeTemplateId;
  const [loading,setLoading]=useState(!demo),[error,setError]=useState(''),[denied,setDenied]=useState(false),[unknown,setUnknown]=useState<'prepare'|'send'|null>(null),[sellerName,setSellerName]=useState(''),[ack,setAck]=useState(false),[needsRefresh,setNeedsRefresh]=useState(false);
  const prepareAttempt=useRef<PrepareDirectDealInput|null>(null),sendAttempt=useRef<ApproveDirectDealInput|null>(null);
  const [pickedStock,setPickedStock]=useState<InventoryItem|null>(null),[pickedCustomer,setPickedCustomer]=useState<Customer|null>(null),[stockReady,setStockReady]=useState(false),[customerReady,setCustomerReady]=useState(false);
  const pickerLocked=useRef(false),pickedCustomerId=useRef<string|null>(null),readSelectedCustomer=useRef<(id:string)=>void>(()=>{});
  pickerLocked.current=busy.busy||unknown!==null||denied;
- function purge(message:string){reads.current++;setFields(blankFields());setOptions(null);setCustomer(null);setReview(null);setSent(null);setSellerName('');setAck(false);setUnknown(null);prepareAttempt.current=null;sendAttempt.current=null;setDenied(true);setLoading(false);setError(message);onAccessDenied?.(message);}
+ function purge(message:string){reads.current++;setFields(blankFields());setOptions(null);setTemplateSelection(null);setCustomer(null);setReview(null);setSent(null);setSellerName('');setAck(false);setUnknown(null);prepareAttempt.current=null;sendAttempt.current=null;setDenied(true);setLoading(false);setError(message);onAccessDenied?.(message);}
  function fail(code:string,message:string){if(['access_denied','unauthenticated','company_changed'].includes(code))purge(message);else {setError(message);if(code==='conflict'){setNeedsRefresh(true);setAck(false);}}}
  async function load(selectedCustomerId?:string,initial=false){
   if(demo||busy.busyRef.current)return;const seq=++reads.current;setLoading(true);setError('');
@@ -47,7 +50,7 @@ function ScopedDirectDealForm({snapshot,companyId,dealId,demo=false,onBusyChange
    if(!result.ok){fail(result.code,result.message);return;}
    if(result.templates.some(row=>row.companyId!==companyId||row.status!=='approved')||result.deal&&activeDealId&&result.deal.id!==activeDealId||result.customer&&selectedCustomerId&&result.customer.id!==selectedCustomerId){purge('Affärens underlag kunde inte verifieras. Läs in sidan igen.');return;}
    setOptions(result);setNeedsRefresh(false);setSellerName(current=>current||result.actorName||'');
-   setFields(current=>({...current,templateVersionId:current.templateVersionId===BASE_TEMPLATE||result.templates.some(row=>row.id===current.templateVersionId)?current.templateVersionId:result.templates[0]?.id??BASE_TEMPLATE}));
+   setFields(current=>({...current,templateVersionId:current.templateVersionId===BASE_TEMPLATE||(templateSelection?.templates??result.templates).some(row=>row.id===current.templateVersionId)?current.templateVersionId:result.templates[0]?.id??BASE_TEMPLATE}));
    if(selectedCustomerId){const selected=result.customer;setCustomer(selected);if(selected)setFields(current=>({...current,...customerFields(selected)}));}
    else if(initial&&result.deal){setActiveDealId(result.deal.id);setCustomer(result.deal.customer);setFields(current=>({...current,...customerFields(result.deal!.customer),stockItemId:result.deal!.stockItemId,agreedPrice:kronor(result.deal!.agreedPriceOre)}));}
    if(initial&&result.pendingReview&&!needsRefresh){if(!validReview(result.pendingReview,companyId,activeDealId??undefined)){purge('Det sparade avtalsunderlaget kunde inte verifieras.');return;}setReview(result.pendingReview);setActiveDealId(result.pendingReview.dealId);}
@@ -67,6 +70,22 @@ function ScopedDirectDealForm({snapshot,companyId,dealId,demo=false,onBusyChange
     setSent({ok:true,signing,delivery});setReview(null);
    }
   }catch{if(alive.current&&seq===reads.current)setError('Affärens underlag kunde inte hämtas. Försök läsa in det igen.');}
+  finally{if(alive.current&&seq===reads.current)setLoading(false);}
+ }
+ async function loadTemplates(search:string,beforeTemplateId?:string){
+  if(demo||busy.busyRef.current||loading||denied||unknown)return;
+  const seq=++reads.current;
+  setLoading(true);setError('');
+  try{
+   const result=await listDirectDealTemplatesAction({companyId,search,...(beforeTemplateId?{beforeTemplateId}:{})});
+   if(!alive.current||seq!==reads.current)return;
+   if(!result.ok){fail(result.code,result.message);return;}
+   if(result.templates.some(row=>row.companyId!==companyId||row.status!=='approved')){purge('Avtalsmallarna kunde inte verifieras. Läs in sidan igen.');return;}
+   const templates=new Map((beforeTemplateId?availableTemplates:availableTemplates.filter(row=>row.id===fields.templateVersionId)).map(row=>[row.id,row]));
+   for(const row of result.templates)templates.set(row.id,row);
+   setTemplateSelection({templates:[...templates.values()],nextBeforeTemplateId:result.nextBeforeTemplateId});
+   setActiveTemplateSearch(search);
+  }catch{if(alive.current&&seq===reads.current)setError('Avtalsmallarna kunde inte hämtas. Försök igen.');}
   finally{if(alive.current&&seq===reads.current)setLoading(false);}
  }
  readSelectedCustomer.current=value=>void load(value);
@@ -94,7 +113,7 @@ function ScopedDirectDealForm({snapshot,companyId,dealId,demo=false,onBusyChange
  async function prepare(retry=false){
   if(demo||denied||busy.busyRef.current||loading||!activeDealId&&(!stockReady||fields.customerMode==='existing'&&!customerReady))return;
   let input=retry?prepareAttempt.current:null;
-  if(!input){const template=options?.templates.find(row=>row.id===fields.templateVersionId);if(!template&&fields.templateVersionId!==BASE_TEMPLATE){setError('Välj en godkänd avtalsmall innan du fortsätter.');return;}if(fields.customerMode==='existing'&&!customer){setError('Välj och läs in en kund innan du fortsätter.');return;}const trade=(options?.tradeIns??[]).find(row=>row.id===fields.tradeInId);if(fields.tradeInId&&(!trade||!trade.debtKnown||trade.debtOre===null)){setError('Välj ett aktuellt inbytesunderlag med bekräftad skuld.');return;}input={tradeInId:trade?.id??null,expectedTradeInVersion:trade?.version??null,companyId,requestId:crypto.randomUUID(),dealId:activeDealId,stockItemId:fields.stockItemId,customerId:fields.customerMode==='existing'?fields.customerId:null,customer:{name:fields.name.trim(),kind:fields.kind,email:fields.email.trim().toLowerCase(),phone:fields.phone.trim(),address:fields.address.trim(),identityNumber:fields.identityNumber.trim()},expectedCustomerVersion:fields.customerMode==='existing'?customer?.version??null:null,agreedPrice:fields.agreedPrice.trim(),templateVersionId:template?.id??null,expectedTemplateApprovalVersion:template?.approvalVersion??0};prepareAttempt.current=input;}
+  if(!input){const template=availableTemplates.find(row=>row.id===fields.templateVersionId);if(!template&&fields.templateVersionId!==BASE_TEMPLATE){setError('Välj en godkänd avtalsmall innan du fortsätter.');return;}if(fields.customerMode==='existing'&&!customer){setError('Välj och läs in en kund innan du fortsätter.');return;}const trade=(options?.tradeIns??[]).find(row=>row.id===fields.tradeInId);if(fields.tradeInId&&(!trade||!trade.debtKnown||trade.debtOre===null)){setError('Välj ett aktuellt inbytesunderlag med bekräftad skuld.');return;}input={tradeInId:trade?.id??null,expectedTradeInVersion:trade?.version??null,companyId,requestId:crypto.randomUUID(),dealId:activeDealId,stockItemId:fields.stockItemId,customerId:fields.customerMode==='existing'?fields.customerId:null,customer:{name:fields.name.trim(),kind:fields.kind,email:fields.email.trim().toLowerCase(),phone:fields.phone.trim(),address:fields.address.trim(),identityNumber:fields.identityNumber.trim()},expectedCustomerVersion:fields.customerMode==='existing'?customer?.version??null:null,agreedPrice:fields.agreedPrice.trim(),templateVersionId:template?.id??null,expectedTemplateApprovalVersion:template?.approvalVersion??0};prepareAttempt.current=input;}
   busy.report(true);setError('');
   try{
    const result=await prepareDirectDealAction(input);if(!alive.current)return;
@@ -125,7 +144,7 @@ function ScopedDirectDealForm({snapshot,companyId,dealId,demo=false,onBusyChange
   // staged contact edits and erase the identity before the seller can amend them.
   // prepare still verifies customerVersion on the server before another review.
   setCustomer({id:source.customer.id,version:review.customerVersion,identityPresent:customer?.id===source.customer.id&&customer.kind===source.customer.kind?customer.identityPresent:options?.deal?.customer.id===source.customer.id&&options.deal.customer.kind===source.customer.kind?options.deal.customer.identityPresent:false,name:source.customer.name,kind:source.customer.kind,email:source.customer.email??'',phone:source.customer.phone??'',address:source.customer.address??''});
-  setFields(current=>({...current,tradeInId:source.trade_in?.id??'',stockItemId:source.stock.id,customerMode:'existing',customerId:source.customer.id,name:source.customer.name,kind:source.customer.kind,email:source.customer.email??'',phone:source.customer.phone??'',address:source.customer.address??'',identityNumber:review.draft.customerIdentity?.number??current.identityNumber,agreedPrice:kronor(source.sale_price_ore),templateVersionId:options?.templates.some(row=>row.id===review.draft.template.id)?review.draft.template.id:BASE_TEMPLATE}));
+  setFields(current=>({...current,tradeInId:source.trade_in?.id??'',stockItemId:source.stock.id,customerMode:'existing',customerId:source.customer.id,name:source.customer.name,kind:source.customer.kind,email:source.customer.email??'',phone:source.customer.phone??'',address:source.customer.address??'',identityNumber:review.draft.customerIdentity?.number??current.identityNumber,agreedPrice:kronor(source.sale_price_ore),templateVersionId:availableTemplates.some(row=>row.id===review.draft.template.id)?review.draft.template.id:BASE_TEMPLATE}));
   setReview(null);setAck(false);setError('');prepareAttempt.current=null;
  }
  const disabled=demo||busy.busy||loading||denied||unknown!==null||needsRefresh;
@@ -160,7 +179,9 @@ function ScopedDirectDealForm({snapshot,companyId,dealId,demo=false,onBusyChange
    </section>
    {activeDealId&&(options?.tradeIns??[]).length===0?<p className={styles.note}>Lägg till underlag under Inbytesunderlag före avtalet skickas om affären ska ha ett inbyte.</p>:null}
    {activeDealId&&(options?.tradeIns??[]).length>0?<section className={styles.section}><h3>Inbyte</h3><label>Inbyte i avtalet<select value={fields.tradeInId} onChange={event=>edit('tradeInId',event.target.value)} disabled={disabled}><option value="">Utan inbyte</option>{(options?.tradeIns??[]).map((row,index)=><option key={row.id} value={row.id} disabled={index!==0||!row.debtKnown}>{row.registration} · Version {row.version} · {formatOre(row.valueOre)}{!row.debtKnown?' · Skuld behöver bekräftas':index!==0?' · Ersatt av nyare underlag':''}</option>)}</select></label><p className={styles.note}>Välj uttryckligen det inbyte som ska ingå. Beloppet att betala räknas från det överenskomna bilpriset och det valda inbytets värde och skuld. Kunden granskar och signerar även inbytet.</p></section>:null}
-   <label>Avtalsmall<select required value={fields.templateVersionId} onChange={event=>edit('templateVersionId',event.target.value)} disabled={disabled}><option value={BASE_TEMPLATE}>Trafexa-grundavtal</option>{options?.templates.map(row=><option key={row.id} value={row.id}>{row.title}</option>)}</select></label>
+   <div className="workspace-form"><label>Sök avtalsmall<input type="search" disabled={disabled} maxLength={160} value={templateSearch} onChange={e=>setTemplateSearch(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();void loadTemplates(templateSearch.trim());}}}/></label><button type="button" className="button button-outline" disabled={disabled} onClick={()=>void loadTemplates(templateSearch.trim())}>Sök mall</button></div>
+   <label>Avtalsmall<select required value={fields.templateVersionId} onChange={event=>edit('templateVersionId',event.target.value)} disabled={disabled}><option value={BASE_TEMPLATE}>Trafexa-grundavtal</option>{availableTemplates.map(row=><option key={row.id} value={row.id}>{row.title}</option>)}</select></label>
+   {nextBeforeTemplateId?<button type="button" className="text-link" disabled={disabled} onClick={()=>void loadTemplates(activeTemplateSearch,nextBeforeTemplateId)}>Visa fler avtalsmallar</button>:null}
    {!loading&&!demo&&fields.templateVersionId===BASE_TEMPLATE?<p className={styles.note}>Trafexa-grundavtalet granskas och godkänns av dig när du skickar. Du behöver inte skapa en mall först.</p>:null}
    <p className={styles.note}>Du granskar avtalet innan du godkänner och skickar det. Kunden behöver inget Trafexakonto.</p>
    <button type="submit" className="button button-green" disabled={disabled||!options||!activeDealId&&(!stockReady||fields.customerMode==='existing'&&!customerReady)}>{busy.busy?'Förbereder avtalet…':activeDealId?'Granska avtalet':'Skapa affär'}</button>

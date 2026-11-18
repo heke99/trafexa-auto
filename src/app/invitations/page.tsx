@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import {authAvailabilityRead,throwIfAuthUnavailable} from '@/lib/auth/availability';
 import { getAccountAccessContext } from '@/lib/account-access/context';
 import { redirect } from 'next/navigation';
 import { Brand } from '@/components/brand';
@@ -11,10 +12,12 @@ export const metadata = { title: 'Mina inbjudningar', robots: { index: false, fo
 
 export default async function InvitationsPage() {
   const db = await createServerSupabaseClient();
-  const { data, error } = await db.auth.getUser();
+  const { data, error } = await authAvailabilityRead(()=>db.auth.getUser());
+  throwIfAuthUnavailable(error);
   const user = data?.user;
   if (error || !user) redirect('/login?next=/invitations');
-  let access; try { access = await getAccountAccessContext(); } catch { redirect('/account-pending?next=%2Finvitations'); }
+  let access; try { access = await getAccountAccessContext(); } catch (error) { if(error&&typeof error==='object'&&'code'in error&&error.code==='unavailable')throw error;redirect('/account-pending?next=%2Finvitations'); }
+  if(access&&access.userId!==user.id)redirect('/login?next=/invitations');
   if (!access || !access.emailVerified || access.status !== 'approved') redirect('/account-pending?next=%2Finvitations');
   const verified = !user.is_anonymous && Boolean(user.email && user.email_confirmed_at && Number.isFinite(Date.parse(user.email_confirmed_at)));
 

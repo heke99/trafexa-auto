@@ -1,0 +1,1 @@
+export async function listFinanceHistoryAction(input){window.historyCalls.push(input);const result=window.historyResults.shift();if(result==='defer')return new Promise(resolve=>{window.resolveHistory=resolve;});return result??{ok:false,code:'unavailable',message:'Kunde inte läsa historiken.'};}

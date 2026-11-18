@@ -1,0 +1,64 @@
+name: Isolated verification
+on:
+  workflow_dispatch:
+    inputs:
+      verify_clean_stack:
+        description: Run clean Supabase readiness and pending type drift review
+        type: boolean
+        default: false
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  application:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y libnss3 libnspr4 fontconfig fonts-dejavu-core poppler-utils python3
+      - run: npm ci --ignore-scripts
+      - run: npm run test:setup
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:database
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_TRAFEXA_DEPLOYMENT_TARGET: local
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_synthetic_local_build
+  native-database:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - run: npm ci --ignore-scripts
+      - run: npm run test:setup
+      - run: npm run test:native
+  clean-supabase:
+    if: github.event_name == 'workflow_dispatch' && inputs.verify_clean_stack
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run local:start
+      - run: npm run local:bootstrap
+      - run: npm run local:verify
+      - run: npm run db:types:check
+      - if: always()
+        run: npm run local:stop

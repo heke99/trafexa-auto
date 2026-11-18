@@ -43,7 +43,7 @@ test('only own explicit eligible reservation reaches activation and reads never 
  assert.equal(h.state.calls.some(name=>/claim|list_platform/.test(name)),false);
 });
 test('mismatched actor and unavailable eligibility fail closed before showing activation',async t=>{
- for(const config of [{eligible:true,probeActor:OTHER},{eligible:true,probeError:true}]){const h=await fixture(t,config);await assert.rejects(h.layout,error=>error.status===404);await assert.rejects(h.page,error=>error.status===404);}
+ for(const config of [{eligible:true,probeActor:OTHER},{eligible:true,probeError:true}]){const h=await fixture(t,config);await assert.rejects(h.layout,error=>error.code==='unavailable');await assert.rejects(h.page,error=>error.code==='unavailable');}
 });
 test('return metadata is local admin navigation only and never grants administrator authority',async t=>{
  const h=await fixture(t);for(const value of ['https://outside.invalid','//outside.invalid','/inventory','/admin\n','/\\outside.invalid']){h.state.header=value;assert.equal(await h.path(),'/admin');}

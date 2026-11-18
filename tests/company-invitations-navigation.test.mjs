@@ -31,7 +31,7 @@ async function fixture({ signInError = null, signUpError = null, exchangeError =
   // These regression cases model established approved accounts; pending access is tested separately.
   const loader = await createSourceLoader({
     '@/lib/platform-admin/context': { getPlatformAdminContext: async () => null },
-    '@/lib/account-access/context': { getAccountAccessContext: async () => ({ status: 'approved', emailVerified: true }) },
+    '@/lib/account-access/context': { getAccountAccessContext: async () => ({ userId:user?.id,status: 'approved', emailVerified: true }) },
     '@/lib/supabase/server': { createServerSupabaseClient: async () => db },
     'next/navigation': { redirect },
     'next/server': { NextResponse: { redirect: url => ({ location: String(url), status: 307 }) } },
@@ -61,7 +61,7 @@ test('login retains its destination but offers an application instead of open re
 });
 
 test('unauthenticated invitation page returns to invitation login without dealer access or acceptance', async () => {
-  for (const userError of [null, { message: 'Private revoked identity detail' }]) {
+  for (const userError of [null, { status:401,message: 'Private revoked identity detail' }]) {
     const { loader, calls } = await fixture({ userError });
     const destination = await redirected(() => loader.load('./src/app/invitations/page.tsx').default());
     assert.equal(destination.pathname, '/login');
@@ -125,7 +125,7 @@ test('login success, rejected credentials and invalid fields all retain the invi
 });
 
 test('a stale JWT without a real Auth user cannot loop from invitation login straight back to invitations', async () => {
-  for (const userError of [null, { message: 'Private revoked identity detail' }]) {
+  for (const userError of [null, { status:401,message: 'Private revoked identity detail' }]) {
     const { loader, calls } = await fixture({ claims: { sub: '11111111-1111-4111-8111-111111111111' }, user: null, userError });
     const login = await loader.load('./src/app/login/page.tsx').default({ searchParams: Promise.resolve({ next: '/invitations' }) });
     assert.equal(hiddenNext(login), '/invitations');

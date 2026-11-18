@@ -4,7 +4,7 @@ import {createSourceLoader} from './helpers/source-loader.mjs';
 import {asRole} from './crm-db/helpers.mjs';
 import {fixture,id,U,C,D,EMAIL,rpc,service,capability,createSigning,approveContract,strokes} from './guest-customer-db/helpers.mjs';
 
-const env={CONTRACT_EMAIL_ENABLED:'true',TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED:'true',RESEND_API_KEY:'synthetic-completion-provider',SUPABASE_SECRET_KEY:'synthetic-completion-secret',NEXT_PUBLIC_SUPABASE_URL:'https://buqdtssxrotkzndublrt.supabase.co'};
+const env={CONTRACT_EMAIL_ENABLED:'true',TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED:'true',RESEND_API_KEY:'synthetic-completion-provider',SUPABASE_SECRET_KEY:'synthetic-completion-secret',NEXT_PUBLIC_SUPABASE_URL:'https://synthetic-trafexa.supabase.co'};
 /** Real actions, fresh dealer contexts, dispatcher, guest worker and SQL. Only SDK I/O/provider are adapted. */
 async function setup(t){
  const previous=Object.fromEntries([...Object.keys(env),'TRANSACTIONAL_EMAIL_ENABLED'].map(key=>[key,process.env[key]]));Object.assign(process.env,env);delete process.env.TRANSACTIONAL_EMAIL_ENABLED;

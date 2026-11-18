@@ -1,4 +1,5 @@
 import 'server-only';
+import {isSupabaseProjectConfigured} from '@/lib/runtime/environment';
 import {createClient} from '@supabase/supabase-js';
 import {createHmac} from 'node:crypto';
 import {cookies} from 'next/headers';
@@ -11,7 +12,7 @@ export const PDF_BUCKET='uploaded-contracts',PDF_COOKIE='trafexa-uploaded-pdf';
 type Reply={data:unknown;error:unknown};
 export type PdfService={rpc(name:string,args:Record<string,unknown>):Promise<Reply>;storage:{from(bucket:string):{upload(path:string,bytes:Uint8Array,options:{contentType:string;upsert:false}):Promise<{error:unknown}>;download(path:string):Promise<{data:Blob|null;error:unknown}>}}};
 export class UploadedPdfError extends Error{constructor(readonly code:'invalid_input'|'access_denied'|'conflict'|'unavailable',message='Dokumentet kunde inte verifieras.'){super(message);}}
-export function uploadedPdfService():PdfService{const secret=process.env.SUPABASE_SECRET_KEY,url=process.env.NEXT_PUBLIC_SUPABASE_URL;if(!secret||url!=='https://buqdtssxrotkzndublrt.supabase.co')throw new UploadedPdfError('unavailable','Dokumentlagringen är inte konfigurerad.');return createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:(input,init)=>fetch(input,{...init,signal:AbortSignal.timeout(20000)})}}) as unknown as PdfService;}
+export function uploadedPdfService():PdfService{const secret=process.env.SUPABASE_SECRET_KEY,url=process.env.NEXT_PUBLIC_SUPABASE_URL;if(!secret||!isSupabaseProjectConfigured())throw new UploadedPdfError('unavailable','Dokumentlagringen är inte konfigurerad.');return createClient(url!,secret,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:(input,init)=>fetch(input,{...init,signal:AbortSignal.timeout(20000)})}}) as unknown as PdfService;}
 export const pdfEmailConfigured=()=>process.env.CONTRACT_EMAIL_ENABLED==='true'&&process.env.TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED==='true'&&!!process.env.RESEND_API_KEY&&!!process.env.SUPABASE_SECRET_KEY;
 export async function pdfRpc(db:{rpc(name:string,args:Record<string,unknown>):Promise<Reply>},name:string,args:Record<string,unknown>){const r=await db.rpc(name,args);if(r.error)throw r.error;return r.data;}
 export async function freshUploadedPdfDealer(prior:Awaited<ReturnType<typeof requireDealerSigningContext>>,write=false){const next=await requireDealerSigningContext(prior.companyId,write);if(next.userId!==prior.userId||next.role!==prior.role)throw new UploadedPdfError('access_denied');return next;}

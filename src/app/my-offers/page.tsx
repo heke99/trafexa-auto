@@ -1,3 +1,4 @@
+import { throwIfAuthUnavailable, isAuthUnavailable, authAvailabilityRead } from '@/lib/auth/availability';
 import Link from 'next/link';
 import { getAccountAccessContext } from '@/lib/account-access/context';
 import { redirect } from 'next/navigation';
@@ -11,10 +12,11 @@ export const metadata = { title: 'Mina offerter', robots: { index: false, follow
 
 export default async function MyOffersPage() {
   const db = await createServerSupabaseClient();
-  const { data, error } = await db.auth.getUser();
+  const { data, error } = await authAvailabilityRead(()=>db.auth.getUser());
+  throwIfAuthUnavailable(error);
   const user = data?.user;
   if (error || !user) redirect('/login?next=/my-offers');
-  let access; try { access = await getAccountAccessContext(); } catch { redirect('/account-pending?next=%2Fmy-offers'); }
+  let access; try { access = await getAccountAccessContext(); } catch(error) { if(isAuthUnavailable(error))throw error;redirect('/account-pending?next=%2Fmy-offers'); }
   if (!access || !access.emailVerified || access.status !== 'approved') redirect('/account-pending?next=%2Fmy-offers');
   const verified = !user.is_anonymous && Boolean(user.email && user.email_confirmed_at && Number.isFinite(Date.parse(user.email_confirmed_at)));
   return <div className="wrap">

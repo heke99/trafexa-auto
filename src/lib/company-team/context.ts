@@ -1,4 +1,5 @@
 import 'server-only';
+import {authAvailabilityRead,throwIfAuthUnavailable} from '@/lib/auth/availability';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getActiveCompanyContext } from '@/lib/data/company-context';
@@ -15,7 +16,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function requireInvitationContext(): Promise<InvitationContext> {
   try {
     const db = await createServerSupabaseClient() as unknown as SupabaseClient<CompanyTeamDatabase>;
-    const { data, error } = await db.auth.getUser();
+    const { data, error } = await authAvailabilityRead(()=>db.auth.getUser());
+    throwIfAuthUnavailable(error);
     const user = data?.user;
     if (error || !user || !UUID.test(user.id)) throw new CompanyTeamError('unauthenticated');
     if (user.is_anonymous || !user.email || !user.email_confirmed_at || !Number.isFinite(Date.parse(user.email_confirmed_at))) throw new CompanyTeamError('access_denied');

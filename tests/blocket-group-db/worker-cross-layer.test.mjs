@@ -29,8 +29,8 @@ async function revise(version,description='Reviewed updated complete advertiseme
 }
 async function totals(){return(await db.query("select jsonb_build_object('publications',(select count(*)from private.advertising_publications),'prices',(select count(*)from private.advertising_publication_prices),'amount',(select coalesce(sum(unit_price_ore),0)::text from private.advertising_publication_prices),'deliveries',(select count(*)from private.blocket_delivery_revisions))result")).rows[0].result;}
 async function harness(){
- await provision();const state={calls:[],rpc:[],remote:null,activeRequest:null,activeOperation:null,rejectNext:false,remote404:false,wrongDealer:false,badTaxonomy:false,loseBegin:false,failPublishedSave:null,onMedia:null};
- const client={rpc(name,args){const result=(async()=>{state.rpc.push(name);const data=await rpc(name,args);if(name==='begin_blocket_delivery'&&state.loseBegin){state.loseBegin=false;return{data:null,error:{code:'LOST',message:'PRIVATE committed response lost'}};}return{data,error:null};})();return result;}};
+ await provision();const state={calls:[],rpc:[],remote:null,activeRequest:null,activeOperation:null,rejectNext:false,remote404:false,wrongDealer:false,badTaxonomy:false,validationStatus:200,writeStatus:null,loseBegin:false,failPublishedSave:null,onMedia:null};
+ const client={rpc(name,args){const result=(async()=>{state.rpc.push(name);const data=await rpc(name,args);if(name==='begin_prepared_blocket_delivery'&&state.loseBegin){state.loseBegin=false;return{data:null,error:{code:'LOST',message:'PRIVATE committed response lost'}};}return{data,error:null};})();return result;}};
  const ledger=modules.load('@/lib/advertising/blocket-delivery-store').createBlocketDeliveryStore(client);
  const store={getJob:jobId=>rpc('get_advertising_job',{p_job_id:jobId}),claimJob:(jobId,version,token)=>rpc('claim_advertising_job',{p_job_id:jobId,p_expected_version:version,p_claim_token:token}),expireDispatch:(jobId,version)=>rpc('expire_advertising_dispatch',{p_job_id:jobId,p_expected_version:version}),async saveJob(jobId,version,token,outcome){
   if(outcome.status==='published'&&state.failPublishedSave==='before'){state.failPublishedSave=null;throw Error('PRIVATE simulated job commit unavailable');}
@@ -41,10 +41,12 @@ async function harness(){
   const parsed=new URL(url),path=parsed.pathname.replace('/pro-import-api/v5','');assert.equal(parsed.origin,'https://api.blocket.se');assert.equal(init.redirect,'error');assert.equal(init.cache,'no-store');
   state.calls.push({path,method:init.method,body:init.body?JSON.parse(init.body):null});
   const json=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json'}});
-  if(path.startsWith('/vehicles/')){assert.ok(Number((await db.query('select count(*)n from private.blocket_delivery_revisions')).rows[0].n)>0,'Durable intent precedes provider I/O');return json(state.badTaxonomy?[{id:'other',name:'Not the vehicle'}]:path.endsWith('/brand')?[{id:'volvo',name:'Volvo'}]:path.endsWith('/models')?[{id:'v60',name:'V60'}]:[{id:'petrol',name:'Bensin'}]);}
-  if(path==='/car/validate'){assert.equal(init.method,'POST');return json({valid:true});}
+  if(path.startsWith('/vehicles/')){assert.ok(Number((await db.query('select count(*)n from private.blocket_job_preparations where token is not null')).rows[0].n)>0,'Preparation lease precedes preflight I/O');return json(state.badTaxonomy?[{id:'other',name:'Not the vehicle'}]:path.endsWith('/brand')?[{id:'volvo',name:'Volvo'}]:path.endsWith('/models')?[{id:'v60',name:'V60'}]:[{id:'petrol',name:'Bensin'}]);}
+  if(path==='/car/validate'){assert.equal(init.method,'POST');return json({valid:true},state.validationStatus);}
   if(init.method==='GET')return state.remote404||!state.remote?json({},404):json({...state.remote,...(state.wrongDealer?{dealer_code:'other-dealer'}:{})});
   assert.ok(path==='/car'||path==='/car/'+LISTING);assert.ok(init.method==='POST'||init.method==='PUT');
+  assert.ok(Number((await db.query("select count(*)n from private.blocket_delivery_revisions where status='dispatching'")).rows[0].n)>0,'Durable write intent precedes mutating I/O');
+  if(state.writeStatus)return json({},state.writeStatus);
   if(state.rejectNext){state.rejectNext=false;return json({private_error:'MUST_NOT_PERSIST'},400);}
   state.activeRequest=randomUUID();state.activeOperation=init.method==='POST'?'create':'update';
   const previous=state.remote;
@@ -74,6 +76,29 @@ test('published durable ledger finalizes a failed generic job save without anoth
  h.state.remote404=true;const calls=h.state.calls.length;assert.equal((await h.worker.run(h.initial)).status,'published');assert.equal(h.state.calls.length,calls);assert.equal(h.writes().length,1);assert.equal((await totals()).publications,1);
 });
 
+test('service can finalize existing proof after reviewed group suspension without contacting Blocket',async()=>{
+ const h=await harness();
+ await h.worker.run(h.initial);h.publishRemote();h.state.failPublishedSave='before';
+ await assert.rejects(h.worker.run(h.initial),/simulated job commit/);
+ await dealer('configure_blocket_group',{p_group_id:GROUP,p_expected_version:1,p_group_reference:'Reviewed fixture group',p_credential_reference:'fixture_label',p_scope:'dealer_group',p_status:'disabled',p_reason:'Reviewed suspension',p_acknowledged:true,p_request_id:randomUUID()},PLATFORM);
+ await assert.rejects(rpc('get_blocket_worker_binding',{p_job_id:h.initial}),error=>error.code==='42501');
+ await assert.rejects(dealer('finalize_verified_blocket_job',{p_job_id:h.initial}),error=>error.code==='42501');
+ const before=h.state.calls.length;
+ assert.equal((await rpc('finalize_verified_blocket_job',{p_job_id:h.initial})).status,'published');
+ assert.equal((await rpc('finalize_verified_blocket_job',{p_job_id:h.initial})).status,'published');
+ assert.equal(h.state.calls.length,before);
+ assert.deepEqual(await totals(),{publications:1,prices:1,amount:'12500',deliveries:1});
+});
+
+test('managed V5 refuses to queue an otherwise ready listing without a shared registration number',async()=>{
+ await provision();
+ const saved=await dealer('save_vehicle_advertisement',{p_company_id:COMPANY,p_stock_id:STOCK,p_listing_id:LISTING,p_expected_version:2,p_title:'Volvo V60 reviewed',p_description:'Reviewed without registration number',p_photo_ids:[PHOTO],p_include_registration_number:false,p_request_id:randomUUID()});
+ const ready=await dealer('mark_vehicle_advertisement_ready',{p_company_id:COMPANY,p_listing_id:LISTING,p_expected_version:saved.listing.version,p_request_id:randomUUID()});
+ await assert.rejects(queue(ready.listing.version),error=>error.code==='22023');
+ const result=(await db.query("select (select count(*) from private.advertising_jobs)::int jobs, (select count(*) from private.advertising_charge_commitments)::int commitments")).rows[0];
+ assert.deepEqual(result,{jobs:0,commitments:0});
+});
+
 test('lost committed generic publication receipt does not query provider or bill twice on retry',async()=>{
  const h=await harness();await h.worker.run(h.initial);h.publishRemote();h.state.failPublishedSave='after';await assert.rejects(h.worker.run(h.initial),/committed job receipt/);
  const calls=h.state.calls.length;h.state.remote404=true;assert.equal((await h.worker.run(h.initial)).status,'published');assert.equal(h.state.calls.length,calls);assert.equal(h.writes().length,1);assert.deepEqual(await totals(),{publications:1,prices:1,amount:'12500',deliveries:1});
@@ -91,7 +116,7 @@ test('definitive rejected PUT preserves provider identity; corrected reviewed ve
 });
 
 test('unmatched official taxonomy blocks before any car creation and leaves a terminal reviewed rejection',async()=>{
- const h=await harness();h.state.badTaxonomy=true;assert.equal((await h.worker.run(h.initial)).status,'rejected');assert.equal(h.writes().length,0);assert.equal((await h.ledger.get(h.initial)).status,'rejected');assert.equal((await totals()).publications,0);
+ const h=await harness();h.state.badTaxonomy=true;assert.equal((await h.worker.run(h.initial)).status,'rejected');assert.equal(h.writes().length,0);assert.equal(await h.ledger.get(h.initial),null);assert.equal((await totals()).publications,0);
 });
 
 test('old request publication cannot satisfy current PUT and wrong dealer evidence never creates a billable publication',async()=>{
@@ -105,5 +130,44 @@ test('group revocation before SQL claim prevents every provider request and roll
 });
 
 test('lost durable begin receipt never performs an unjournaled provider write or repeats a first attempt',async()=>{
- const h=await harness();h.state.loseBegin=true;await assert.rejects(h.worker.run(h.initial),/unavailable/);assert.equal((await h.ledger.get(h.initial)).status,'dispatching');assert.equal(h.state.calls.length,0);assert.equal((await h.worker.run(h.initial)).status,'dispatching');assert.equal(h.state.calls.length,0);assert.equal((await totals()).publications,0);
+ const h=await harness();h.state.loseBegin=true;await assert.rejects(h.worker.run(h.initial),/unavailable/);assert.equal((await h.ledger.get(h.initial)).status,'dispatching');assert.equal(h.writes().length,0);const preflight=h.state.calls.length;assert.equal((await h.worker.run(h.initial)).status,'dispatching');assert.equal(h.state.calls.length,preflight);assert.equal((await totals()).publications,0);
+});
+
+test('validation 503 leaves retryable preflight; mutating 503 remains unknown and read-only',async()=>{
+ const h=await harness();h.state.validationStatus=503;
+ assert.equal((await h.worker.run(h.initial)).status,'retryable');
+ assert.equal(await h.ledger.get(h.initial),null);
+ assert.equal(h.writes().length,0);
+ h.state.validationStatus=200;h.state.writeStatus=503;
+ assert.equal((await h.worker.run(h.initial)).status,'outcome_unknown');
+ assert.equal((await h.ledger.get(h.initial)).status,'outcome_unknown');
+ assert.equal(h.writes().length,1);
+ h.state.writeStatus=null;
+ assert.equal((await h.worker.run(h.initial)).status,'outcome_unknown');
+ assert.equal(h.writes().length,1);
+});
+
+test('a concurrent worker cannot repeat media preparation or cross the write boundary',async()=>{
+ const h=await harness();let start,release,mediaRuns=0;
+ const started=new Promise(resolve=>{start=resolve;});
+ const gate=new Promise(resolve=>{release=resolve;});
+ h.state.onMedia=async()=>{mediaRuns++;start();await gate;};
+ const first=h.worker.run(h.initial);
+ await Promise.race([first,started]);
+ try {
+  assert.equal((await h.worker.run(h.initial)).status,'queued');
+  assert.equal(mediaRuns,1);
+  assert.equal(h.state.calls.length,0);
+ } finally {release();}
+ assert.equal((await first).status,'submitted');
+ assert.equal(h.writes().length,1);
+});
+
+test('a failed preparation can be retried at most five times without a write intent',async()=>{
+ const h=await harness();h.state.validationStatus=503;
+ for(let attempt=1;attempt<=5;attempt++)assert.equal((await h.worker.run(h.initial)).status,attempt<5?'retryable':'rejected');
+ const calls=h.state.calls.length;
+ assert.equal((await h.worker.run(h.initial)).status,'rejected');
+ assert.equal(h.state.calls.length,calls);
+ assert.equal(await h.ledger.get(h.initial),null);
 });

@@ -1,3 +1,4 @@
+import {isSupabaseProjectConfigured} from '@/lib/runtime/environment';
 import 'server-only';
 import {createClient,type SupabaseClient} from '@supabase/supabase-js';
 import type {Database,Json} from '@/lib/supabase/database.types';
@@ -5,13 +6,13 @@ import {EMAIL_KINDS,validRecipient,type TransactionalEmail} from './templates';
 import {emailConfigurationStatus,sendTransactionalEmail} from './transport';
 import {requirePlatformAdminContext} from '@/lib/platform-admin/context';
 import {accountInvitationConfigured} from './account-invitation-server';
-type EmailDatabase=Omit<Database,'public'>&{public:Omit<Database['public'],'Functions'>&{Functions:{claim_transactional_email:{Args:{p_kind?:string;p_reference?:string};Returns:Json};claim_transactional_email_exact:{Args:{p_kind:string;p_reference:string;p_expected_email_id:string};Returns:Json};check_transactional_email_lease:{Args:{p_id:string;p_lease_id:string};Returns:boolean};finish_transactional_email:{Args:{p_id:string;p_lease_id:string;p_status:string;p_provider_id:string|null};Returns:boolean}}}};
+type EmailDatabase=Omit<Database,'public'>&{public:Omit<Database['public'],'Functions'>&{Functions:{claim_transactional_email:{Args:{p_kind?:string;p_reference?:string};Returns:Json};claim_transactional_email_enabled:{Args:{p_kinds:TransactionalEmail['kind'][]};Returns:Json};claim_transactional_email_exact:{Args:{p_kind:string;p_reference:string;p_expected_email_id:string};Returns:Json};check_transactional_email_lease:{Args:{p_id:string;p_lease_id:string};Returns:boolean|null};finish_transactional_email:{Args:{p_id:string;p_lease_id:string;p_status:string;p_provider_id:string|null};Returns:boolean}}}};
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function config(kind?:string|null){const customer=kind==='offer_invitation'||kind?.startsWith('contract_');return {enabled:(customer?process.env.CONTRACT_EMAIL_ENABLED==='true':process.env.TRANSACTIONAL_EMAIL_ENABLED==='true')&&process.env.TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED==='true'&&!!process.env.SUPABASE_SECRET_KEY&&process.env.NEXT_PUBLIC_SUPABASE_URL==='https://buqdtssxrotkzndublrt.supabase.co',apiKey:process.env.RESEND_API_KEY};}
+function config(kind?:string|null){const customer=kind==='offer_invitation'||kind?.startsWith('contract_');return {enabled:(customer?process.env.CONTRACT_EMAIL_ENABLED==='true':process.env.TRANSACTIONAL_EMAIL_ENABLED==='true')&&process.env.TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED==='true'&&!!process.env.SUPABASE_SECRET_KEY&&isSupabaseProjectConfigured(),apiKey:process.env.RESEND_API_KEY};}
 export function contractEmailConfigurationStatus(){return {transport:process.env.CONTRACT_EMAIL_ENABLED!=='true'?'paused' as const:emailConfigurationStatus(config('contract_invitation'))==='configured'?'configured' as const:'unconfigured' as const};}
 export function transactionalEmailConfigurationStatus(){return {
  transport:emailConfigurationStatus(config()),sender:'kundtjanst@trafexa.com',replyTo:'info@trafexa.com',automaticSchedule:false as const,
- diagnostics:{enabled:process.env.TRANSACTIONAL_EMAIL_ENABLED==='true',domainVerified:process.env.TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED==='true',credentialsPresent:Boolean(process.env.RESEND_API_KEY)&&Boolean(process.env.SUPABASE_SECRET_KEY),projectConfigured:process.env.NEXT_PUBLIC_SUPABASE_URL==='https://buqdtssxrotkzndublrt.supabase.co'},
+ diagnostics:{enabled:process.env.TRANSACTIONAL_EMAIL_ENABLED==='true',domainVerified:process.env.TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED==='true',credentialsPresent:Boolean(process.env.RESEND_API_KEY)&&Boolean(process.env.SUPABASE_SECRET_KEY),projectConfigured:isSupabaseProjectConfigured()},
  invitationTransport:accountInvitationConfigured()?'configured' as const:'unconfigured' as const,
  contractTransport:contractEmailConfigurationStatus().transport,
 };}
@@ -33,9 +34,11 @@ async function dispatch(kind:TransactionalEmail['kind']|null,reference:string|nu
  const actor=admin?await requirePlatformAdminContext():null;
  if(emailConfigurationStatus(config(kind))!=='configured')return {status:'unconfigured'};
  const key=process.env.SUPABASE_SECRET_KEY,url=process.env.NEXT_PUBLIC_SUPABASE_URL;
- if(!key||url!=='https://buqdtssxrotkzndublrt.supabase.co')return {status:'unconfigured'};
- const db:SupabaseClient<EmailDatabase>=createClient<EmailDatabase>(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:(input,init)=>fetch(input,{...init,signal:AbortSignal.timeout(10_000)})}});
- const claim=expectedEmailId&&kind&&reference
+ if(!key||!isSupabaseProjectConfigured())return {status:'unconfigured'};
+ const db:SupabaseClient<EmailDatabase>=createClient<EmailDatabase>(url!,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{fetch:(input,init)=>fetch(input,{...init,signal:AbortSignal.timeout(10_000)})}});
+ const claim=admin
+  ?await db.rpc('claim_transactional_email_enabled',{p_kinds:EMAIL_KINDS.filter(emailKind=>emailConfigurationStatus(config(emailKind))==='configured')})
+  :expectedEmailId&&kind&&reference
   ?await db.rpc('claim_transactional_email_exact',{p_kind:kind,p_reference:reference,p_expected_email_id:expectedEmailId})
   :await db.rpc('claim_transactional_email',kind&&reference?{p_kind:kind,p_reference:reference}:{});
  if(claim.error)return {status:'unavailable'};

@@ -1,3 +1,4 @@
+import { assertSupabaseEnvironment } from '@/lib/runtime/environment';
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { domainRedirect, isWorkspacePath, isPlatformAdminPath, isCompanyInvitationsPath, isCustomerOffersPath, isGuestCustomerPath, isAuthPath, safeNextPath } from '@/lib/routing.mjs';
@@ -25,6 +26,7 @@ export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) return response;
+  assertSupabaseEnvironment(url);
   const db = createServerClient(url, key, { cookies: {
     getAll: () => request.cookies.getAll(),
     setAll(items) {

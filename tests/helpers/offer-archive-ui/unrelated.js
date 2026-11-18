@@ -38,3 +38,5 @@ export const UploadedPdfSigning=()=>null;
 export const PaperSaleForm=()=>null;
 export const DealArchiveControl=()=>null;
 export const PdfTemplateWorkspace=()=>null;
+
+export const FinanceHistory=()=>null;

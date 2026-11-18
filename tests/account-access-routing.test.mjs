@@ -20,10 +20,12 @@ async function harness({status='pending',admin=false,unavailable=false,user=true
 test('pending, rejected and suspended accounts cannot directly open workspace, onboarding, offers or invitations',async()=>{
  for(const status of ['pending','rejected','suspended']){
   const h=await harness({status});
-  for(const [path,args]of [
-   ['src/app/(dealer)/[section]/page.tsx',{params:Promise.resolve({section:'inventory'}),searchParams:Promise.resolve({})}],
-   ['src/app/onboarding/page.tsx',{searchParams:Promise.resolve({})}],['src/app/my-offers/page.tsx',undefined],['src/app/invitations/page.tsx',undefined],
-  ])await assert.rejects(()=>h.loader.load(path).default(args),error=>error.url===(path.includes('my-offers')?'/account-pending?next=%2Fmy-offers':path.includes('invitations')?'/account-pending?next=%2Finvitations':'/account-pending'));
+  for(const [path,args,expected]of [
+   ['src/app/(dealer)/[section]/page.tsx',{params:Promise.resolve({section:'inventory'}),searchParams:Promise.resolve({})},'/account-pending?next=%2Finventory'],
+   ['src/app/onboarding/page.tsx',{searchParams:Promise.resolve({})},'/account-pending'],
+   ['src/app/my-offers/page.tsx',undefined,'/account-pending?next=%2Fmy-offers'],
+   ['src/app/invitations/page.tsx',undefined,'/account-pending?next=%2Finvitations'],
+  ])await assert.rejects(()=>h.loader.load(path).default(args),error=>error.url===expected);
   assert.equal(h.reads(),0);
  }
 });

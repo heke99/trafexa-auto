@@ -1,4 +1,4 @@
-import { NextRequest,NextResponse } from 'next/server';
+import { NextRequest,NextResponse,after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { WebApplicationDatabase } from '@/lib/web-applications/database.types';
 import { validateWebApplication, APPLICATION_PRIVACY_VERSION } from '@/lib/web-applications/validation';
@@ -45,7 +45,7 @@ export async function POST(request:NextRequest) {
   if(error?.code==='P0001')return NextResponse.json({error:'För många ansökningar på kort tid. Vänta minst en minut innan du försöker igen. Om gränsen kvarstår, försök senare eller kontakta oss via mejl.'},{status:429,headers:{'Retry-After':'60','Cache-Control':'no-store'}});
   if(error)return NextResponse.json({error:error.code==='40001'?'Begäran har ändrats eller avslutats. Läs in formuläret igen innan du skickar en ny ansökan.':'Ansökan kunde inte sparas. Försök igen senare.'},{status:error.code==='40001'?409:error.code==='22023'?400:503});
   if(!receipt||typeof receipt!=='object'||Array.isArray(receipt)||receipt.request_id!==application.requestId||receipt.accepted!==true)return NextResponse.json({error:'Ansökan kunde inte verifieras. Försök igen med samma uppgifter.'},{status:503});
-  if(process.env.TRANSACTIONAL_EMAIL_ENABLED==='true'){try{const {dispatchTransactionalEvent}=await import('@/lib/email/server');await dispatchTransactionalEvent('application_received',application.requestId);await dispatchTransactionalEvent('application_admin',application.requestId);}catch{/* Persisted request and durable queue remain valid. */}}
+  if(process.env.TRANSACTIONAL_EMAIL_ENABLED==='true'){try{after(async()=>{try{const {dispatchTransactionalEvent}=await import('@/lib/email/server');await Promise.allSettled([dispatchTransactionalEvent('application_received',application.requestId),dispatchTransactionalEvent('application_admin',application.requestId)]);}catch{/* The durable queue remains available for retry. */}});}catch{/* Scheduling cannot invalidate the persisted receipt. */}}
   return NextResponse.json({success:true,receipt:{requestId:application.requestId,accepted:true}},{status:201});
  }catch {
   return NextResponse.json({error:controller.signal.aborted?'Det tog för lång tid att spara förfrågan. Försök igen senare.':'Förfrågan kunde inte sparas. Försök igen senare.'},{status:controller.signal.aborted?504:503});

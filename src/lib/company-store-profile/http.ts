@@ -32,7 +32,9 @@ function configuredOrigin(value: string | undefined): string | null {
   if (!value) return null;
   try {
     const url = new URL(value);
-    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || url.pathname !== '/') return null;
+    const local=['localhost','127.0.0.1','[::1]'].includes(url.hostname);
+    const live=process.env.VERCEL_ENV==='production'||process.env.NEXT_PUBLIC_TRAFEXA_DEPLOYMENT_TARGET==='production';
+    if ((url.protocol !== 'https:' && !(local&&url.protocol==='http:'&&!live)) || url.username || url.password || url.search || url.hash || url.pathname !== '/') return null;
     return url.origin;
   } catch { return null; }
 }
@@ -43,7 +45,7 @@ function acceptsOrigin(request: Request): boolean {
   for (const value of [process.env.NEXT_PUBLIC_APP_URL, process.env.NEXT_PUBLIC_SITE_URL, process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined, process.env.VERCEL_BRANCH_URL ? `https://${process.env.VERCEL_BRANCH_URL}` : undefined]) {
     const configured = configuredOrigin(value); if (configured) allowed.add(configured);
   }
-  if (process.env.NODE_ENV !== 'production') { allowed.add('http://localhost:3000'); allowed.add('http://127.0.0.1:3000'); }
+  if (process.env.NODE_ENV !== 'production'&&process.env.VERCEL_ENV!=='production'&&process.env.NEXT_PUBLIC_TRAFEXA_DEPLOYMENT_TARGET!=='production') { allowed.add('http://localhost:3000'); allowed.add('http://127.0.0.1:3000'); }
   return allowed.has(origin);
 }
 function companyQuery(request: Request): string | null {

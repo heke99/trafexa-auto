@@ -74,7 +74,7 @@ export async function bootstrap() {
   $$;`);
   const directory = new URL('supabase/migrations/', repository);
   for (const filename of (await readdir(directory)).filter((name) => name.endsWith('.sql')).sort()) {
-    if(filename.includes('_advertising_financial_v2_'))continue;
+    if(filename.includes('_advertising_financial_v2_'))break;
     let source = await readFile(new URL(filename, directory), 'utf8');
     if (filename.endsWith('_reservation_expiry_scheduler.sql')) source = source.replace(/^create extension if not exists pg_cron with schema pg_catalog;$/m, '-- Local cron catalog stub replaces extension installation only.');
     try { sql(source); } catch (error) { throw new Error(`Migration ${filename}: ${error.message}`); }

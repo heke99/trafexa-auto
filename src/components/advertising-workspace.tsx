@@ -52,7 +52,15 @@ function Workspace({ companyId, role, userId, demo = false,onBusyChange,onAccess
   const canEdit = !demo && !denied && ['owner', 'admin', 'sales'].includes(actorRole);
   const busy = pending || channelBusy || billingBusy || unknown!==null;
   const mutationBlocked=(kind:Attempt['kind'])=>pending||channelBusy||billingBusy||!!uncertain.current&&uncertain.current.kind!==kind;
-  const blocketSupported = (listing: Listing) => listing.snapshot.photos.every(photo => photo.contentType === 'image/jpeg' || photo.contentType === 'image/png');
+  function blocketRequirement(listing: Listing) {
+    const snapshot = listing.snapshot;
+    if (!snapshot.includeRegistrationNumber || !/^[A-Z0-9]{6}$/.test(snapshot.registrationNumber ?? '')) return 'registreringsnummer krävs';
+    if (!/^[1-9][0-9]{0,12}00$/.test(snapshot.priceGrossOre)) return 'priset måste anges i hela kronor';
+    if (!['petrol', 'diesel', 'electric'].includes(snapshot.fuel) || !['manual', 'automatic', 'sequential'].includes(snapshot.transmission)) return 'fordonsuppgifterna måste granskas för kanalen';
+    if (!snapshot.photos.length) return 'minst en bild krävs';
+    if (snapshot.photos.some(photo => !['image/jpeg', 'image/png'].includes(photo.contentType))) return 'vald WebP-bild stöds inte';
+    return '';
+  }
   const eligible = (channel: AdvertisingChannel) => page?.channels.some(connection => connection.channel === channel && connection.status === 'verified' && connection.dispatcherAvailable === true) ?? false;
   useEffect(() => { heading.current?.focus(); }, [review?.kind, review?.confirmed, review?.listing.id]);
 
@@ -245,7 +253,7 @@ function Workspace({ companyId, role, userId, demo = false,onBusyChange,onAccess
     });
   }
   function commitReview() {
-    if (!review?.confirmed || !canEdit || mutationBlocked('review') || inFlight.current || (review.kind === 'send' && (!review.confirmationQuote || review.confirmationQuote.totalOre === null || !review.channels.length || (review.channels.includes('blocket') && !blocketSupported(review.listing))))) return;
+    if (!review?.confirmed || !canEdit || mutationBlocked('review') || inFlight.current || (review.kind === 'send' && (!review.confirmationQuote || review.confirmationQuote.totalOre === null || !review.channels.length || (review.channels.includes('blocket') && blocketRequirement(review.listing))))) return;
     const selected = uncertain.current?.kind==='review'?uncertain.current.review:review;
     const payload = { companyId, listingId: selected.listing.id, expectedVersion: selected.listing.version };
     const channels = [...selected.channels].sort();
@@ -293,12 +301,13 @@ function Workspace({ companyId, role, userId, demo = false,onBusyChange,onAccess
         <fieldset disabled={busy || review.confirmed} style={{ border: 0, padding: 0 }}><legend>Välj annonskanaler</legend>{(['blocket', 'wayke'] as const).map(channel => {
           const item = (review.confirmed ? review.confirmationQuote : review.quote)?.items.find(item => item.channel === channel);
           const status = !eligible(channel) ? page?.channels.some(item => item.channel === channel && item.status === 'verified') ? ' · leverans ej aktiverad' : ' · anslutning krävs' : '';
-          const mediaStatus = channel === 'blocket' && !blocketSupported(review.listing) ? ' · vald WebP-bild stöds inte' : '';
+          const requirement = channel === 'blocket' ? blocketRequirement(review.listing) : '';
+          const mediaStatus = requirement ? ` · ${requirement}` : '';
           return <div key={channel} style={{ marginBottom: 12 }}><label className="auth-checkbox"><input type="checkbox" aria-label={`${channelNames[channel]}${status}${mediaStatus}`} aria-describedby={`${reviewId}-${channel}-price`} checked={review.channels.includes(channel)} disabled={review.storeChoice !== undefined && review.storeChoice !== review.quote?.selectedProgramStoreId || !eligible(channel) || !item || item.chargeOre === null || !!mediaStatus} onChange={event => setReview({ ...review, channels: event.target.checked ? [...review.channels, channel] : review.channels.filter(item => item !== channel), confirmationQuote: undefined })}/><span>{channelNames[channel]}{status}{mediaStatus}</span></label>
             <p id={`${reviewId}-${channel}-price`} className="settings-note" style={{ marginLeft: 30 }}>{!item ? review.confirmed ? 'Ej vald kanal' : 'Pris verifieras' : item.chargeOre === null ? (item.blockedReason ? {store_required:'Välj butik för att läsa avtalspriset',agreement_inactive:'Butiken saknar ett bekräftat aktivt avtal',agreement_ambiguous:'Butikens avtal behöver granskas av Trafexa',program_price_missing:'Avtalspris saknas · kontakta Trafexa',destination_mismatch:'Butikens kanalanslutning behöver verifieras'}[item.blockedReason] : 'Pris saknas · kanalen kan inte väljas') : item.alreadyPublished ? 'Ingen ny avgift · publiceringen är redan registrerad' : `${money(item.chargeOre)} exkl. moms per unik publicering`}{item?.program && <> · {item.program.storeName} · Avtal {item.program.agreementReference}, version {item.program.version}</>}</p></div>;
         })}</fieldset>
         {!(['blocket', 'wayke'] as const).some(eligible) && <p className="notice">Ingen kanal är klar för leverans. <a href="#advertising-connections">Anslut kanal</a> och invänta verifierad anslutning.</p>}
-        {!blocketSupported(review.listing) && <p className="form-privacy">Blocket kräver JPEG eller PNG. Välj sådana bilder för ett framtida Blocket-utskick; inga bilder konverteras automatiskt.</p>}
+        {blocketRequirement(review.listing) && <p className="form-privacy">Inför Blocket-utskick: {blocketRequirement(review.listing)}.</p>}
         <p>Valda kanaler: {review.channels.map(channel => channelNames[channel]).join(', ') || 'Ingen vald'}</p>
         <p><strong>Summa för valda kanaler: {review.confirmed ? money(review.confirmationQuote!.totalOre!) : money(review.channels.reduce((sum, channel) => sum + BigInt(review.quote?.items.find(item => item.channel === channel)?.chargeOre ?? '0'), BigInt(0)).toString())} exkl. moms</strong></p>
         {review.confirmed && <p role="status">Aktuella priser har lästs in för dina valda kanaler. Granska beloppen ovan innan du bekräftar kanalutskicket.</p>}

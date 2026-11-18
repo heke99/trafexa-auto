@@ -94,9 +94,16 @@ test('activation receipts require approved/verified account and active company; 
 });
 
 test('ordinary dealer or forged metadata, unverified/anonymous/missing Auth and revoked registry never reach membership data',async()=>{
- for(const options of[{admin:false,user:{...verified,user_metadata:{role:'owner'},app_metadata:{role:'superadmin'}}},{user:null},{user:{...verified,email_confirmed_at:null}},{user:{...verified,is_anonymous:true}},{authError:{message:'PRIVATE'}},{sessionError:{code:'42501',message:'PRIVATE'}}]){
+ for(const options of[{admin:false,user:{...verified,user_metadata:{role:'owner'},app_metadata:{role:'superadmin'}}},{user:null},{user:{...verified,email_confirmed_at:null}},{user:{...verified,is_anonymous:true}},{authError:{name:'AuthSessionMissingError',message:'PRIVATE'}},{sessionError:{code:'42501',message:'PRIVATE'}}]){
   const f=await fixture(options);assert.equal((await f.actions.listPlatformCompanyMembersAction({companyId:company})).code,'access_denied');assert.equal((await f.actions.updatePlatformCompanyMemberAction(mutation)).code,'access_denied');assert.deepEqual(calls(f),[]);
  }
+});
+
+test('Auth outage leaves member actions unavailable without reading or writing membership data',async()=>{
+ const f=await fixture({authError:{status:503,message:'PRIVATE'}});
+ assert.equal((await f.actions.listPlatformCompanyMembersAction({companyId:company})).code,'unavailable');
+ assert.equal((await f.actions.updatePlatformCompanyMemberAction(mutation)).code,'unavailable');
+ assert.deepEqual(calls(f),[]);
 });
 
 test('post-I/O actor/registry changes discard otherwise valid list/receipt before any cache invalidation',async()=>{

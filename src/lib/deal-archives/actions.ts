@@ -13,7 +13,7 @@ async function run(value:unknown,write:boolean):Promise<DealArchiveResult>{try{
  if(access.userId!==c.userId||write&&!['owner','admin'].includes(c.role))throw{code:'42501'};
  const db=c.db as unknown as {rpc(name:string,args:Record<string,unknown>):Promise<{data:unknown;error:unknown}>};
  const response=await db.rpc(write?'mutate_deal_archive':'get_deal_archive',{p_company_id:v.companyId,p_deal_id:v.dealId,...(write?{p_input:v}:{})});if(response.error)throw response.error;
- const p=page.parse(response.data),fresh=await requireCrmContext(v.companyId),approved=await requireApprovedAccountAccess();
+ const decoded=page.safeParse(response.data);if(!decoded.success)throw new Error('Invalid archive response');const p=decoded.data,fresh=await requireCrmContext(v.companyId),approved=await requireApprovedAccountAccess();
  if(p.companyId!==c.companyId||p.dealId!==v.dealId||p.actorId!==c.userId||p.role!==c.role||fresh.userId!==c.userId||fresh.role!==c.role||approved.userId!==c.userId)throw{code:'42501'};
  if(write)for(const path of['/deals','/dashboard'])revalidatePath(path);
  return{ok:true,page:p};
@@ -32,6 +32,6 @@ export async function getDealDeleteAction(value:{companyId:string;dealId:string}
  return{ok:true,page:p};}catch(e){return deletionFailure(e);}}
 export async function mutateDealDeleteAction(value:import('./types').DealDeleteInput):Promise<import('./types').DealDeleteMutationResult>{try{
  const v=deleteInput.parse(value),c=await requireCrmContext(v.companyId),approved=await requireApprovedAccountAccess();if(approved.userId!==c.userId||!['owner','admin'].includes(c.role))throw{code:'42501'};
- const result=await(c.db as unknown as{rpc(n:string,a:Record<string,unknown>):Promise<{data:unknown;error:unknown}>}).rpc('mutate_deal_delete',{p_company_id:v.companyId,p_deal_id:v.dealId,p_input:v});if(result.error)throw result.error;const r=deleteReceipt.parse(result.data),fresh=await requireCrmContext(v.companyId),access=await requireApprovedAccountAccess();
+ const result=await(c.db as unknown as{rpc(n:string,a:Record<string,unknown>):Promise<{data:unknown;error:unknown}>}).rpc('mutate_deal_delete',{p_company_id:v.companyId,p_deal_id:v.dealId,p_input:v});if(result.error)throw result.error;const decoded=deleteReceipt.safeParse(result.data);if(!decoded.success)throw new Error('Invalid deal removal receipt');const r=decoded.data,fresh=await requireCrmContext(v.companyId),access=await requireApprovedAccountAccess();
  if(r.companyId!==c.companyId||r.dealId!==v.dealId||r.actorId!==c.userId||r.requestId!==v.requestId||fresh.companyId!==c.companyId||fresh.userId!==c.userId||fresh.role!==c.role||access.userId!==c.userId)throw{code:'42501'};
  for(const path of['/deals','/dashboard'])revalidatePath(path);return{ok:true,receipt:r};}catch(e){return deletionFailure(e);}}

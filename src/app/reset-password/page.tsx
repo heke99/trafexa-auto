@@ -1,3 +1,4 @@
+import { throwIfAuthUnavailable, authAvailabilityRead } from '@/lib/auth/availability';
 import {cookies} from 'next/headers';
 import {PASSWORD_RECOVERY_COOKIE,validPasswordRecoveryToken} from '@/lib/auth/password-recovery-token';
 import {getPasswordRecoveryFingerprint} from '@/lib/auth/password-recovery-intent';
@@ -14,7 +15,7 @@ export default async function ResetPasswordPage({searchParams}:{searchParams:Pro
  if(token!==undefined&&!validPasswordRecoveryToken(token))redirect(retryPath);
  const recoveryFingerprint=validPasswordRecoveryToken(token)?getPasswordRecoveryFingerprint(token):null;
  let expectedUserId:string|undefined;
- if(!recoveryFingerprint){const db=await createServerSupabaseClient();const{data,error}=await db.auth.getUser();if(error||!data?.user)redirect(retryPath);expectedUserId=data.user.id;}
+ if(!recoveryFingerprint){const db=await createServerSupabaseClient();const{data,error}=await authAvailabilityRead(()=>db.auth.getUser());throwIfAuthUnavailable(error);if(error||!data?.user)redirect(retryPath);expectedUserId=data.user.id;}
  return <AuthShell title="Välj ett nytt lösenord." subtitle="Använd ett unikt lösenord med minst 12 tecken.">
  {query.error?<p role="alert" className="notice error">{query.error}</p>:null}<form action={updatePasswordAction}><input type="hidden" name="next" value={nextPath}/><input type="hidden" name="passwordMode" value={recoveryFingerprint?'recovery':'session'}/>{recoveryFingerprint?<input type="hidden" name="recoveryFingerprint" value={recoveryFingerprint}/>:<input type="hidden" name="expectedUserId" value={expectedUserId}/>}<label>Nytt lösenord<input type="password" name="password" autoComplete="new-password" required minLength={12} maxLength={256}/></label><AuthSubmit pendingLabel="Sparar lösenordet…">Spara lösenord</AuthSubmit></form>
  </AuthShell>;

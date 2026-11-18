@@ -115,10 +115,21 @@ export async function createDealAction(form:FormData) {
  await mutate('/deals',async()=>{const {db,company}=await context();const {error}=await db.rpc('create_deal',{company,stock:uuidField(form,'stock_item_id'),customer:uuidField(form,'customer_id'),price_ore:moneyField(form,'sale_price')});if(error)throw error;},'Affärsutkastet har skapats.');
 }
 export async function reserveVehicleAction(form:FormData) {
- await mutate('/deals',async()=>{const {db,company}=await context();const {error}=await db.rpc('reserve_vehicle',{company,deal:uuidField(form,'deal_id'),hours:48});if(error)throw error;},'Bilen är reserverad i 48 timmar.');
+ await mutate('/deals',async()=>{const {db,company}=await context(uuidField(form,'expected_company_id'));const {error}=await db.rpc('reserve_vehicle',{company,deal:uuidField(form,'deal_id'),hours:48});if(error)throw error;},'Bilen är reserverad i 48 timmar.');
 }
 export async function releaseReservationAction(form:FormData) {
- await mutate('/deals',async()=>{const {db,company}=await context();const {error}=await db.rpc('release_reservation',{company,deal:uuidField(form,'deal_id')});if(error)throw error;},'Reservationen har släppts.');
+ await mutate('/deals',async()=>{
+  const {db,company}=await context(uuidField(form,'expected_company_id'));
+  const deal=uuidField(form,'deal_id'),expected_reservation=uuidField(form,'reservation_id');
+  const reservationDb=db as unknown as {rpc(name:'release_reservation_checked',args:{company:string;deal:string;expected_reservation:string}):Promise<{error:{code?:string}|null}>};
+  const {error}=await reservationDb.rpc('release_reservation_checked',{company,deal,expected_reservation});
+  if(error?.code==='40001'){
+   revalidatePath('/deals');
+   revalidatePath('/dashboard');
+   throw new Error('Reservationen kan ha ändrats eller är knuten till ett avtal. Öppna affären igen för aktuell status.');
+  }
+  if(error)throw error;
+ },'Reservationen har släppts.');
 }
 export async function createFinanceRequestAction(form:FormData) {
  await mutate('/finance',async()=>{const {company}=await context(uuidField(form,'expected_company_id'));const deal=textField(form,'deal_id');
@@ -126,7 +137,19 @@ export async function createFinanceRequestAction(form:FormData) {
  },'Förfrågan har sparats i Trafexa. Den är inte skickad till en finanspartner.',false);
 }
 export async function updateVehiclePriceAction(form:FormData) {
- await mutate('/inventory',async()=>{const {db,company}=await context();const {data,error}=await db.from('stock_items').update({asking_price_ore:moneyField(form,'asking_price')}).eq('company_id',company).eq('id',uuidField(form,'stock_item_id')).select('id');if(error)throw error;if(!data?.length)throw new Error('Bilen kunde inte hittas.');},'Försäljningspriset har uppdaterats.');
+ await mutate('/inventory',async()=>{
+  const {db,company}=await context(uuidField(form,'expected_company_id'));
+  const stockId=uuidField(form,'stock_item_id'),displayedPrice=requiredField(form,'expected_asking_price_ore');
+  const expectedPrice=Number(displayedPrice);
+  if(!/^\d+$/.test(displayedPrice)||!Number.isSafeInteger(expectedPrice))throw new Error('Prisuppgiften är ogiltig. Öppna bilen igen.');
+  const {data,error}=await db.from('stock_items').update({asking_price_ore:moneyField(form,'asking_price')})
+   .eq('company_id',company).eq('id',stockId).eq('asking_price_ore',expectedPrice).select('id');
+  if(error)throw error;
+  if(!data?.length){
+   revalidatePath('/inventory');
+   throw new Error('Priset har ändrats eller bilen kan inte längre uppdateras. Öppna bilen igen för aktuellt pris.');
+  }
+ },'Försäljningspriset har uppdaterats.');
 }
 
 export async function createVehicleCostAction(form:FormData) {

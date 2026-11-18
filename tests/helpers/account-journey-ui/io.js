@@ -1,9 +1,10 @@
 export const getAccountInvitationFingerprint=getPasswordRecoveryFingerprint;
 export function getPasswordRecoveryFingerprint(value){return window.auth.fingerprints[value];}
 export async function cookies(){return {get:name=>{const value=window.auth.cookies[name];return value!==undefined?{value}:undefined;}};}
-export async function createServerSupabaseClient(){return {auth:{getUser:async()=>{window.auth.reads.push('auth');return {data:{user:window.auth.session},error:window.auth.session?null:{message:'No session'}};}}};}
+export async function createServerSupabaseClient(){return {auth:{getUser:async()=>{window.auth.reads.push('auth');return {data:{user:window.auth.session},error:window.auth.session?null:{name:'AuthSessionMissingError'}};}}};}
 export async function getPlatformAdminContext(){window.auth.reads.push('admin');return window.auth.admin?{userId:window.auth.session?.id}:null;}
 export async function getAccountAccessContext(){window.auth.reads.push('access');if(window.auth.accessError)throw Error('Unavailable');return window.auth.access;}
+export async function getCompanySession(){window.auth.reads.push('workspace');return window.auth.snapshot;}
 export async function getWorkspaceSnapshot(){window.auth.reads.push('workspace');return window.auth.snapshot;}
 export async function getAuthenticatedLandingPath(){return window.auth.landing;}
 export function getAccountPendingPath(next){return next==='/dashboard'?'/account-pending':`/account-pending?${new URLSearchParams({next})}`;}

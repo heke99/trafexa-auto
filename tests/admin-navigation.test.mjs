@@ -93,7 +93,7 @@ test('login success, rejected credentials and invalid fields all retain the admi
 });
 
 test('a stale JWT without a real Auth user cannot loop from admin login straight back to admin', async () => {
-  for (const userError of [null, { message: 'Private revoked identity detail' }]) {
+  for (const userError of [null, { status:401, message: 'Private revoked identity detail' }]) {
     const { loader, calls } = await fixture({ claims: { sub: '11111111-1111-4111-8111-111111111111' }, user: null, userError });
     const login = await loader.load('./src/app/login/page.tsx').default({ searchParams: Promise.resolve({ next: '/admin' }) });
     assert.equal(hiddenNext(login), '/admin');

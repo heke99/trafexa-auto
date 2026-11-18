@@ -6,9 +6,10 @@ import { createBlocketV5Provider } from './blocket-provider';
 import { createBlocketDeliveryStore } from './blocket-delivery-store';
 import { createAdvertisingExportMediaResolver } from '../vehicle-photos/export-media';
 import type { AdvertisingProvider, AdvertisingWorkerJob } from './provider-contract';
+import { readRequestBody, RequestBodyError } from '../http/request-body';
 
 type Environment = Record<string, string | undefined>;
-type Options = { environment?: () => Environment; createServiceClient?: typeof createClient; fetch?: typeof fetch; now?: () => Date };
+type Options = { environment?: () => Environment; createServiceClient?: typeof createClient; fetch?: typeof fetch; now?: () => Date; bodyTimeoutMs?: number };
 type Group = { id: string; version: number; groupReference: string; credentialReference: string; scope: 'dealer_group' | 'dealer_code'; status: 'active'; updatedAt: string; dispatcherId: string };
 type Binding = AdvertisingProvider['verifiedBinding'] & { group: Group };
 class RuntimeError extends Error { constructor(readonly code: 'disabled' | 'unauthorized' | 'invalid_input' | 'configuration_missing' | 'unavailable' | 'not_found') { super('Annonskörningen kunde inte verifieras.'); } }
@@ -48,18 +49,13 @@ function authorize(request: Request, env: Environment) {
   const supplied = createHash('sha256').update(authorization.slice(7)).digest(), expected = createHash('sha256').update(secret).digest();
   if (!timingSafeEqual(supplied, expected)) throw new RuntimeError('unauthorized');
 }
-async function body(request: Request, keys: readonly string[]) {
+async function body(request: Request, keys: readonly string[], timeoutMs = 5000) {
   if (new URL(request.url).search || request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json') throw new RuntimeError('invalid_input');
-  const length = request.headers.get('content-length'); if (length !== null && (!/^\d+$/.test(length) || Number(length) > 4096)) throw new RuntimeError('invalid_input');
-  const reader = request.body?.getReader(); if (!reader) throw new RuntimeError('invalid_input');
-  const chunks: Uint8Array[] = []; let size = 0;
-  try { while (true) { const next = await reader.read(); if (next.done) break; size += next.value.length; if (size > 4096) throw new RuntimeError('invalid_input'); chunks.push(next.value); } }
-  finally { await reader.cancel().catch(() => {}); }
-  const bytes = new Uint8Array(size); let offset = 0; for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-  try { const r = object(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))); if (Object.keys(r).length !== keys.length || keys.some(key => !Object.hasOwn(r, key))) throw Error(); return r; }
-  catch { throw new RuntimeError('invalid_input'); }
+  try { const bytes = await readRequestBody(request, 4096, timeoutMs); const r = object(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))); if (Object.keys(r).length !== keys.length || keys.some(key => !Object.hasOwn(r, key))) throw Error(); return r; }
+  catch (error) { if (error instanceof RequestBodyError && error.reason === 'timeout') throw error; throw new RuntimeError('invalid_input'); }
 }
 function responseError(error: unknown) {
+  if (error instanceof RequestBodyError && error.reason === 'timeout') return Response.json({ ok: false, code: 'invalid_input' }, { status: 408, headers });
   const code = error instanceof RuntimeError ? error.code : 'unavailable';
   return Response.json({ ok: false, code }, { status: code === 'unauthorized' ? 401 : code === 'invalid_input' ? 400 : code === 'not_found' ? 404 : 503, headers });
 }
@@ -78,7 +74,7 @@ export function createBlocketRuntime(options: Options = {}) {
   return {
     async readiness(request: Request): Promise<Response> {
       try {
-        const env = (options.environment ?? (() => process.env))(); authorize(request, env); const input = await body(request, ['groupId']), groupId = uuid(input.groupId), client = service(env);
+        const env = (options.environment ?? (() => process.env))(); authorize(request, env); const input = await body(request, ['groupId'], options.bodyTimeoutMs), groupId = uuid(input.groupId), client = service(env);
         const current = group(await client.rpc('get_blocket_worker_group', { p_group_id: groupId }), groupId); tokenFor(env, current.credentialReference);
         const availableUntil = new Date(now().getTime() + 240000).toISOString();
         const lease = object(await client.rpc('refresh_advertising_dispatcher', { p_dispatcher_id: current.dispatcherId, p_channel: 'blocket', p_available_until: availableUntil }));
@@ -88,9 +84,21 @@ export function createBlocketRuntime(options: Options = {}) {
     },
     async job(request: Request, inputId: string): Promise<Response> {
       try {
-        const env = (options.environment ?? (() => process.env))(); authorize(request, env); await body(request, []); const jobId = uuid(inputId), client = service(env);
-        const resolved = await client.rpc('get_blocket_worker_binding', { p_job_id: jobId }); if (resolved === null) throw new RuntimeError('not_found');
-        const verified = binding(resolved, now()), token = tokenFor(env, verified.group.credentialReference);
+        const env = (options.environment ?? (() => process.env))(); authorize(request, env); await body(request, [], options.bodyTimeoutMs); const jobId = uuid(inputId), client = service(env);
+        let verified: Binding, token: string;
+        try {
+          const resolved = await client.rpc('get_blocket_worker_binding', { p_job_id: jobId });
+          if (resolved === null) throw new RuntimeError('not_found');
+          verified = binding(resolved, now());
+          token = tokenFor(env, verified.group.credentialReference);
+        } catch (error) {
+          if (error instanceof RuntimeError && error.code === 'not_found') throw error;
+          const recovered = await client.rpc('finalize_verified_blocket_job', { p_job_id: jobId });
+          if (recovered === null) throw error;
+          const receipt = object(recovered);
+          if (receipt.id !== jobId || receipt.channel !== 'blocket' || receipt.status !== 'published') throw new RuntimeError('unavailable');
+          return Response.json({ ok: true, status: 'published' }, { headers });
+        }
         function job(value: unknown): AdvertisingWorkerJob {
           const r = object(value);
           if (r.id !== jobId || r.companyId !== verified.companyId || r.connectionId !== verified.connectionId || r.connectionVersion !== verified.connectionVersion || r.accountReference !== verified.accountReference || r.dispatcherId !== verified.group.dispatcherId || r.channel !== 'blocket' || !['queued','dispatching','submitted','outcome_unknown','published','rejected','retryable'].includes(String(r.status))) throw new RuntimeError('unavailable');

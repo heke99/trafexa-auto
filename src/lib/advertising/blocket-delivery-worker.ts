@@ -1,6 +1,6 @@
 import 'server-only';
 import { createHash, randomUUID } from 'node:crypto';
-import type { AdvertisingProvider, AdvertisingProviderOutcome, AdvertisingPublicPayload, AdvertisingWorkerJob, BlocketDelivery, BlocketProviderOutcome } from './provider-contract';
+import type { AdvertisingProvider, AdvertisingProviderOutcome, AdvertisingPublicPayload, AdvertisingWorkerJob, BlocketDelivery, BlocketPreparation, BlocketProviderOutcome } from './provider-contract';
 import type { AdvertisingWorkerStore } from './advertising-worker';
 import type { BlocketDeliveryStore } from './blocket-delivery-store';
 import { parseBlocketDelivery } from './blocket-delivery-store';
@@ -62,9 +62,32 @@ export async function runBlocketDelivery(options: Options): Promise<AdvertisingW
     return save(outcome, job.claimToken, true);
   }
   if (job.status !== 'queued' && job.status !== 'retryable') return job;
-  const payload = await options.payload(), payloadSha256 = createHash('sha256').update(JSON.stringify(payload), 'utf8').digest('hex');
+  if (!options.provider.prepareBlocket) throw Error('blocket_preparation_required');
   const claimToken = randomUUID(), original = job;
-  const begun = await options.ledger.begin(job, claimToken, payloadSha256);
+  const reserved = await options.ledger.reserve(job, claimToken);
+  if (!reserved) return await options.store.getJob(job.id) ?? job;
+  if (Date.parse(reserved.expiresAt) <= options.now().getTime()) throw Error('blocket_preparation_expired');
+  if (job.providerAdId !== null && reserved.providerAdId !== job.providerAdId) throw Error('invalid_blocket_preparation');
+  const operation = reserved.providerAdId === null ? 'create' : 'update';
+  let preparation: BlocketPreparation;
+  let payload: AdvertisingPublicPayload;
+  try { payload = await options.payload(); }
+  catch { return options.ledger.finishPreparation(job, claimToken, { status: 'retryable', errorCode: 'blocket_media_unavailable' }); }
+  // Media preparation may outlive a configuration change. Recheck the same
+  // unextended lease and company binding before contacting the partner at all.
+  const checked = await options.ledger.reserve(job, claimToken);
+  if (!checked || checked.expiresAt !== reserved.expiresAt || checked.providerAdId !== reserved.providerAdId
+    || Date.parse(checked.expiresAt) <= options.now().getTime()) return job;
+  options.verifyProvider(job);
+  try {
+    preparation = await options.provider.prepareBlocket(payload, { ...identity(), companyId: job.companyId,
+      listingId: job.listingId, dealerCode: job.accountReference, operation, providerAdId: reserved.providerAdId,
+      connectionId: job.connectionId, connectionVersion: job.connectionVersion });
+  } catch { preparation = { status: 'retryable', errorCode: 'blocket_preparation_unavailable' }; }
+  if (preparation.status !== 'ready') return options.ledger.finishPreparation(job, claimToken, preparation);
+
+  const payloadSha256 = createHash('sha256').update(JSON.stringify(payload), 'utf8').digest('hex');
+  const begun = await options.ledger.begin(job, claimToken, payloadSha256, reserved.providerAdId);
   job = begun.job; delivery = bound(begun.delivery, job);
   const stable: (keyof AdvertisingWorkerJob)[] = ['id','companyId','stockId','listingId','listingVersion','channel','connectionId','connectionVersion','accountReference','dispatcherId','createdBy','providerAdId','providerUrl'];
   if (stable.some(key => job[key] !== original[key]) || JSON.stringify(job.snapshot) !== JSON.stringify(original.snapshot)
@@ -72,10 +95,12 @@ export async function runBlocketDelivery(options: Options): Promise<AdvertisingW
     || job.version !== original.version + 1 || !job.claimExpiresAt || !Number.isFinite(Date.parse(job.claimExpiresAt)) || Date.parse(job.claimExpiresAt) <= options.now().getTime()) throw Error('invalid_advertising_claim');
   options.verifyProvider(job);
   if (begun.replayed) return job;
-  if (delivery.status !== 'dispatching' || delivery.providerRequestId !== null) throw Error('invalid_blocket_delivery');
+  if (delivery.status !== 'dispatching' || delivery.providerRequestId !== null || delivery.operation !== operation
+    || delivery.providerAdId !== reserved.providerAdId) throw Error('invalid_blocket_delivery');
   let outcome: BlocketProviderOutcome;
-  try { outcome = await options.provider.submit(payload, delivery); }
+  try { outcome = await preparation.send(delivery); }
   catch { outcome = { status: 'outcome_unknown', errorCode: 'provider_outcome_unknown' }; }
+  if (outcome.status === 'retryable') outcome = { status: 'outcome_unknown', errorCode: 'provider_outcome_unknown' };
   // Persist the revision result first; failure leaves a durable intent that can never POST again.
   return save(outcome, claimToken, false);
 }

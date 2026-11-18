@@ -27,14 +27,15 @@ function CustomerLeadsPanel({ companyId, canEdit, demo = false }: CustomerLeadsP
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [subject, setSubject] = useState('');
-  const retry = useRef<{ body: string; submission: string } | undefined>(undefined);
+  const [uncertain,setUncertain]=useState(false);
+  const retry = useRef<{ body: string; submission: string; fields:[string,string][] } | undefined>(undefined);
   const alive = useRef(true);
   const readSequence = useRef(0), accessVerified = useRef(demo);
 
   useEffect(() => { alive.current = true; return () => { alive.current = false; readSequence.current++; accessVerified.current = false; }; }, []);
   function clearRead(message: string, foreign = false) {
     accessVerified.current = false; setLeads([]); setCursor(undefined); setLoaded(false); setListError(message);
-    if (foreign) { retry.current = undefined; setName(''); setEmail(''); setPhone(''); setSubject(''); setMessage(''); }
+    if (foreign) { retry.current = undefined;setUncertain(false); setName(''); setEmail(''); setPhone(''); setSubject(''); setMessage(''); }
   }
   async function fetchLeads(older = false) {
     const token = ++readSequence.current;
@@ -70,18 +71,19 @@ function CustomerLeadsPanel({ companyId, canEdit, demo = false }: CustomerLeadsP
     const form = new FormData(event.currentTarget);
     form.set('company_id', companyId);
     const body = JSON.stringify([companyId, name.trim(), email.trim().toLowerCase(), phone.trim(), subject.trim()]);
-    if (retry.current?.body !== body) retry.current = { body, submission: crypto.randomUUID() };
-    form.set('submission_id', retry.current.submission);
+    if (!retry.current || !uncertain&&retry.current.body !== body) retry.current = { body, submission: crypto.randomUUID(),fields:Array.from(form.entries()).map(([key,value])=>[key,String(value)]) };
+    const frozen=new FormData();for(const [key,value]of retry.current.fields)frozen.set(key,value);
+    frozen.set('submission_id', retry.current.submission);
     startTransition(async () => {
       setError(''); setMessage('');
       try {
-        const result = await createCustomerLeadAction(form);
+        const result = await createCustomerLeadAction(frozen);
         if (!alive.current) return;
-        if (!result.ok) { setError(result.message); return; }
-        setMessage(result.message); setName(''); setEmail(''); setPhone(''); setSubject(''); retry.current = undefined;
+        if (!result.ok) { setError(result.message);setUncertain(result.uncertain!==false);if(result.uncertain===false)retry.current=undefined;return; }
+        setMessage(result.message); setName(''); setEmail(''); setPhone(''); setSubject(''); retry.current = undefined;setUncertain(false);
         try { await fetchLeads(); }
         catch { if (alive.current) setError('Förfrågan är sparad, men listan kunde inte uppdateras. Uppdatera listan för att se den.'); }
-      } catch { if (alive.current) setError('Sparandet kunde inte bekräftas. Försök igen med samma uppgifter inom sju dagar.'); }
+      } catch { if (alive.current) {setUncertain(true);setError('Sparandet kunde inte bekräftas. Försök igen med samma uppgifter inom sju dagar.');} }
     });
   }
 
@@ -111,6 +113,7 @@ function CustomerLeadsPanel({ companyId, canEdit, demo = false }: CustomerLeadsP
 
   const busy = pending || loading;
   const writesDisabled = busy || !loaded;
+  const fieldsDisabled=writesDisabled||uncertain;
   return <details className="surface" style={{ marginTop: 24 }} onToggle={(event) => setOpen(event.currentTarget.open)}>
     <summary id={`${fieldId}-heading`} style={{ padding: 20, cursor: 'pointer', fontWeight: 600 }}>Kundförfrågningar</summary>
     {open ? <section aria-labelledby={`${fieldId}-heading`} style={{ padding: 20, paddingTop: 0 }}>
@@ -133,14 +136,14 @@ function CustomerLeadsPanel({ companyId, canEdit, demo = false }: CustomerLeadsP
         {cursor ? <button className="button button-outline button-small" type="button" disabled={busy} onClick={() => refresh(true)}>Visa äldre förfrågningar</button> : null}
       </div> : null}
       {!demo && canEdit ? <form onSubmit={createLead} className="workspace-form" style={{ marginTop: 24 }}>
-        <h3>Ny kundförfrågan</h3>
-        <label htmlFor={`${fieldId}-name`}>Namn<input id={`${fieldId}-name`} name="name" required minLength={2} maxLength={160} autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} disabled={writesDisabled} /></label>
+        <h3>Ny kundförfrågan</h3>{uncertain?<p role="status">Resultatet är osäkert. Uppgifterna är låsta tills samma begäran har bekräftats. Återförsök sparandet nedan.</p>:null}
+        <label htmlFor={`${fieldId}-name`}>Namn<input id={`${fieldId}-name`} name="name" required minLength={2} maxLength={160} autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} disabled={fieldsDisabled} /></label>
         <div className="field-pair">
-          <label htmlFor={`${fieldId}-email`}>E-post<input id={`${fieldId}-email`} name="email" type="email" maxLength={254} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} disabled={writesDisabled} /></label>
-          <label htmlFor={`${fieldId}-phone`}>Telefon<input id={`${fieldId}-phone`} name="phone" type="tel" maxLength={60} autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} disabled={writesDisabled} /></label>
+          <label htmlFor={`${fieldId}-email`}>E-post<input id={`${fieldId}-email`} name="email" type="email" maxLength={254} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} disabled={fieldsDisabled} /></label>
+          <label htmlFor={`${fieldId}-phone`}>Telefon<input id={`${fieldId}-phone`} name="phone" type="tel" maxLength={60} autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} disabled={fieldsDisabled} /></label>
         </div>
         <p className="small muted">Ange minst e-post eller telefon.</p>
-        <label htmlFor={`${fieldId}-subject`}>Ärende / anteckning<textarea id={`${fieldId}-subject`} name="subject" required maxLength={2000} rows={3} value={subject} onChange={(event) => setSubject(event.target.value)} disabled={writesDisabled} /></label>
+        <label htmlFor={`${fieldId}-subject`}>Ärende / anteckning<textarea id={`${fieldId}-subject`} name="subject" required maxLength={2000} rows={3} value={subject} onChange={(event) => setSubject(event.target.value)} disabled={fieldsDisabled} /></label>
         <button className="button button-green" type="submit" disabled={writesDisabled || (!email.trim() && !phone.trim())}>{pending ? 'Sparar…' : 'Spara kundförfrågan'}</button>
       </form> : null}
       {message ? <p className="notice notice-success" role="status">{message}</p> : null}

@@ -11,9 +11,11 @@ export interface AdvertisingWorkerStore {
   saveJob(id: string, expectedVersion: number, claimToken: string | null, outcome: AdvertisingProviderOutcome): Promise<AdvertisingWorkerJob>;
   expireDispatch(id: string, expectedVersion: number): Promise<AdvertisingWorkerJob>;
 }
+export type ResolvedAdvertisingPhoto = { url: string; expiresAt: string; objectPath: string; sha256: string; normalizationVersion: 'vehicle-photo-v1' };
 export interface AdvertisingMediaResolver {
   /** Verify private object identity/version/content before issuing access. URLs are not persisted. */
-  resolve(photo: AdvertisingPhoto): Promise<{ url: string; expiresAt: string; objectPath: string; sha256: string; normalizationVersion: 'vehicle-photo-v1' }>;
+  resolve(photo: AdvertisingPhoto): Promise<ResolvedAdvertisingPhoto>;
+  resolveBatch?(photos: readonly AdvertisingPhoto[]): Promise<ResolvedAdvertisingPhoto[]>;
   /** Exact trusted storage origin, provisioned server-side; never a dealer supplied host. */
   readonly origin: string;
 }
@@ -80,9 +82,13 @@ async function payloadFor(job: AdvertisingWorkerJob, options: Options): Promise<
   if (origin.protocol !== 'https:' || origin.username || origin.password || origin.port || origin.pathname !== '/' || origin.search || origin.hash) {
     throw new Error('invalid_advertising_media_origin');
   }
-  const photos: AdvertisingPublicPayload['photos'] = [];
-  for (const photo of job.snapshot.photos) {
-    const signed = await options.media.resolve(photo);
+  const inputs = job.snapshot.photos;
+  const resolved: ResolvedAdvertisingPhoto[] = [];
+  if (options.media.resolveBatch) resolved.push(...await options.media.resolveBatch(inputs));
+  else for (const photo of inputs) resolved.push(await options.media.resolve(photo));
+  if (resolved.length !== inputs.length) throw new Error('advertising_media_unavailable');
+  const photos = inputs.map((photo, index) => {
+    const signed = resolved[index];
     const url = new URL(signed.url);
     const extension = photo.contentType === 'image/jpeg' ? 'jpg' : photo.contentType === 'image/png' ? 'png' : 'webp';
     const normalizedPath = `${job.companyId}/${job.stockId}/${photo.id}/${signed.sha256}.${extension}`;
@@ -96,8 +102,8 @@ async function payloadFor(job: AdvertisingWorkerJob, options: Options): Promise<
       || expires < (options.now?.() ?? new Date()).getTime() + 86400000) {
       throw new Error('advertising_media_unavailable');
     }
-    photos.push({ url: url.href, contentType: photo.contentType, expiresAt: signed.expiresAt });
-  }
+    return { url: url.href, contentType: photo.contentType, expiresAt: signed.expiresAt };
+  });
   // Explicit projection prevents leaking purchase costs, customer data or internal notes.
   return { sourceId: job.listingId, listingVersion: job.listingVersion, accountReference: job.accountReference, title: job.snapshot.title,
     description: job.snapshot.description, make: job.snapshot.make, model: job.snapshot.model,

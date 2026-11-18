@@ -1,3 +1,4 @@
+import {projectVehicleText} from './vehicle-text';
 import { canReadInternalFinance } from '@/lib/access/dealer-capabilities';
 import { object, uuid } from '@/lib/calculations/source';
 import type { InventoryItem } from './workspace';
@@ -20,8 +21,9 @@ export function parseWorkspaceInventory(value: unknown, companyId: string, actor
       || !['standard', 'vmb', 'unknown'].includes(String(row.vat_scheme)) || !['petrol', 'diesel', 'electric', 'hybrid', 'other'].includes(String(vehicle.fuel))
       || !['automatic', 'manual'].includes(String(vehicle.gearbox))) throw new Error('Invalid inventory relation');
     if (!canReadInternalFinance(role) && row.purchase_price_ore !== null) throw new Error('Invalid financial visibility');
+    const make=projectVehicleText(vehicle.make),model=projectVehicleText(vehicle.model);
     return { id: uuid(row.id), status: text(row.status), acquired_on: text(row.acquired_on), purchase_price_ore: canReadInternalFinance(role) ? integer(row.purchase_price_ore) : null,
-      asking_price_ore: integer(row.asking_price_ore), vat_scheme: text(row.vat_scheme), vehicles: { id: uuid(vehicle.id), registration_number: text(vehicle.registration_number), make: text(vehicle.make), model: text(vehicle.model),
+      asking_price_ore: integer(row.asking_price_ore), vat_scheme: text(row.vat_scheme), vehicles: { ...(make.review||model.review?{dataIssue:'Äldre fordonsuppgifter behöver granskas. Märke eller modell visas förkortat eller saknas.'}:{}),id: uuid(vehicle.id), registration_number: text(vehicle.registration_number), make: make.text, model: model.text,
         model_year: integer(vehicle.model_year), mileage_km: integer(vehicle.mileage_km), fuel: text(vehicle.fuel), gearbox: text(vehicle.gearbox) } };
   });
   if (new Set(rows.map(row => row.id)).size !== rows.length) throw new Error('Duplicate inventory rows');

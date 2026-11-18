@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createSourceLoader} from './helpers/source-loader.mjs';
 
 const keys=['TRANSACTIONAL_EMAIL_ENABLED','CONTRACT_EMAIL_ENABLED','TRANSACTIONAL_EMAIL_DOMAIN_VERIFIED','RESEND_API_KEY','SUPABASE_SECRET_KEY','NEXT_PUBLIC_SUPABASE_URL'];
-const project='https://buqdtssxrotkzndublrt.supabase.co';
+const project='https://synthetic-trafexa.supabase.co';
 test('admin email diagnostics distinguish paused events from invitation readiness without sending or exposing credentials',async()=>{
  const previous=Object.fromEntries(keys.map(key=>[key,process.env[key]]));
  let externalCalls=0,authorizations=0;

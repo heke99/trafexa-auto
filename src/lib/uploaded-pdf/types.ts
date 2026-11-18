@@ -10,3 +10,14 @@ export type UploadedPdfSource = {
 };
 export type UploadedPdfPage = {companyId:string;dealId:string;actorId:string;recipientName:string;recipientEmail:string;documents:UploadedPdfSource[]};
 export type UploadedPdfResult<T> = {ok:true}&T|{ok:false;code:'invalid_input'|'access_denied'|'conflict'|'unavailable';message:string};
+
+export function uploadedPdfLinkStatus(source:Pick<UploadedPdfSource,'linkRevoked'|'expiresAt'>,now=Date.now()) {
+ if(source.linkRevoked)return 'revoked';
+ return Date.parse(source.expiresAt)>now?'valid':'expired';
+}
+
+export function canRetryUploadedPdfMail(source:UploadedPdfSource,kind:'invitation'|'completed',now=Date.now()) {
+ if(uploadedPdfLinkStatus(source,now)!=='valid')return false;
+ return kind==='invitation'?source.status==='pending'&&source.delivery==='queued'
+  :source.status==='completed'&&(source.delivery===null||source.delivery==='queued');
+}

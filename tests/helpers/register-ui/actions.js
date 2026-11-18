@@ -1,4 +1,5 @@
 export function loadDealerRegisterPage(input) { return window.fixture.read('register', input); }
+export function loadDashboardDeals(companyId) { return window.fixture.read('dashboardDeals', { companyId }); }
 export function searchDealOptions(input) { return window.fixture.read('options', input); }
 export function loadVehicleCostPage(input) { return window.fixture.read('costs', input); }
 export function createDealAction(form) { return window.fixture.mutate('createDeal', Object.fromEntries(form)); }

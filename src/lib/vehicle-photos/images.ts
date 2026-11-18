@@ -23,6 +23,19 @@ export async function normalizeVehicleImage(bytes: Uint8Array, expected: unknown
     return { bytes: clean, contentType: checked.contentType };
   } catch { throw new PhotoError('invalid_input'); }
 }
+/** Keep public responses below the buffered function limit, including older stored originals. */
+export async function publicVehicleImage(bytes: Uint8Array, expected: unknown) {
+  const original = await normalizeVehicleImage(bytes, expected);
+  const publicLimit = 4 * 1024 * 1024;
+  if (original.bytes.byteLength <= publicLimit) return original;
+
+  const thumbnail = await sharp(original.bytes, { limitInputPixels: MAX_PIXELS })
+    .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 85 })
+    .toBuffer();
+  if (thumbnail.byteLength > publicLimit) throw new PhotoError('unavailable');
+  return { bytes: thumbnail, contentType: 'image/webp' as const };
+}
 /** Metadata alone is insufficient: decode every pixel before releasing stored bytes. */
 export async function validateStoredVehicleImage(bytes: Uint8Array, expected: PhotoContentType) {
   const checked = await metadata(bytes, expected);

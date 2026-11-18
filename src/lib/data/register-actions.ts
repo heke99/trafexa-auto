@@ -1,5 +1,6 @@
 'use server';
 
+import {projectVehicleText} from './vehicle-text';
 import {parseDealContractProgress}from'@/lib/contracts/deal-progress';
 import { requireCrmContext, type CrmContext } from '@/lib/crm/context';
 import { canReadInternalFinance } from '@/lib/access/dealer-capabilities';
@@ -69,7 +70,8 @@ function vehicle(value: unknown, ctx: CrmContext): Vehicle {
   const row = companyRow(value, ctx);
   if (!['petrol', 'diesel', 'electric', 'hybrid', 'other'].includes(String(row.fuel)) || !['automatic', 'manual'].includes(String(row.gearbox))) throw new Error('invalid vehicle');
   const year = integer(row.model_year, 2100); if (year < 1900) throw new Error('invalid year');
-  return { id: id(row.id), registration_number: text(row.registration_number, 15, 2), make: text(row.make, 160, 1), model: text(row.model, 160, 1), model_year: year, mileage_km: integer(row.mileage_km, 2147483647), fuel: row.fuel as string, gearbox: row.gearbox as string };
+  const make=projectVehicleText(row.make),model=projectVehicleText(row.model);
+  return { ...(make.review||model.review?{dataIssue:'Äldre fordonsuppgifter behöver granskas. Märke eller modell visas förkortat eller saknas.'}:{}),id: id(row.id), registration_number: text(row.registration_number, 15, 2), make: make.text, model: model.text, model_year: year, mileage_km: integer(row.mileage_km, 2147483647), fuel: row.fuel as string, gearbox: row.gearbox as string };
 }
 function inventory(value: unknown, ctx: CrmContext): InventoryItem {
   const row = companyRow(value, ctx);
@@ -92,10 +94,10 @@ function deal(value: unknown, ctx: CrmContext): DealerRegisterDeal {
   const createdBy = creator ? {id:id(creator.id),name:creator.name === null ? null : text(creator.name,160,1)} : undefined;
   if(createdBy?.name && /[\u0000-\u001f\u007f]/.test(createdBy.name))throw new Error('invalid creator');
   const price = integer(row.sale_price_ore); if (price < 1) throw new Error('invalid deal price');
-  return { id: id(row.id), status: row.status as string, sale_price_ore: price, customer_id: relatedCustomer.id, stock_item_id: stockItem.id, created_at: timestamp(row.created_at), customer: relatedCustomer, stockItem, archived: row.archived === true, ...(row.contractProgress===undefined?{}:{contractProgress:parseDealContractProgress(row.contractProgress)}), ...(createdBy ? {createdBy} : {}) };
+  return { id: id(row.id), status: row.status as string, sale_price_ore: price, customer_id: relatedCustomer.id, stock_item_id: stockItem.id, created_at: timestamp(row.created_at), customer: relatedCustomer, stockItem, archived: row.archived === true, ...(row.reservationId == null ? {} : {reservationId:id(row.reservationId)}), ...(row.contractProgress===undefined?{}:{contractProgress:parseDealContractProgress(row.contractProgress)}), ...(createdBy ? {createdBy} : {}) };
 }
-async function load(req: Request): Promise<DealerRegisterPage & { selected?: Customer | InventoryItem | null }> {
-  const ctx = await requireCrmContext(req.companyId);
+async function load(req: Request, verifiedContext?: CrmContext): Promise<DealerRegisterPage & { selected?: Customer | InventoryItem | null }> {
+  const ctx = verifiedContext ?? await requireCrmContext(req.companyId);
   if (!roles.includes(ctx.role)) throw new Error('invalid role');
   if (req.cursor) validateCursor(req.cursor, req, ctx);
   const db = ctx.db as unknown as SupabaseClient<RegisterDatabase>;
@@ -120,8 +122,10 @@ async function load(req: Request): Promise<DealerRegisterPage & { selected?: Cus
   }
   const selected = req.options && page.selected !== null ? req.kind === 'inventory' ? inventory(page.selected, ctx) : customer(page.selected, ctx) : null;
   if (selected && (selected.id !== req.selectedId || req.kind === 'inventory' && (selected as InventoryItem).status !== 'available')) throw new Error('invalid selected option');
-  const fresh = await requireCrmContext(req.companyId);
-  if (fresh.userId !== ctx.userId || fresh.role !== ctx.role || fresh.companyId !== ctx.companyId) throw new Error('scope changed');
+  if (!verifiedContext) {
+    const fresh = await requireCrmContext(req.companyId);
+    if (fresh.userId !== ctx.userId || fresh.role !== ctx.role || fresh.companyId !== ctx.companyId) throw new Error('scope changed');
+  }
   return { kind: req.kind, companyId: ctx.companyId, actorId: ctx.userId, role: ctx.role, rows, totalCount, filteredCount, counts, nextCursor, ...(req.options ? { selected } : {}) } as DealerRegisterPage & { selected?: Customer | InventoryItem | null };
 }
 
@@ -130,6 +134,25 @@ export async function loadDealerRegisterPage(input: DealerRegisterInput): Promis
   try { req = request(input, false); } catch { return { ok: false, error: 'Sökningen eller sidmarkören är ogiltig. Återställ filtren och försök igen.' }; }
   try { return { ok: true, page: await load(req) }; }
   catch { return { ok: false, error: 'Registret kunde inte verifieras. Kontrollera din inloggning och det aktiva företaget, och försök igen.' }; }
+}
+
+export async function loadDashboardDeals(expectedCompanyId: string) {
+  try {
+    const companyId = id(expectedCompanyId);
+    const context = await requireCrmContext(companyId);
+    const [drafts, reservations] = await Promise.all(['draft', 'reserved'].map(status =>
+      load(request({ kind: 'deals', expectedCompanyId: companyId, status, sort: 'recent' }, false), context)));
+    if (drafts.kind !== 'deals' || reservations.kind !== 'deals') return null;
+    const fresh = await requireCrmContext(companyId);
+    if (fresh.userId !== context.userId || fresh.role !== context.role || fresh.companyId !== companyId) return null;
+    const byId = new Map([...drafts.rows, ...reservations.rows].map(row => [row.id, row]));
+    const rows = [...byId.values()].sort((a, b) =>
+      b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id)).slice(0, 4);
+    const draftCount = drafts.counts.draft, reservedCount = reservations.counts.reserved;
+    if (draftCount !== reservations.counts.draft || reservedCount !== drafts.counts.reserved) return null;
+    return { companyId, actorId: context.userId, role: context.role, rows,
+      activeDealCount: String(draftCount + reservedCount), reservedDealCount: String(reservedCount) };
+  } catch { return null; }
 }
 
 export async function searchDealOptions(input: DealOptionsInput): Promise<DealOptionsResult> {

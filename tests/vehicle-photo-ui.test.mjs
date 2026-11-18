@@ -42,6 +42,16 @@ test('definite upload rejection releases parent and allows a deliberately new fi
   await select(page);await page.getByRole('button',{name:'Spara bild privat'}).click();await expect(page.getByRole('status')).toContainText('Bilden har sparats privat');const calls=await page.evaluate(()=>window.fixture.uploads);assert.notEqual(calls[0].photoId,calls[1].photoId);
  }finally{await page.close();}
 });
+test('a hosting 413 without JSON unlocks a smaller file instead of requiring an exact retry',async()=>{
+ const page=await setup();try{
+  await page.evaluate(()=>{window.fetch=async()=>new Response('Request too large',{status:413});});
+  await select(page);await page.getByRole('button',{name:'Spara bild privat'}).click();
+  await expect(page.getByRole('alert')).toContainText('högst 4 MiB');
+  await expect(page.getByLabel('Välj fordonsbild')).toBeEnabled();
+  await expect(page.getByRole('button',{name:'Kontrollera samma bilduppladdning'})).toHaveCount(0);
+  assert.equal(await page.evaluate(()=>window.fixture.busy.at(-1)),false);
+ }finally{await page.close();}
+});
 test('unknown archive retains exact review and nonce, locks cancellation and cannot unlock on wrong proof',async()=>{
  const page=await setup({archiveResponses:[{throw:true},{ok:true,photo:{...photo,stockId:id(99),status:'archived',version:2}}]});try{
   await page.getByRole('button',{name:'Ta bort bild',exact:true}).click();await page.getByRole('button',{name:'Bekräfta borttagning'}).click();await expect(page.getByRole('alert')).toContainText('Ändringen kunde inte verifieras');await expect(page.getByRole('button',{name:'Avbryt',exact:true})).toBeDisabled();await expect(page.getByLabel('Välj fordonsbild')).toBeDisabled();assert.equal(await page.evaluate(()=>window.fixture.busy.at(-1)),true);

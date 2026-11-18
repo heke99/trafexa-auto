@@ -15,7 +15,7 @@ const helpers = resolve(repo, 'tests/helpers/advertising-ui');
 const id = n => `10000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const COMPANY = id(1), USER = id(2), STOCK = id(3), LISTING = id(4), PHOTO = id(5);
 const photo = (n = 5, contentType = 'image/jpeg') => ({ id: id(n), contentType, sizeBytes: 1234, version: 1, status: 'active', createdAt: '2026-10-13T18:00:00Z' });
-const listing = (status = 'ready', photos = [photo()]) => ({ id: LISTING, companyId: COMPANY, stockId: STOCK, version: 3, status, createdAt: '2026-10-13T18:00:00Z', updatedAt: '2026-10-13T18:00:00Z', snapshot: { title: 'Volvo V60 <script>alert(1)</script>', description: 'Välskött kombi', priceGrossOre: '28900000', make: 'Volvo', model: 'V60', year: 2022, mileageKm: 48200, fuel: 'petrol', transmission: 'automatic', photos, includeRegistrationNumber: false, registrationNumber: null } });
+const listing = (status = 'ready', photos = [photo()], includeRegistrationNumber = true) => ({ id: LISTING, companyId: COMPANY, stockId: STOCK, version: 3, status, createdAt: '2026-10-13T18:00:00Z', updatedAt: '2026-10-13T18:00:00Z', snapshot: { title: 'Volvo V60 <script>alert(1)</script>', description: 'Välskött kombi', priceGrossOre: '28900000', make: 'Volvo', model: 'V60', year: 2022, mileageKm: 48200, fuel: 'petrol', transmission: 'automatic', photos, includeRegistrationNumber, registrationNumber: includeRegistrationNumber ? 'ABC123' : null } });
 let browser, directory, bundle, styles;
 
 before(async () => {
@@ -89,7 +89,7 @@ test('send freezes exact version and channels, keeps UUID after unknown response
   try {
     await chooseStock(page);
     await page.getByRole('button', { name: 'Förbered kanalutskick', exact: true }).click();
-    await expect(page.getByText('Delas inte', { exact: true })).toBeVisible();
+    await expect(page.getByRole('region',{name:'Låst annonsunderlag'}).getByText('ABC123',{exact:true})).toBeVisible();
     await expect(page.locator('section[aria-label="Låst annonsunderlag"] script')).toHaveCount(0);
     await page.getByLabel('Blocket', { exact: true }).check();
     await page.getByRole('button', { name: 'Fortsätt till bekräftelse', exact: true }).click();
@@ -138,7 +138,7 @@ test('WebP remains a private preview and disables a future Blocket send; read ro
     await chooseStock(page);
     await page.getByRole('button', { name: 'Förbered kanalutskick', exact: true }).click();
     await expect(page.getByLabel(/Blocket · vald WebP-bild stöds inte/)).toBeDisabled();
-    await expect(page.getByText('Blocket kräver JPEG eller PNG.', { exact: false })).toBeVisible();
+    await expect(page.getByText('Inför Blocket-utskick: vald WebP-bild stöds inte.', { exact: true })).toBeVisible();
     assert.equal(await page.evaluate(() => window.fixture.sendCalls.length), 0);
   } finally { await page.close(); }
   const reader = await setup({ role: 'finance', listings: [listing()], photos: [photo()] });
@@ -148,6 +148,17 @@ test('WebP remains a private preview and disables a future Blocket send; read ro
     await expect(reader.getByRole('button', { name: /Spara ny utkastversion|Förbered kanalutskick|Granska anslutningsförfrågan/ })).toHaveCount(0);
     await expect(reader.getByLabel('Extern handlar- eller kontoreferens')).toHaveCount(0);
   } finally { await reader.close(); }
+});
+
+test('registration withheld blocks only Blocket at channel selection',async()=>{
+ const channels=['blocket','wayke'].map(channel=>({channel,status:'verified',accountReference:'dealer-12',dispatcherAvailable:true}));
+ const page=await setup({listings:[listing('ready',[photo()],false)],photos:[photo()],channels});
+ try{
+  await chooseStock(page);await page.getByRole('button',{name:'Förbered kanalutskick',exact:true}).click();
+  await expect(page.getByLabel('Blocket · registreringsnummer krävs',{exact:true})).toBeDisabled();
+  await expect(page.getByLabel('Wayke',{exact:true})).toBeEnabled();
+  await expect(page.getByText('Delas inte',{exact:true})).toBeVisible();
+ }finally{await page.close();}
 });
 
 test('fresh revoked access after historical send receipt clears listing, jobs, private previews and controls', async () => {

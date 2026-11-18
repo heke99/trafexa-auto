@@ -27,13 +27,13 @@ Kör från repositoryroten:
 npm ci --ignore-scripts
 npm run test:setup
 npm run pretest
-npm test -- --test-concurrency=2
+npm test
 npm run typecheck
 npm run build
 npm audit --json
 ```
 
-`test:setup` installerar de två låsta PGlite-fixturerna. `pretest` kontrollerar deras beroenden och packar upp Chromium innan parallella testprocesser startas. Det verifierar nu dessutom riktig textrendering, klick och skärmbild i en isolerad sida. Det kontrollerar även `pdftotext` för tester som läser genererade PDF-filer. Inga externa webbanrop behövs för provet. Python 3 behövs för vissa arkivprov; Docker-baserade native PostgreSQL-sviter har egna förutsättningar.
+`test:setup` installerar samtliga versionslåsta testpaket direkt under tests, inklusive signeringspaketet. `pretest` kontrollerar deras beroenden och packar upp Chromium innan parallella testprocesser startas. Det verifierar nu dessutom riktig textrendering, klick och skärmbild i en isolerad sida. Det kontrollerar även `pdftotext` för tester som läser genererade PDF-filer. Inga externa webbanrop behövs för provet. Python 3 behövs för vissa arkivprov; Docker-baserade native PostgreSQL-sviter har egna förutsättningar.
 
 En körbar Chromium-fil räcker inte: i den rena Ubuntu-bilden saknades först NSS och sedan Fontconfig. Ett enkelt start-/DOM-prov passerade medan första verkliga textklicket kraschade. Därför ska renderingsprovet passera innan browserfel tillskrivs produkten.
 
