@@ -40,8 +40,17 @@ for(const width of[320,1440])test(`actual seller browser to direct actions, SQL,
  try{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const origin=`http://127.0.0.1:${server.address().port}`;context=await browser.newContext({viewport:{width,height:1000}});const page=await context.newPage();let external=0;await page.route('**/*',route=>{if(new URL(route.request().url()).origin===origin)return route.continue();external++;return route.abort();});page.on('pageerror',error=>pageErrors.push(error.message));await page.goto(origin,{waitUntil:'networkidle'});
   await expect(page.getByRole('combobox',{name:'Bil',exact:true})).toBeEnabled();await page.getByRole('combobox',{name:'Bil',exact:true}).selectOption(h.stockItemId);await page.getByLabel('Överenskommet pris, kr',{exact:true}).fill('125 050,00');await page.getByLabel('Fullständigt namn',{exact:true}).fill(h.customerFixture.name);await page.getByLabel('Personnummer',{exact:true}).fill(h.customerFixture.identityNumber);await page.getByLabel('Mejladress',{exact:true}).fill(h.customerFixture.email);await page.getByLabel('Telefonnummer',{exact:true}).fill(h.customerFixture.phone);await page.screenshot({path:resolve(evidence,`direct-form-${width}.png`),fullPage:true});await page.getByRole('button',{name:'Skapa affär',exact:true}).click();
-  if(width===320){await expect(page.getByRole('alert')).toContainText('Resultatet kunde inte bekräftas');assert.equal((await h.db.query('select count(*)::int n from public.deals')).rows[0].n,1);await page.getByRole('button',{name:'Kontrollera samma försök'}).click();const attempts=requests.filter(row=>row.action==='prepare');assert.equal(attempts.length,2);assert.deepEqual(attempts[0].input,attempts[1].input);}
-  await expect(page.getByRole('heading',{name:'Granska och skicka avtalet'})).toBeFocused();await expect(page.getByRole('button',{name:'Godkänn och skicka avtal'})).toBeDisabled();await expect(page.getByText(h.customerFixture.identityNumber,{exact:true})).toHaveCount(0);await expect(page.getByText('125 050,00 kr',{exact:true})).toBeVisible();
+  if(width===320){
+   await expect(page.getByRole('alert')).toContainText('Resultatet kunde inte bekräftas');
+   assert.equal((await h.db.query('select count(*)::int n from public.deals')).rows[0].n,1);
+   await page.getByRole('button',{name:'Kontrollera samma försök'}).click();
+  }
+  await expect(page.getByRole('heading',{name:'Granska och skicka avtalet'})).toBeFocused();
+  if(width===320){
+   const attempts=requests.filter(row=>row.action==='prepare');
+   assert.equal(attempts.length,2);assert.deepEqual(attempts[0].input,attempts[1].input);
+  }
+  await expect(page.getByRole('button',{name:'Godkänn och skicka avtal'})).toBeDisabled();await expect(page.getByText(h.customerFixture.identityNumber,{exact:true})).toHaveCount(0);await expect(page.getByText('125 050,00 kr',{exact:true})).toBeVisible();
   if(width===1440){
    await page.getByRole('button',{name:'Tillbaka och ändra',exact:true}).click();
    await expect(page.getByLabel('Fullständigt namn',{exact:true})).toHaveValue(h.customerFixture.name);
