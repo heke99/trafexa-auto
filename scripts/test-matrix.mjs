@@ -3,6 +3,11 @@ import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {resolve,dirname,relative} from 'node:path';
 const root=fileURLToPath(new URL('../',import.meta.url));
+const nativePrerequisites=new Map([
+ ['tests/advertising-credit-db/native-calendar.mjs','tests/advertising-credit-db/native-review.mjs'],
+ ['tests/advertising-financial-v2-db/native-allocation.mjs','tests/advertising-financial-v2-db/native-upgrade.mjs'],
+]);
+const importedFixtures=new Set(['tests/advertising-invoice-email-db/native-fixtures.mjs']);
 async function nativeHelper(file,visited=new Set()){
  if(visited.has(file))return null;visited.add(file);
  const source=await readFile(resolve(root,file),'utf8');
@@ -17,7 +22,7 @@ async function nativeHelper(file,visited=new Set()){
 export async function collectTestMatrix(){
  const candidates=(await readdir(resolve(root,'tests'),{recursive:true})).filter(p=>p.endsWith('.mjs')&&!p.split('/').includes('node_modules')&&!p.split('/').includes('helpers')&&!/helpers?\.mjs$/.test(p)).map(p=>'tests/'+p).sort();
  const files=[];
- for(const file of candidates){const source=await readFile(resolve(root,file),'utf8');if(file.endsWith('.test.mjs')||/(?:from|import)\s*['"]node:test['"]/.test(source)||/(?:^|\/)(?:schema|cross-layer|native(?:-[^/]*)?|[^/]+-native)\.mjs$/.test(file))files.push(file);}
+ for(const file of candidates){if(importedFixtures.has(file))continue;const source=await readFile(resolve(root,file),'utf8');if(file.endsWith('.test.mjs')||/(?:from|import)\s*['"]node:test['"]/.test(source)||/(?:^|\/)(?:schema|cross-layer|native(?:-[^/]*)?|[^/]+-native)\.mjs$/.test(file))files.push(file);}
  const rows=[];
  for(const file of files){const nested=file.split('/').length>2,container=await nativeHelper(file);rows.push({file,group:container?'native':nested?'database':'flat',container,command:container?'npm run test:native -- '+file:'node --test '+file});}
  return rows;
@@ -40,7 +45,7 @@ else{
  else for(const row of selected){
   if(spawnSync('docker',['--host=unix:///var/run/docker.sock','inspect',row.container],{stdio:'ignore',env:environment}).status===0)throw Error(`Refusing to reuse existing container ${row.container}`);
   run('docker',['--host=unix:///var/run/docker.sock','run','--detach','--rm','--network=none','--name',row.container,'-e','POSTGRES_PASSWORD=synthetic-test-only','postgres:17.6']);
-  try{let ready=false;for(let i=0;i<100;i++){if(spawnSync('docker',['--host=unix:///var/run/docker.sock','exec',row.container,'pg_isready','-U','postgres'],{stdio:'ignore',env:environment}).status===0){ready=true;break;}await new Promise(r=>setTimeout(r,100));}if(!ready)throw Error('Postgres did not become ready');run(process.execPath,['--test',row.file]);}
+ try{let ready=false;for(let i=0;i<100;i++){if(spawnSync('docker',['--host=unix:///var/run/docker.sock','exec',row.container,'pg_isready','-h','127.0.0.1','-U','postgres'],{stdio:'ignore',env:environment}).status===0){ready=true;break;}await new Promise(r=>setTimeout(r,100));}if(!ready)throw Error('Postgres did not become ready');const prerequisite=nativePrerequisites.get(row.file);if(prerequisite)run(process.execPath,['--test',prerequisite]);run(process.execPath,['--test',row.file]);}
   finally{run('docker',['--host=unix:///var/run/docker.sock','rm','--force',row.container]);}
  }
 }
